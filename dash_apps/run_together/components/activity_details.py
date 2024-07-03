@@ -270,7 +270,6 @@ def get_activity_details(activity_id: int) -> list[Union[Span, Div]]:
     # Get heart rate graph component
     heart_rate_graph = get_graph_heart_rate(activity_stream=activity_stream)
 
-
     # Create grid layout for displaying map and graph components
     grid = html.Div(
         children=[

@@ -1,5 +1,5 @@
 import dash
-from dash import Input, Output, ctx, ALL, no_update
+from dash import Input, Output, ctx, ALL, no_update, State
 from dash_extensions.enrich import DashProxy
 from flask import session
 from datetime import datetime, date
@@ -17,6 +17,45 @@ def run_together_app(
     app_path: str,
 ) -> object:
     dash.register_page(__name__, layout=get_home_layout, path=app_path)
+
+    @dash_app.callback(
+        Output('url', 'href'),
+        Input('profile-picture', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def go_to_settings(n_clicks):
+        if n_clicks > 0:
+            print(n_clicks)
+            return '/settings'
+        return no_update, no_update
+
+    @dash_app.callback(
+        Output("output", "children"),
+        Input("submit-button", "n_clicks"),
+        State("email-input", "value"),
+    )
+    def update_output(n_clicks, email_value):
+        if n_clicks > 0:
+            from pymongo import MongoClient
+
+            # Connect to MongoDB
+            client = MongoClient("mongodb://localhost:27017/")
+
+            # Create or connect to a database
+            db = client["mydatabase"]
+
+            # Create or connect to a collection
+            collection = db["mycollection"]
+
+            # Data to be inserted
+            data = {
+                "email": email_value
+            }
+
+            # Insert data
+            collection.insert_one(data)
+            return "Email address submitted"
+        return ""
 
     @dash_app.callback(
         Output("marker-map", "children"),

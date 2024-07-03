@@ -29,7 +29,10 @@ def get_home_layout() -> html:
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete()
-    session["user_profile_picture"] = athlete.profile
+    if athlete.profile == 'avatar/athlete/large.png':
+        session["user_profile_picture"] = '../../../static/img/empty_profile.png'
+    else:
+        session["user_profile_picture"] = athlete.profile
 
     header = get_header()
     body = get_body(year=session["selected_year"], month=session["selected_month"])

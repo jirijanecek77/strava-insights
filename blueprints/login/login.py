@@ -29,7 +29,7 @@ def landing():
     user's information.
     Add this URL as a parameter of my HTML file login.html as redirect of the login Button
     """
-    redirect_uri = f"{web_app_url}/run-together/callback"
+    redirect_uri = f"{web_app_url}/callback"
     logging.info(f"Login Completed, redirection: {redirect_uri}")
     authorize_url = client.authorization_url(
         client_id=strava_client_id,
@@ -40,7 +40,7 @@ def landing():
     return render_template("login.html", authorize_url=authorize_url)
 
 
-@login_blueprint.route("/run-together/callback")
+@login_blueprint.route("/callback")
 def strava_callback():
     """Strava the code needed to get the user's data in Callback in the following ULR:
     web_app_url/run-together/?state=&code={code}&scope=read,activity:read_all,profile:read_all,read_all
@@ -57,4 +57,4 @@ def strava_callback():
     session["user"] = {}
 
     # After obtaining the access token, you can redirect the user to your DASH application page
-    return redirect("/run-together/home")
+    return redirect("/home")
