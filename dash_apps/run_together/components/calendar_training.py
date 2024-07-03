@@ -4,7 +4,7 @@ import calendar
 from datetime import datetime, date
 from typing import List
 
-from dash_apps.run_together.strava_manager import StravaManager
+from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:

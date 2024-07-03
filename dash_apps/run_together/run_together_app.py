@@ -5,10 +5,16 @@ from flask import session
 from datetime import datetime, date
 import logging
 import dash_leaflet as dl
+import plotly.graph_objects as go
+
+from dash_apps.run_together.pages.home import get_home_layout
+
+from dash_apps.run_together.utils.conversion import normalize_value
+from dash_apps.run_together.utils.conversion import calculate_pace
+from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
 
 from dash_apps.run_together.components.calendar_training import get_monthly_calendar
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
-from dash_apps.run_together.pages.home import get_home_layout
 from dash_apps.run_together.components.activity_details import get_activity_details
 
 
@@ -59,8 +65,8 @@ def run_together_app(
 
     @dash_app.callback(
         Output("marker-map", "children"),
-        Input("activities-graph", "hoverData"),
-        Input("activity-stream", "data"),
+        Input("activity-graph", "hoverData"),
+        Input("extended-stream", "data"),
         prevent_initial_call=True,
     )
     def display_hover_data(hover_data, activity_stream):
@@ -81,7 +87,6 @@ def run_together_app(
         :param n_clicks:  User Clicking on the activity
         :return: Hidden = True for the model Component
         """
-        logging.info(n_clicks)
         # When the Component is build it can trigger the callbakc to avoid it
         # check that n_click is not None
         if all(x is None for x in n_clicks):
@@ -125,7 +130,6 @@ def run_together_app(
         calendar_n_clicks,
     ):
         triggered_id = ctx.triggered_id
-        logging.info(f"1 {ctx.triggered_id}")
 
         # Case: the user select the months on the monthly calendar
         if triggered_id["type"] == "select-month-btn":
@@ -214,3 +218,73 @@ def run_together_app(
                 f"User Action: next-year. Get yearly Calendar: year={session['selected_year']}"
             )
             return get_yearly_calendar(year=session["selected_year"])
+
+    @dash_app.callback(
+        Output("activity-graph", "figure"),
+        Output("moving-average-stream", "data"),
+        Input("range-slider-pace", "value"),
+        Input("button-analyze-activity-details", "n_clicks"), # Case to display the working interval
+        Input("extended-stream", "data"),
+        Input("bpm-pace-mapping", "data"),
+        State('activity-graph', 'figure'),
+        prevent_initial_call=True,
+    )
+    def update_calendar_training_container(
+        range_slider_pace: int,
+        button_analyze_activity_n_clicks,
+        extended_stream: dict,
+        pace_bpm_mapping: dict,
+        figure: go.Figure,
+    ):
+        triggered_id = ctx.triggered_id
+        logging.info(triggered_id)
+
+        # Case: Range is updated & display the recalculate moving pace average.
+        if triggered_id == "range-slider-pace":
+            # Get the new pace with the new range slider input
+            moving_average_pace = {
+                'minute_per_km': calculate_pace(
+                    seconds=extended_stream['time']['data'][0:],
+                    distances=extended_stream['distance']['data'][0:],
+                    range_points=range_slider_pace,
+                )
+            }
+
+            moving_average_pace['minute_second_per_km'] = [
+                convert_min_to_min_sec(x)
+                for x in moving_average_pace['minute_per_km']
+            ]
+
+            # Normalize it based on the user information
+            normalized_moving_average_pace = [
+                normalize_value(
+                    value=x,
+                    original_range=[x['pace'] for x in pace_bpm_mapping.values()],
+                    target_range=list(range(len(pace_bpm_mapping.values())))
+                )
+                for x in moving_average_pace['minute_per_km']
+            ]
+
+            # Update the graph
+            figure['data'][0]['x'] = extended_stream["distance_km"]
+            figure['data'][0]['y'] = normalized_moving_average_pace
+            figure['data'][0]['customdata'] = moving_average_pace['minute_second_per_km']
+
+            return figure, moving_average_pace
+
+        # if triggered_id == "button-analyze-activity-details":
+        #
+        #     figure.add_vrect(
+        #         x0="2018-09-24",
+        #         x1="2018-12-18",
+        #         # label=dict(
+        #         #     text="Decline",
+        #         #     textposition="top center",
+        #         #     font=dict(size=20, family="Times New Roman"),
+        #         # ),
+        #         fillcolor="green",
+        #         opacity=0.25,
+        #         line_width=0,
+        #     )
+        #
+        # return figure,

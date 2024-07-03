@@ -1,5 +1,6 @@
 from datetime import datetime
 import time
+import logging
 
 from dash import html
 
@@ -9,7 +10,7 @@ from dash_apps.run_together.layout.body import get_body
 from dash_apps.run_together.layout.modal import get_modal_box
 
 from flask import session
-from dash_apps.run_together.strava_manager import StravaManager
+from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_home_layout() -> html:
@@ -20,6 +21,7 @@ def get_home_layout() -> html:
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     # token expired
     elif time.time() > session["expires_at"]:
+        logging.info
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     else:
         strava_manager.set_token_from_session()

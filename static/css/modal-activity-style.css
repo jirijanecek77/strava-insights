@@ -21,7 +21,9 @@
   margin: auto; /* Center the modal content horizontally */
   padding: 20px; /* Padding around the modal content */
   border: 1px solid #888; /* Border around the modal content */
-  width: 80%; /* Set the width of the modal content */
+  width: 100%; /* Set the width of the modal content */
+  height: 95%; /* Set the width of the modal content */
+
 }
 
 /* The Close Button */
