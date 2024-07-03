@@ -10,7 +10,7 @@ from dash_apps.run_together.layout.body import get_body
 from dash_apps.run_together.layout.modal import get_modal_box
 
 from flask import session
-from dash_apps.run_together.strava_manager import StravaManager
+from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_home_layout() -> html:

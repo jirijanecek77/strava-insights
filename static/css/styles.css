@@ -10,13 +10,6 @@
   transition: 300ms; /* Change as needed */
 }
 
-/*
-@media only screen and (max-width: 1850px) {
- .grid{
-      grid-template-columns: 0px 1fr;
-   }
-}
-*/
 
 /* Calendar container styles */
 .calendar-container {
