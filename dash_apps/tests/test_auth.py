@@ -1,6 +1,5 @@
 import requests
 from os import environ as env
-from dash_apps.run_together.strava_manager import StravaManager
 from dotenv import load_dotenv
 import logging
 import time

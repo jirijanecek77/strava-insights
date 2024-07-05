@@ -52,10 +52,6 @@ server = dash_app.server
 # Initialize the Run Together Dash application using the configured DashProxy instance
 run_together_app(dash_app=dash_app, app_path="/home")
 
-# # Initialize the profile page using the configured DashProxy instance
-# run_settings_page(dash_app=settings_page, app_path="/settings")
-
-
 # For the deployment of the application locally
 if __name__ == "__main__":
     # Run the Flask app when the script is executed

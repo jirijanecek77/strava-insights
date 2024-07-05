@@ -6,7 +6,7 @@ from datetime import datetime, date
 import logging
 import dash_leaflet as dl
 import plotly.graph_objects as go
-
+from connections.mongodb import MongoConnection
 from dash_apps.run_together.pages.home import get_home_layout
 
 from dash_apps.run_together.utils.conversion import normalize_value
@@ -42,16 +42,9 @@ def run_together_app(
     )
     def update_output(n_clicks, email_value):
         if n_clicks > 0:
-            from pymongo import MongoClient
+            mongo_connection = MongoConnection('localhost:27017', 'mydatabase')
 
-            # Connect to MongoDB
-            client = MongoClient("mongodb://localhost:27017/")
-
-            # Create or connect to a database
-            db = client["mydatabase"]
-
-            # Create or connect to a collection
-            collection = db["mycollection"]
+            collection = mongo_connection.collection_con('mycollection')
 
             # Data to be inserted
             data = {
