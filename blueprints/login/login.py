@@ -34,8 +34,9 @@ def landing():
     authorize_url = client.authorization_url(
         client_id=strava_client_id,
         redirect_uri=redirect_uri,
-        scope=["read_all", "profile:read_all", "activity:read_all"],
+        scope=["read_all", "profile:read_all", "activity:read_all", "activity:write"],
     )
+    logging.info(f"Login Completed, authorize_url: {authorize_url}")
 
     return render_template("login.html", authorize_url=authorize_url)
 

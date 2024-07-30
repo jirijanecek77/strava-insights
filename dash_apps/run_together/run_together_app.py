@@ -6,16 +6,24 @@ from datetime import datetime, date
 import logging
 import dash_leaflet as dl
 import plotly.graph_objects as go
+from typing import Tuple
+from datetime import datetime
+
 
 from dash_apps.run_together.pages.home import get_home_layout
 
-from dash_apps.run_together.utils.conversion import normalize_value
-from dash_apps.run_together.utils.conversion import calculate_pace
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
+from dash_apps.run_together.utils.activity_update_manager import update_graph_moving_average_pace
+from dash_apps.run_together.utils.activity_update_manager import update_graph_display_interval
+from dash_apps.run_together.utils.activity_update_manager import update_graph_display_jogging
+from dash_apps.run_together.utils.activity_update_manager import update_graph_display_all
 
 from dash_apps.run_together.components.calendar_training import get_monthly_calendar
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
 from dash_apps.run_together.components.activity_details import get_activity_details
+
+from dash_apps.run_together.model.strava_manager import StravaManager
+
+
 
 
 def run_together_app(
@@ -222,69 +230,101 @@ def run_together_app(
     @dash_app.callback(
         Output("activity-graph", "figure"),
         Output("moving-average-stream", "data"),
+
+        Output("bpm-kpi", "children"),
+        Output("pace-kpi", "children"),
+        Output("distance-kpi", "children"),
+
+        Output("button-display-interval", "disabled"),  # Case to display the working interval
+        Output("button-display-jogging", "disabled"),  # Case to display the working interval
+        Output("button-display-all", "disabled"),  # Case to display the working interval
+
         Input("range-slider-pace", "value"),
-        Input("button-analyze-activity-details", "n_clicks"), # Case to display the working interval
+
+        Input("button-display-interval", "n_clicks"), # Case to display the working interval
+        Input("button-display-jogging", "n_clicks"),  # Case to display the working interval
+        Input("button-display-all", "n_clicks"),  # Case to display the working interval
+
         Input("extended-stream", "data"),
         Input("bpm-pace-mapping", "data"),
+        Input("kpi-bpm-pace-distance-activity", "data"),
+
         State('activity-graph', 'figure'),
         prevent_initial_call=True,
     )
     def update_calendar_training_container(
         range_slider_pace: int,
-        button_analyze_activity_n_clicks,
+        button_interval_n_clicks,
+        button_jogging_n_clicks,
+        button_all_n_clicks,
+
         extended_stream: dict,
         pace_bpm_mapping: dict,
+        kpi_bpm_pace_distance_activity: Tuple,
+
         figure: go.Figure,
     ):
         triggered_id = ctx.triggered_id
-        logging.info(triggered_id)
 
         # Case: Range is updated & display the recalculate moving pace average.
         if triggered_id == "range-slider-pace":
-            # Get the new pace with the new range slider input
-            moving_average_pace = {
-                'minute_per_km': calculate_pace(
-                    seconds=extended_stream['time']['data'][0:],
-                    distances=extended_stream['distance']['data'][0:],
-                    range_points=range_slider_pace,
-                )
-            }
+            logging.info(
+                f"User Action: Update Graph with new range for Moving Average Pace  "
+                f"range={range_slider_pace}"
+            )
 
-            moving_average_pace['minute_second_per_km'] = [
-                convert_min_to_min_sec(x)
-                for x in moving_average_pace['minute_per_km']
-            ]
+            return update_graph_moving_average_pace(
+                range_slider_pace=range_slider_pace,
+                extended_stream=extended_stream,
+                pace_bpm_mapping=pace_bpm_mapping,
+                kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity,
+                figure=figure
+            )
 
-            # Normalize it based on the user information
-            normalized_moving_average_pace = [
-                normalize_value(
-                    value=x,
-                    original_range=[x['pace'] for x in pace_bpm_mapping.values()],
-                    target_range=list(range(len(pace_bpm_mapping.values())))
-                )
-                for x in moving_average_pace['minute_per_km']
-            ]
+        if triggered_id == "button-display-interval":
+            logging.info(
+                f"User Action: Update Graph, Display intervals"
+            )
+            return update_graph_display_interval(
+                figure=figure
+            )
 
-            # Update the graph
-            figure['data'][0]['x'] = extended_stream["distance_km"]
-            figure['data'][0]['y'] = normalized_moving_average_pace
-            figure['data'][0]['customdata'] = moving_average_pace['minute_second_per_km']
+        if triggered_id == "button-display-jogging":
+            logging.info(
+                f"User Action: Update Graph, Display Jogging"
+            )
+            return update_graph_display_jogging(
+                figure=figure
+            )
 
-            return figure, moving_average_pace
+        if triggered_id == "button-display-all":
+            logging.info(
+                f"User Action: Update Graph, Display All"
+            )
+            return update_graph_display_all(
+                figure=figure,
+                extended_stream=extended_stream,
+                kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity
+            )
 
-        # if triggered_id == "button-analyze-activity-details":
-        #
-        #     figure.add_vrect(
-        #         x0="2018-09-24",
-        #         x1="2018-12-18",
-        #         # label=dict(
-        #         #     text="Decline",
-        #         #     textposition="top center",
-        #         #     font=dict(size=20, family="Times New Roman"),
-        #         # ),
-        #         fillcolor="green",
-        #         opacity=0.25,
-        #         line_width=0,
-        #     )
-        #
-        # return figure,
+    @dash_app.callback(
+        Input("button-update-description-strava", "n_clicks"),
+        Output("button-update-description-strava", "disabled"),
+        prevent_initial_call=True,
+    )
+    def update_description_on_strava(n_clicks):
+        """
+        Clost the Modal box when user click on the cross
+        :param n_clicks:  User Clicking on the cross
+        :return: Hidden = True for the model Component
+        """
+
+        logging.info("User Action: button-update-description-strava. Update Description")
+        strava_manager = StravaManager()
+        description = strava_manager.get_activity(session["displayed_activity_id"])['description']
+        strava_manager.update_description_activity(
+            activity_id=session["displayed_activity_id"],
+            description=description + str(datetime.now())
+        )
+
+        return False

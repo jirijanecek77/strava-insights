@@ -1,6 +1,5 @@
 from datetime import datetime
 import time
-import logging
 
 from dash import html
 
@@ -21,13 +20,12 @@ def get_home_layout() -> html:
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     # token expired
     elif time.time() > session["expires_at"]:
-        logging.info
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     else:
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
-    session["selected_month"] = datetime.now().strftime('%b').upper()
+    session["selected_month"] = 'MAR' #datetime.now().strftime('%b').upper()
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete()

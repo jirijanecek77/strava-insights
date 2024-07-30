@@ -1,3 +1,6 @@
+import logging
+
+
 class User:
     """
     Class to manage all the interaction with the setting of a user
@@ -12,7 +15,7 @@ class User:
         self.pace_bpm_mapping = self.get_pace_bpm_mapping()
 
     def get_pace_bpm_mapping(self):
-        return {
+        bpm_pace_mapping = {
             "100m": {
                 "pace": 60 / (1.15 * self.speed_max),
                 "bpm": self.bpm_max,
@@ -55,4 +58,27 @@ class User:
                 "color": 'rgba(144, 238, 144, 0.3)'  # Light green
             },
         }
+
+        # Extract the paces & BPM
+        paces = [value['pace'] for value in bpm_pace_mapping.values()]
+        bpm = [value['bpm'] for value in bpm_pace_mapping.values()]
+
+        # Create the zone
+        i = 0
+        for zone, value in bpm_pace_mapping.items():
+            if i == 0:
+                bpm_pace_mapping[zone]['range_zone_pace'] = (0, (paces[i] + paces[i + 1]) / 2)
+                bpm_pace_mapping[zone]['range_zone_bpm'] = ((bpm[i] + bpm[i + 1]) / 2, float('inf'))
+
+            elif i == len(paces) - 1:
+                bpm_pace_mapping[zone]['range_zone_pace'] = ((paces[i] + paces[i - 1]) / 2, float('inf'))
+                bpm_pace_mapping[zone]['range_zone_bpm'] = (0, (bpm[i] + bpm[i - 1]) / 2)
+
+            else:
+                bpm_pace_mapping[zone]['range_zone_pace'] = ((paces[i] + paces[i - 1]) / 2, (paces[i] + paces[i + 1]) / 2)
+                bpm_pace_mapping[zone]['range_zone_bpm'] = ((bpm[i] + bpm[i + 1]) / 2, (bpm[i] + bpm[i - 1]) / 2)
+
+            i = i + 1
+
+        return bpm_pace_mapping
 

@@ -7,6 +7,7 @@ from dash_apps.run_together.utils.colors import Colors
 from dash_apps.run_together.model.extended_activity import ExtendedActivity
 from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
 
+import logging
 
 def get_reference_race():
     """
@@ -29,10 +30,11 @@ def get_reference_race():
     )
     return selection_reference_race
 
+#
 
 def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
     """
-    Generate a Activity Pace graph.
+    Generate an Activity Pace graph.
 
     This function creates a heart rate graph based on the provided activity
     stream data,displaying heart rate values over distance.
@@ -44,12 +46,11 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
 
     # Get some parameter to display the zone on the graph
     pace_bpm_mapping = extended_activity.user.get_pace_bpm_mapping()
+
     colors = [x['color'] for x in pace_bpm_mapping.values()]
-    y_pace_axis = [x['pace'] for x in pace_bpm_mapping.values()]
     y_bpm_axis = [x['bpm'] for x in pace_bpm_mapping.values()]
 
     zone = list(range(len(pace_bpm_mapping)))
-    zone_name = list(pace_bpm_mapping.keys())
 
     fig = go.Figure()
 
@@ -87,26 +88,25 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
 
     # Add background color and labels for each pace zone
     shapes = []
-    annotations = []
 
     for i in range(len(pace_bpm_mapping)):
 
-        if i + 1 < len(pace_bpm_mapping):
-            shapes.append(
-                dict(
-                    type="rect",
-                    xref="paper",
-                    yref="y",
-                    x0=0,
-                    y0=i,
-                    x1=1,
-                    y1=i+1,
-                    fillcolor=colors[i],
-                    opacity=0.8,
-                    layer="below",
-                    line_width=0,
-                )
+        # if i  < len(pace_bpm_mapping):
+        shapes.append(
+            dict(
+                type="rect",
+                xref="paper",
+                yref="y",
+                x0=0,
+                y0=i-0.5,
+                x1=1,
+                y1=i+1-0.5,
+                fillcolor=colors[i],
+                opacity=0.8,
+                layer="below",
+                line_width=0,
             )
+        )
 
     # Update layout
     fig.update_layout(
@@ -119,9 +119,10 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             showgrid=False,  # Optional: Hide grid lines for secondary y-axis
             tickvals=zone,
             ticktext=[
-                f"{convert_min_to_min_sec(value['pace'])}<br><b>{key}</b>" for key, value in pace_bpm_mapping.items()
+                f"<b>{key}</b><br><i>{convert_min_to_min_sec(value['pace'])}</i>" for key, value in pace_bpm_mapping.items()
             ],
             range=[max(zone), min(zone)],
+
         ),
         yaxis2=dict(
             title='<b>Heart Rate</b> (bpm)',
@@ -140,7 +141,6 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             yanchor="top",
         ),
         shapes=shapes,  # Add shapes to the layout
-        annotations=annotations,  # Add annotations to the layout
         margin=dict(
             t=30,
             r=5,
@@ -153,30 +153,14 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
 
     activity_graph = dcc.Graph(
         figure=fig,
-        style={"width": "100%", "height": "100%", "margin": "0px"},
+        style={"width": "100%"},
         config={
             "displayLogo": False,
             "displayModeBar": False,
         },  # Disable display of logo and mode bar
         id="activity-graph",  # Set component ID
-        className="activity-graph-container"
+        className="activity-graph-container",
+        responsive=True
     )
 
-    range_slider = html.Div(
-        children=[
-            dcc.Slider(
-                id="range-slider-pace",
-                min=10, max=80, step=1, value=extended_activity.range_points_pace,
-                marks={
-                    10: '10',
-                    50: '50',
-                    90: '90'
-                },
-            ),
-        ],
-        className="div-range-slider-pace"
-    )
-
-    return html.Div(
-        children=[activity_graph, range_slider],
-    )
+    return html.Div(children=activity_graph)

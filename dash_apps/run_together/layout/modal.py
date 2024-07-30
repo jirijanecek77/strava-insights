@@ -21,7 +21,7 @@ def get_modal_box() -> html.Div:
                     html.Span(children="x", className="close", id="close-modal-btn"),
                     # Placeholder for modal body content
                     html.Div(id="modal-body"),
-                ],
+               ],
                 # Styling for the modal content
                 className="modal-content-style",
                 id="modal-content",
