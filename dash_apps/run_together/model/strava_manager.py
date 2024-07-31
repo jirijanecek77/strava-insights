@@ -61,17 +61,14 @@ class StravaManager:
         self, access_token: str, refresh_token: str, expires_at: str
     ) -> None:
         # Now store that short-lived access token somewhere (a database?)
-        logging.info(f"Set access_token to: {access_token}")
         self.strava_client.access_token = access_token
 
         # You must also store the refresh token to be used later on to obtain
         # another valid access token in case the current is already expired
-        logging.info(f"Set refresh_token to: {refresh_token}")
         self.strava_client.refresh_token = refresh_token
 
         # An access_token is only valid for 6 hours, store expires_at somewhere and
         # check it before making an API call.
-        logging.info(f"Set expires_at to: {expires_at}")
         self.strava_client.token_expires_at = expires_at
 
     def set_token_from_env(self):
@@ -107,13 +104,11 @@ class StravaManager:
         Fill the Strava Client with the information about the token.
         This token need to be refreshed only if not valid.
         """
-        logging.info('Before strava client exchange')
         token_response = self.strava_client.exchange_code_for_token(
             client_id=self.strava_client_id,
             client_secret=self.strava_client_secret,
             code=strava_code,
         )
-        logging.info('Making it until after strava client exchange')
         session["access_token"] = token_response["access_token"]
         session["refresh_token"] = token_response["refresh_token"]
         session["expires_at"] = token_response["expires_at"]

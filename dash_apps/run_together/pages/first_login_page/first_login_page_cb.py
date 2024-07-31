@@ -1,10 +1,10 @@
 from dash import Output, Input, State, no_update
 from dash_extensions.enrich import DashProxy
 from flask import session
-import logging
 from connections.mongodb import MongoConnection
 from dash_apps.run_together.utils.conversion import convert_birthday
 from connections.fetch_data_mongo import find_user_by_strava_id
+from connections.insert_data_to_mongo import insert_new_user_to_mongo
 
 
 def first_login_cb(dash_app: DashProxy):
@@ -17,8 +17,6 @@ def first_login_cb(dash_app: DashProxy):
     )
     def store_user_and_redirect(name, emailaddress, birthday, button_click):
         if button_click:
-            mongo_connection = MongoConnection('localhost:27017', 'mydatabase')
-            collection = mongo_connection.collection_con('mycollection')
 
             converted_bd = convert_birthday(birthday)
             # Data to be inserted
@@ -29,8 +27,9 @@ def first_login_cb(dash_app: DashProxy):
                 "birthday": converted_bd
             }
             # Insert data
-            collection.insert_one(data)
-            user = find_user_by_strava_id(strava_id=session['athlete']['id'], collection=collection)
+            insert_new_user_to_mongo(data)
+
+            user = find_user_by_strava_id(strava_id=session['athlete']['id'])
             user['_id'] = str(user['_id'])
             session['run_together_user'] = user
 

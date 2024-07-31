@@ -190,14 +190,14 @@ def marathon_pace(hours, minutes, seconds, distance):
     return pace_minutes, pace_seconds
 
 
-def calculate_speed_max(pace_in_seconds):
+def calculate_speed_max(pace_in_seconds, pace_coefficient):
     """
     Calculate speed_max from a given pace.
 
     :param pace: The pace value (minutes per unit distance)
     :return: The speed_max value
     """
-    speed_max = round(60 / (0.75 * pace_in_seconds), 2)
+    speed_max = round(60 / (pace_coefficient * pace_in_seconds), 2)
     return speed_max
 
 

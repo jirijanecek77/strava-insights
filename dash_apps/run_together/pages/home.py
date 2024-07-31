@@ -17,19 +17,14 @@ def get_home_layout() -> html:
     strava_manager = StravaManager(session=False)
 
     # no token yet associate to the session
-    logging.info(10 * '------')
-    logging.info(session.get("strava_code", ""))
     if "expires_at" not in session:
-        logging.info('Entering first if statement')
         strava_manager.generate_token_response(
             strava_code=session.get("strava_code"))
     # token expired
     elif time.time() > session["expires_at"]:
-        logging.info('Entering second if statement')
         strava_manager.generate_token_response(
             strava_code=session.get("strava_code"))
     else:
-        logging.info('Entering else statement')
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
@@ -43,7 +38,8 @@ def get_home_layout() -> html:
         session["user_profile_picture"] = athlete.profile
 
     header = get_header()
-    body = get_body(year=session["selected_year"], month=session["selected_month"])
+    body = get_body(year=session["selected_year"],
+                    month=session["selected_month"])
     modal_box = get_modal_box()
 
     footer = get_footer()

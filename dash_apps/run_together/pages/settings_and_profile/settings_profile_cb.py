@@ -3,7 +3,8 @@ import dash
 from dash import Output, Input, State, html, no_update, dcc
 from dash_extensions.enrich import DashProxy
 import logging
-from connections.mongodb import MongoConnection
+from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_method import which_race_button
+from connections.update_data_mongo import update_user_record
 from dash_apps.run_together.utils.conversion import (
     convert_birthday_back, convert_birthday, marathon_pace, calculate_speed_max)
 
@@ -96,17 +97,13 @@ def settings_profile_cb(dash_app: DashProxy):
                 button_id = ctx.triggered[0]["prop_id"].split(".")[0]
             if button_id == "submit-button-user-form":
                 converted_bd = convert_birthday(birthday)
-                mongo_connection = MongoConnection("localhost:27017", "mydatabase")
-                collection = mongo_connection.collection_con("mycollection")
 
-                result = collection.update_one(
-                    {"strava_id": session["athlete"]["id"]},
-                    {"$set": {
-                        "birthday": converted_bd,
-                        "name": name,
-                        "email": email
-                        }}
+                result = update_user_record(session, {
+                    "birthday": converted_bd,
+                    "name": name,
+                    "email": email}
                 )
+
                 session["run_together_user"]["birthday"] = converted_bd
                 session["run_together_user"]["name"] = name
                 session["run_together_user"]["email"] = email
@@ -146,32 +143,20 @@ def settings_profile_cb(dash_app: DashProxy):
             return no_update
         else:
             button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-            if button_id == 'ten-k-button':
-                distance = 10
-            elif button_id == 'semi-button':
-                distance = 21.4125
-            elif button_id == 'full-button':
-                distance = 41.925
+            distance, coefficient = which_race_button(button_id)
+
         if hours is None or minutes is None or seconds is None:
             return html.P("Please fill in all the dropdowns")
         else:
             min, sec = marathon_pace(hours, minutes, seconds, distance)
 
-            speed_max = calculate_speed_max((min+(sec/60)))
-            mongo_connection = MongoConnection("localhost:27017", "mydatabase")
-            collection = mongo_connection.collection_con("mycollection")
+            speed_max = calculate_speed_max((min+(sec/60)), coefficient)
 
-            result = collection.update_one(
-                {"strava_id": session["athlete"]["id"]},
-                {"$set": {
-                    "speed_max": speed_max
-                    }}
+            update_user_record(session, {
+                "speed_max": speed_max}
             )
-            if result.matched_count > 0:
-                logging.info(f"Successfully updated {result.modified_count} document(s).")
-            else:
-                logging.info("No document matched the filter criteria.")
 
             session["run_together_user"]["speed_max"] = speed_max
             session.modified = True
+
             return html.P(f'Min:{min} Seconds{sec}'), html.P(f"{speed_max}")

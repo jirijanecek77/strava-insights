@@ -53,7 +53,6 @@ def strava_callback():
     Redirect to the Dash
         Add this URL as a parameter of my HTML file login.html as redirect of the login Button
     """
-
     # Get the code parameter from the URL
     code = request.args.get("code")
 
@@ -64,6 +63,7 @@ def strava_callback():
     strava_manager = StravaManager(session=False)
 
     # no token yet associate to the session
+    # TODO: move the below logic into a method
     if "expires_at" not in session:
         logging.info('running generate token from login')
         strava_manager.generate_token_response(strava_code=session["strava_code"])
@@ -82,15 +82,11 @@ def strava_callback():
     session['athlete'] = athlete
 
     # Check if StravaId already exists in MongoDB
-    mongo_connection = MongoConnection('localhost:27017', 'mydatabase')
-
-    collection = mongo_connection.collection_con('mycollection')
-
-    user = find_user_by_strava_id(strava_id=athlete['id'], collection=collection)
+    user = find_user_by_strava_id(strava_id=athlete['id'])
     user['_id'] = str(user['_id'])
     session['run_together_user'] = user
-    print(session['run_together_user'])
     session.modified = True
+
     if user:
         return redirect("/home")
     else:

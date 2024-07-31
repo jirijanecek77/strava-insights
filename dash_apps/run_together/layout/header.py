@@ -68,16 +68,29 @@ def get_header():
                         label="Menu",
                         id="dropdown-menu",
                         children=[
-                            dbc.DropdownMenuItem("Home", href='/home', style=menu_item_style),
-                            dbc.DropdownMenuItem("Settings", href='/settings', style=menu_item_style),
-                            dbc.DropdownMenuItem("Profile", href='/settings', style=menu_item_style),
-                            dbc.DropdownMenuItem("Subscription", href='/settings', style=menu_item_style)
+                            dbc.DropdownMenuItem(
+                                "Home", href='/home', style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Settings", href='/settings',
+                                style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Profile", href='/settings',
+                                style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Subscription", href='/settings',
+                                style=menu_item_style
+                            )
                         ],
                         toggle_style=menu_style
                     ),
                     dcc.Location(id='url', refresh=True),
                     html.Img(
-                        src=session.get("user_profile_picture", "static/img/empty_profile.png"),
+                        src=session.get("user_profile_picture",
+                                        "static/img/empty_profile.png"
+                        ),
                         alt="Profile Picture",
                         id="profile-picture",
                         style=avatar_style,

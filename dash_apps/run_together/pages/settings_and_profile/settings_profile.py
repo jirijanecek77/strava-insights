@@ -64,9 +64,12 @@ def get_settings():
                                 'marginBottom': '20px',
                             },
                             children=[
-                                dbc.Button("10 kilometers", id="ten-k-button", color="secondary", value=10, className="mr-2"),
-                                dbc.Button("Semi-marathon", id="semi-button", color="secondary", value=21.4125, className="mr-2"),
-                                dbc.Button("Marathon", id="full-button", value=41.925, color="secondary"),
+                                dbc.Button("10 kilometers", id="ten-k-button",
+                                           color="secondary", className="mr-2"),
+                                dbc.Button("Semi-marathon", id="semi-button",
+                                           color="secondary", className="mr-2"),
+                                dbc.Button("Marathon", id="full-button",
+                                           color="secondary"),
                             ]
                         ),
                         html.Div(
@@ -95,7 +98,9 @@ def get_settings():
                                     ],
                                     className='time-dropdowns'
                                 ),
-                                html.Button('Change', id='calculate-pace-button', n_clicks=0),
+                                html.Button('Change',
+                                            id='calculate-pace-button',
+                                            n_clicks=0),
                                 html.Div(
                                     children=[
                                         html.P("Pace:"),
@@ -108,7 +113,9 @@ def get_settings():
                                 html.Div(
                                     children=[
                                         html.P("Max BPM:"),
-                                        html.P(220 - calculate_age(session["run_together_user"]["birthday"]))
+                                        html.P(
+                                            220 - calculate_age(session["run_together_user"]["birthday"])
+                                        )
                                     ],
                                     className='max-bpm'
                                 )

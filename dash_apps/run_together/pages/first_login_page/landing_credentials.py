@@ -21,13 +21,16 @@ def welcome_cards():
                     dbc.CardGroup(
                         [
                             dbc.Label("Name", html_for="name-input"),
-                            dbc.Input(type="text", id="first-login-name-input", placeholder="Enter your name"),
+                            dbc.Input(type="text", id="first-login-name-input",
+                                      placeholder="Enter your name")
                         ]
                     ),
                     dbc.CardGroup(
                         [
                             dbc.Label("Email", html_for="email-input"),
-                            dbc.Input(type="email", id="first-login-email-input", placeholder="Enter your email address"),
+                            dbc.Input(type="email",
+                                      id="first-login-email-input",
+                                      placeholder="Enter your email address")
                         ]
                     ),
                     dbc.CardGroup(
@@ -42,13 +45,13 @@ def welcome_cards():
                                 )
                         ]
                     ),
-                    dbc.Button("Submit", id="first-login-submit-button", color="primary", className="mr-2"),
+                    dbc.Button("Submit", id="first-login-submit-button",
+                               color="primary", className="mr-2"),
                     html.Div(id="output-state"),
                     dcc.Location(id="url", refresh=True)
                 ]
             ),
-        ],
-        className="mt-4",
+        ]
     )
 
 

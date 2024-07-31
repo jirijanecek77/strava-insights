@@ -54,9 +54,6 @@ def get_body(year: int, month: str):
 
     return html.Div(
         children=[
-            grid,
-            # generate_central_column_bis(
-            #     activities_df=activities_df
-            # ),
+            grid
         ]
     )

@@ -1,6 +1,5 @@
 from dash.html import Div
 from dash import html, dcc
-# from dash_apps.run_together.components.activity_map import get_activity_map
 from dash_apps.run_together.components.activity_graph import get_activity_graph
 from dash_apps.run_together.model.extended_activity import ExtendedActivity
 import pickle
@@ -19,11 +18,6 @@ def get_activity_details(activity_id: int) -> Div:
     """
     # Retrieve activity stream data
     extended_activity = ExtendedActivity(activity_id=activity_id)
-
-    # # Get activity map component
-    # activity_map = get_activity_map(
-    #     activity_id=activity_id, activity_stream=activity_stream
-    # )
 
     # Get activity Graph component
     activity_graph = get_activity_graph(
