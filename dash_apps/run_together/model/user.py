@@ -1,3 +1,7 @@
+from flask import session
+from dash_apps.run_together.utils.conversion import calculate_age
+
+
 class User:
     """
     Class to manage all the interaction with the setting of a user
@@ -6,9 +10,9 @@ class User:
         - Subscription
     """
     def __init__(self, ):
-        self.age = 30
+        self.age = calculate_age(session["run_together_user"]["birthday"])
         self.bpm_max = 220 - 0.7 * self.age
-        self.speed_max = 20
+        self.speed_max = session["run_together_user"]["speed_max"]
         self.pace_bpm_mapping = self.get_pace_bpm_mapping()
 
     def get_pace_bpm_mapping(self):
@@ -55,4 +59,3 @@ class User:
                 "color": 'rgba(144, 238, 144, 0.3)'  # Light green
             },
         }
-

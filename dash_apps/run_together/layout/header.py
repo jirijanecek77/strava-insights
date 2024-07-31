@@ -1,7 +1,6 @@
-from dash import html
+from dash import html, dcc
 from flask import session
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
 
 
 # Sample styles
@@ -78,7 +77,7 @@ def get_header():
                     ),
                     dcc.Location(id='url', refresh=True),
                     html.Img(
-                        src=session["user_profile_picture"],
+                        src=session.get("user_profile_picture", "static/img/empty_profile.png"),
                         alt="Profile Picture",
                         id="profile-picture",
                         style=avatar_style,

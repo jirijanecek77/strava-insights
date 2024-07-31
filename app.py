@@ -1,5 +1,7 @@
 from blueprints.login.login import login_blueprint
 from dash_apps.run_together.run_together_app import run_together_app
+from dash_apps.run_together.pages.first_login_page.first_login_page_cb import first_login_cb
+from dash_apps.run_together.pages.settings_and_profile.settings_profile_cb import settings_profile_cb
 from blueprints.login.aad import authorisation
 
 import dash_bootstrap_components as dbc
@@ -51,6 +53,8 @@ server = dash_app.server
 
 # Initialize the Run Together Dash application using the configured DashProxy instance
 run_together_app(dash_app=dash_app, app_path="/home")
+first_login_cb(dash_app=dash_app)
+settings_profile_cb(dash_app=dash_app)
 
 # For the deployment of the application locally
 if __name__ == "__main__":

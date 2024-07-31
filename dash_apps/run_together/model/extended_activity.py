@@ -17,15 +17,13 @@ class ExtendedActivity:
     """
 
     def __init__(self, activity_id: int):
-        self.user = User()
-
         # Get Data Available in the Strava Manager
         self.activity_id = activity_id
         self.strava_manager = StravaManager()
         self.activity = self.strava_manager.get_activity(
             activity_id=activity_id
         )
-
+        self.user = User()
         # Extend the stream to have distance in km
         self.extended_stream = self.get_extended_stream()
 

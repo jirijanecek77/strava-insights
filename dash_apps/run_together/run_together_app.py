@@ -31,7 +31,6 @@ def run_together_app(
     )
     def go_to_settings(n_clicks):
         if n_clicks > 0:
-            print(n_clicks)
             return '/settings'
         return no_update, no_update
 

@@ -117,7 +117,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
 
     # Header of the table with each weekday
     calendar_day_head = []
-    # for day in ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+
     for day in [
         "Monday",
         "Tuesday",

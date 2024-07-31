@@ -1,4 +1,5 @@
 from pymongo import MongoClient, errors
+import logging
 
 
 class MongoConnection:
@@ -24,7 +25,7 @@ class MongoConnection:
             client = MongoClient(f"mongodb://{self.host}/")
             return client
         except errors.ConnectionError as e:
-            print(f"Error connecting to MongoDB: {e}")
+            logging.error(f"Error connecting to MongoDB: {e}")
             raise
 
     def _get_db_connection(self):
@@ -36,7 +37,7 @@ class MongoConnection:
         try:
             return self.client[self.database]
         except errors.InvalidName as e:
-            print(f"Invalid database name: {e}")
+            logging.error(f"Invalid database name: {e}")
             raise
 
     def collection_con(self, collection: str):
@@ -49,5 +50,5 @@ class MongoConnection:
         try:
             return self.db_connection[collection]
         except errors.InvalidName as e:
-            print(f"Invalid collection name: {e}")
+            logging.error(f"Invalid collection name: {e}")
             raise

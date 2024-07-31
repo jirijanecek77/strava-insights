@@ -17,13 +17,19 @@ def get_home_layout() -> html:
     strava_manager = StravaManager(session=False)
 
     # no token yet associate to the session
+    logging.info(10 * '------')
+    logging.info(session.get("strava_code", ""))
     if "expires_at" not in session:
-        strava_manager.generate_token_response(strava_code=session["strava_code"])
+        logging.info('Entering first if statement')
+        strava_manager.generate_token_response(
+            strava_code=session.get("strava_code"))
     # token expired
     elif time.time() > session["expires_at"]:
-        logging.info
-        strava_manager.generate_token_response(strava_code=session["strava_code"])
+        logging.info('Entering second if statement')
+        strava_manager.generate_token_response(
+            strava_code=session.get("strava_code"))
     else:
+        logging.info('Entering else statement')
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year

@@ -40,7 +40,7 @@ def get_activity_details(activity_id: int) -> Div:
         className="activity-details-container",
         children=[
             html.H2(
-                children=f"Analyse your Activity",
+                children="Analyse your Activity",
                 style={"font-size": "24px", "font-weight": "bold"},
             ),
             html.H3(

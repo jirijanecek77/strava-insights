@@ -1,0 +1,183 @@
+from flask import session
+from dash import html, register_page, dcc
+import dash_bootstrap_components as dbc
+
+from dash_apps.run_together.layout.header import get_header
+from dash_apps.run_together.layout.footer import get_footer
+from dash_apps.run_together.utils.conversion import calculate_age
+
+register_page(
+    __name__,
+    name='Settings',
+    top_nav=True,
+    path='/settings'
+)
+
+card_style = {
+    "color": "black",
+    "fontSize": "15px"
+}
+
+hours_options = [{'label': str(i), 'value': i} for i in range(6)]
+minutes_seconds_options = [{'label': str(i), 'value': i} for i in range(61)]
+
+
+def get_settings():
+    settings_tab = html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'justifyContent': 'center',
+            'alignItems': 'center',
+            'height': '100vh',
+            'padding': '20px',
+        },
+        children=[
+            html.Div([
+                html.H1('User Information'),
+                html.Div(id='display-div'),
+                html.Div(id='form-div'),
+                html.Button('Change', id='change-button', n_clicks=0)
+            ])
+        ]
+    )
+
+    profile_tab = dbc.Card(
+        dbc.CardBody(
+            [
+                html.Div(
+                    style={
+                        'display': 'flex',
+                        'flexDirection': 'column',
+                        'justifyContent': 'center',
+                        'alignItems': 'center',
+                        'height': '100vh',
+                        'padding': '20px',
+                    },
+                    children=[
+                        # Buttons in the middle of the body
+                        html.Div(
+                            style={
+                                'display': 'flex',
+                                'justifyContent': 'center',
+                                'alignItems': 'center',
+                                'marginBottom': '20px',
+                            },
+                            children=[
+                                dbc.Button("10 kilometers", id="ten-k-button", color="secondary", value=10, className="mr-2"),
+                                dbc.Button("Semi-marathon", id="semi-button", color="secondary", value=21.4125, className="mr-2"),
+                                dbc.Button("Marathon", id="full-button", value=41.925, color="secondary"),
+                            ]
+                        ),
+                        html.Div(
+                            children=[
+                                html.Div(
+                                    children=[
+                                        html.Label("Target time:"),
+                                        dcc.Dropdown(
+                                            id='hours-dropdown',
+                                            options=hours_options,
+                                            placeholder="Hours",
+                                            className="time-goal-dropdown"
+                                        ),
+                                        dcc.Dropdown(
+                                            id='minutes-dropdown',
+                                            options=minutes_seconds_options,
+                                            placeholder="Minutes",
+                                            className="time-goal-dropdown"
+                                        ),
+                                        dcc.Dropdown(
+                                            id='seconds-dropdown',
+                                            options=minutes_seconds_options,
+                                            placeholder="Seconds",
+                                            className="time-goal-dropdown"
+                                        )
+                                    ],
+                                    className='time-dropdowns'
+                                ),
+                                html.Button('Change', id='calculate-pace-button', n_clicks=0),
+                                html.Div(
+                                    children=[
+                                        html.P("Pace:"),
+                                        html.P(id="calculated-pace"),
+                                        html.P("Speed max"),
+                                        html.P(id="speed-max"),
+                                    ],
+                                    className='calculated-pace'
+                                ),
+                                html.Div(
+                                    children=[
+                                        html.P("Max BPM:"),
+                                        html.P(220 - calculate_age(session["run_together_user"]["birthday"]))
+                                    ],
+                                    className='max-bpm'
+                                )
+                            ],
+                            id="styled-numeric-input"
+                        )
+                    ]
+                )
+            ]
+        )
+    )
+
+    subscription_tab = dbc.Card(
+        dbc.CardBody(
+            [
+                html.P("Registration below. Only for real action takers", className="card-text"),
+                dbc.FormFloating(
+                    [
+                        dbc.Input(type="email", id="email-input", placeholder="example@internet.com"),
+                        dbc.Label("Email address"),
+                    ]
+                ),
+                html.Br(),
+                dbc.Button("Submit", id="submit-button", n_clicks=0),
+                html.Br(),
+                html.Div(id="output")
+            ]
+        )
+    )
+
+    tabs = dbc.Tabs(
+        [
+            dbc.Tab(
+                settings_tab, label="Settings", label_style=card_style,
+                tab_id='settings-tab'),
+            dbc.Tab(
+                profile_tab, label="Profile", label_style=card_style,
+                tab_id='profile-tab'),
+            dbc.Tab(
+                subscription_tab, label="Subscription", label_style=card_style,
+                tab_id='subscription-tab')
+        ],
+        id='settings-tabs',
+        active_tab='settings-tab'
+    )
+    return tabs
+
+
+def layout():
+    header = get_header()
+    body = get_settings()
+    footer = get_footer()
+
+    basic_components = [
+        header,
+        html.Div(
+            children=[body, dcc.Location(id="url", refresh=False)],
+            style={
+                "flex": "1",
+                "padding": "20px"
+            }
+        ),
+        footer,
+    ]
+
+    return html.Div(
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'minHeight': '100vh'
+        },
+        children=basic_components)

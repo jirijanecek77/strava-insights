@@ -42,3 +42,27 @@ def test_mongo():
     # Verify the insertion
     for document in collection.find():
         print(document, flush=True)
+
+#     collection.delete_one({'strava_id': 81493658})
+
+
+# from datetime import timedelta, datetime
+# from dash_apps.run_together.model.strava_manager import StravaManager
+# from dash_apps.run_together.model.user import User
+
+
+# def test_list_athlete_activities():
+#     """
+#     Method that fetches a list of the athletes 30 most recent activities
+#     """
+#     current_datetime = datetime.now()
+
+#     current_year = current_datetime.year
+#     print(year, month)
+
+#     strava_client = StravaManager(session=False)
+#     activities_last_thirty_days = strava_client.get_activities_for_month(
+#         year=year, month=month)
+
+#     print(activities_last_thirty_days)
+#     return activities_last_thirty_days

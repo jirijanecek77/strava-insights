@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime
 
 
 def normalize_value(value: float, original_range: List[float], target_range: List[float]):
@@ -122,3 +123,90 @@ def moving_average(data: List[float], range_points: int):
     return averages
 
 
+def convert_birthday(date: str) -> str:
+    """
+    Converts a date from ISO 8601 format (YYYY-MM-DD) to DD-MM-YYYY format.
+
+    Parameters:
+    date (str): The date in ISO 8601 format (YYYY-MM-DD).
+
+    Returns:
+    str: The date converted to DD-MM-YYYY format.
+
+    Raises:
+    ValueError: If the input date is not in the correct format.
+    """
+    try:
+        date_object = datetime.strptime(date, '%Y-%m-%d')
+        formatted_date = date_object.strftime('%d-%m-%Y')
+        return formatted_date
+    except ValueError as e:
+        raise ValueError(f"Incorrect date format, should be YYYY-MM-DD. Error: {e}")
+
+
+def convert_birthday_back(date: str) -> str:
+    """
+    Converts a date from DD-MM-YYYY format to ISO 8601 format (YYYY-MM-DD).
+
+    Parameters:
+    date (str): The date in DD-MM-YYYY format.
+
+    Returns:
+    str: The date converted to YYYY-MM-DD format.
+
+    Raises:
+    ValueError: If the input date is not in the correct format.
+    """
+    try:
+        date_object = datetime.strptime(date, '%d-%m-%Y')
+        formatted_date = date_object.strftime('%Y-%m-%d')
+        return formatted_date
+    except ValueError as e:
+        raise ValueError(f"Incorrect date format, should be DD-MM-YYYY. Error: {e}")
+
+
+def calculate_age(birthday_str):
+    # Convert the date string into a datetime object
+    birthday = datetime.strptime(birthday_str, "%d-%m-%Y")
+
+    today = datetime.today()
+
+    age = today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day))
+
+    return age
+
+
+def marathon_pace(hours, minutes, seconds, distance):
+    # Total time in seconds
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+
+    # Pace in seconds per kilometer
+    pace_seconds_per_km = total_seconds / distance
+
+    # Convert pace to minutes and seconds
+    pace_minutes = int(pace_seconds_per_km // 60)
+    pace_seconds = int(pace_seconds_per_km % 60)
+
+    return pace_minutes, pace_seconds
+
+
+def calculate_speed_max(pace_in_seconds):
+    """
+    Calculate speed_max from a given pace.
+
+    :param pace: The pace value (minutes per unit distance)
+    :return: The speed_max value
+    """
+    speed_max = round(60 / (0.75 * pace_in_seconds), 2)
+    return speed_max
+
+
+def convert_minutes_to_seconds(minutes):
+    """
+    Convert time from minutes to seconds.
+
+    :param minutes: Time in minutes (can be a fractional value)
+    :return: Time in seconds
+    """
+    seconds = minutes * 60
+    return seconds

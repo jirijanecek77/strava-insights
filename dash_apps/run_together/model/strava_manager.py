@@ -107,12 +107,13 @@ class StravaManager:
         Fill the Strava Client with the information about the token.
         This token need to be refreshed only if not valid.
         """
+        logging.info('Before strava client exchange')
         token_response = self.strava_client.exchange_code_for_token(
             client_id=self.strava_client_id,
             client_secret=self.strava_client_secret,
             code=strava_code,
         )
-
+        logging.info('Making it until after strava client exchange')
         session["access_token"] = token_response["access_token"]
         session["refresh_token"] = token_response["refresh_token"]
         session["expires_at"] = token_response["expires_at"]
@@ -122,6 +123,30 @@ class StravaManager:
             refresh_token=token_response["refresh_token"],
             expires_at=token_response["expires_at"],
         )
+
+    def get_athlete_v2(self):
+        """
+        Get Athlete from  STRAVA API:
+            https://www.strava.com/api/v3/athlete
+
+        Returns
+        -------
+        class:`stravalib.model.Athlete`
+            The athlete model object.
+        """
+        url = "https://www.strava.com/api/v3/athlete"
+
+        headers = {"Authorization": f"Bearer {self.strava_client.access_token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            athlete = response.json()
+
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+        return athlete
 
     def get_athlete(self) -> Athlete:
         """

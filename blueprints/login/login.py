@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 from flask import Blueprint, render_template
 from stravalib import client
 from flask import request, redirect, session
+import time
+from datetime import datetime
+from dash_apps.run_together.model.strava_manager import StravaManager
+from connections.mongodb import MongoConnection
+from connections.fetch_data_mongo import find_user_by_strava_id
 
 # Create the Blueprint Login
 login_blueprint = Blueprint(
@@ -56,5 +61,37 @@ def strava_callback():
     session["strava_code"] = code
     session["user"] = {}
 
-    # After obtaining the access token, you can redirect the user to your DASH application page
-    return redirect("/home")
+    strava_manager = StravaManager(session=False)
+
+    # no token yet associate to the session
+    if "expires_at" not in session:
+        logging.info('running generate token from login')
+        strava_manager.generate_token_response(strava_code=session["strava_code"])
+    # token expired
+    elif time.time() > session["expires_at"]:
+        logging.info('running else generate token from login')
+        strava_manager.generate_token_response(strava_code=session["strava_code"])
+    else:
+        strava_manager.set_token_from_session()
+
+    session["selected_year"] = datetime.now().year
+    session["selected_month"] = datetime.now().strftime('%b').upper()
+
+    # Add in the session the current athlete
+    athlete = strava_manager.get_athlete_v2()
+    session['athlete'] = athlete
+
+    # Check if StravaId already exists in MongoDB
+    mongo_connection = MongoConnection('localhost:27017', 'mydatabase')
+
+    collection = mongo_connection.collection_con('mycollection')
+
+    user = find_user_by_strava_id(strava_id=athlete['id'], collection=collection)
+    user['_id'] = str(user['_id'])
+    session['run_together_user'] = user
+    print(session['run_together_user'])
+    session.modified = True
+    if user:
+        return redirect("/home")
+    else:
+        return redirect("/welcome")
