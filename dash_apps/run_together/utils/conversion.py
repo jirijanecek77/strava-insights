@@ -2,6 +2,31 @@ from typing import List
 from datetime import datetime
 
 
+def speed_to_pace(speed_mps):
+    """
+    Convert speed from meters per second (m/s) to minutes per kilometer (min/km).
+
+    Parameters:
+    speed_mps (float): Speed in meters per second.
+
+    Returns:
+    float: Speed in minutes per kilometer.
+    """
+    if speed_mps <= 0:
+        raise ValueError("Speed must be a positive value.")
+
+    # Convert speed from m/s to km/s
+    speed_kps = speed_mps / 1000.0
+
+    # Convert km/s to s/km
+    time_per_km_s = 1 / speed_kps
+
+    # Convert seconds per kilometer to minutes per kilometer
+    time_per_km_min = time_per_km_s / 60.0
+
+    return time_per_km_min
+
+
 def normalize_value(value: float, original_range: List[float], target_range: List[float]):
     """
      Normalize a value based on a given original range and a target range using linear interpolation.
@@ -17,27 +42,34 @@ def normalize_value(value: float, original_range: List[float], target_range: Lis
 
      Returns:
         float: The normalized value mapped from the original range to the target range.
-
-        original_range = [190.0, 180.0, 170.0, 160.0, 150.0, 130.0]
-        target_range = [5, 4, 3, 2, 1, 0]
-        normalize_value(140, original_range, target_range):
-        0.05
     """
+    # Example usage:
+    # original_range = [190.0, 180.0, 170.0, 160.0, 150.0, 130.0]
+    # target_range = [5, 4, 3, 2, 1, 0]
+    # normalize_value(140, original_range, target_range) will return 0.5
+
     # Sort original and target ranges in ascending order
     sorted_pairs = sorted(zip(original_range, target_range))
     sorted_original = [pair[0] for pair in sorted_pairs]
     sorted_target = [pair[1] for pair in sorted_pairs]
 
+    # Handle case where value is below the minimum of the original range
     if value <= sorted_original[0]:
         return sorted_target[0]
+    # Handle case where value is above the maximum of the original range
     if value >= sorted_original[-1]:
         return sorted_target[-1]
 
+    # Iterate through the sorted original range to find the correct interval
     for i in range(1, len(sorted_original)):
         if value <= sorted_original[i]:
             x0, x1 = sorted_original[i - 1], sorted_original[i]
             y0, y1 = sorted_target[i - 1], sorted_target[i]
+
+            # Linear interpolation formula
             return y0 + (value - x0) * (y1 - y0) / (x1 - x0)
+
+    # Return None if value does not fall within the original range (should not reach here)
     return None
 
 
@@ -55,6 +87,25 @@ def convert_min_to_min_sec(minutes: float):
     int_minutes = int(minutes)
     secs = (minutes - int_minutes) * 60
     return f"{int_minutes}:{int(secs):02d}"
+
+
+def convert_min_sec_to_min(time_str: str) -> float:
+    """
+    Convert a string in "M:S" format with minutes and seconds to a float value in minutes.
+
+    Parameters:
+    - time_str (str): Time in "M:S" format.
+
+    Returns:
+    - float: Time in minutes.
+    """
+    # Split the string into minutes and seconds
+    minutes, seconds = map(int, time_str.split(':'))
+
+    # Convert the time to minutes
+    total_minutes = minutes + seconds / 60
+
+    return total_minutes
 
 
 def calculate_pace(seconds: List[int], distances: List[float], range_points: int) -> List[float]:

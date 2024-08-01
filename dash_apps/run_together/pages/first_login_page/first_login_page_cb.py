@@ -32,7 +32,6 @@ def first_login_cb(dash_app: DashProxy):
             user = find_user_by_strava_id(strava_id=session['athlete']['id'])
             user['_id'] = str(user['_id'])
             session['run_together_user'] = user
-
             return "/home"
         else:
             return no_update

@@ -59,4 +59,4 @@ settings_profile_cb(dash_app=dash_app)
 # For the deployment of the application locally
 if __name__ == "__main__":
     # Run the Flask app when the script is executed
-    app.run(host="0.0.0.0", port=8502)  # debug=True, use_reloader=True
+    app.run(host="0.0.0.0", port=8502, debug=True, use_reloader=True)  # 

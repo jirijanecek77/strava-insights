@@ -98,7 +98,7 @@ def settings_profile_cb(dash_app: DashProxy):
             if button_id == "submit-button-user-form":
                 converted_bd = convert_birthday(birthday)
 
-                result = update_user_record(session, {
+                update_user_record(session, {
                     "birthday": converted_bd,
                     "name": name,
                     "email": email}
@@ -114,10 +114,7 @@ def settings_profile_cb(dash_app: DashProxy):
                     html.P(f"Birthday: {converted_bd}")
                 ])
                 form = html.Div()
-                if result.matched_count > 0:
-                    logging.info(f"Successfully updated {result.modified_count} document(s).")
-                else:
-                    logging.info("No document matched the filter criteria.")
+
                 return display, form, {"display": "block"}
 
         return no_update

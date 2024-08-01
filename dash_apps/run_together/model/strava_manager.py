@@ -156,6 +156,28 @@ class StravaManager:
         athlete = self.strava_client.get_athlete()
         return athlete
 
+    def update_description_activity(self, activity_id: int, description: str):
+        """
+        Update the Description of an activity using the STRAVA API:
+        https://developers.strava.com/docs/reference/#api-activity
+        """
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        headers = {
+            "Authorization": f"Bearer {self.strava_client.access_token}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "description": description
+        }
+
+        response = requests.put(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            activity = response.json()
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+        return activity
     def get_activity(self, activity_id: int) -> Activity:
         """
             Get Activity from  STRAVA API:

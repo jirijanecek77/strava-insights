@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 from flask import Blueprint, render_template
 from stravalib import client
 from flask import request, redirect, session
+import logging
 import time
 from datetime import datetime
 from dash_apps.run_together.model.strava_manager import StravaManager
-from connections.mongodb import MongoConnection
 from connections.fetch_data_mongo import find_user_by_strava_id
 
 # Create the Blueprint Login
@@ -39,9 +39,10 @@ def landing():
     authorize_url = client.authorization_url(
         client_id=strava_client_id,
         redirect_uri=redirect_uri,
-        scope=["read_all", "profile:read_all", "activity:read_all"],
+        scope=["read_all", "profile:read_all", "activity:read_all", "activity:write"],
     )
-
+    logging.info(f"Login Completed, authorize_url: {authorize_url}")
+    
     return render_template("login.html", authorize_url=authorize_url)
 
 
@@ -88,6 +89,8 @@ def strava_callback():
     session.modified = True
 
     if user:
+        logging.info("User already registered, redirect to home page")
         return redirect("/home")
     else:
+        logging.info("User not registered, redirect to welcome page")
         return redirect("/welcome")

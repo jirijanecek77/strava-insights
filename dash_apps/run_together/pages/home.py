@@ -1,9 +1,8 @@
 from datetime import datetime
 import time
-import logging
 
 from dash import html
-
+import logging
 from dash_apps.run_together.layout.header import get_header
 from dash_apps.run_together.layout.footer import get_footer
 from dash_apps.run_together.layout.body import get_body
@@ -28,7 +27,7 @@ def get_home_layout() -> html:
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
-    session["selected_month"] = datetime.now().strftime('%b').upper()
+    session["selected_month"] = 'JUN'  #datetime.now().strftime('%b').upper()
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete()
@@ -45,5 +44,5 @@ def get_home_layout() -> html:
     footer = get_footer()
 
     basic_components = [header, html.Br(), body, html.Br(), footer, modal_box]
-
+    logging.info("Building home page")
     return html.Div(children=basic_components)

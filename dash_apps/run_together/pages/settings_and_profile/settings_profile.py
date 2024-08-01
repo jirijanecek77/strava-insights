@@ -128,24 +128,6 @@ def get_settings():
         )
     )
 
-    subscription_tab = dbc.Card(
-        dbc.CardBody(
-            [
-                html.P("Registration below. Only for real action takers", className="card-text"),
-                dbc.FormFloating(
-                    [
-                        dbc.Input(type="email", id="email-input", placeholder="example@internet.com"),
-                        dbc.Label("Email address"),
-                    ]
-                ),
-                html.Br(),
-                dbc.Button("Submit", id="submit-button", n_clicks=0),
-                html.Br(),
-                html.Div(id="output")
-            ]
-        )
-    )
-
     tabs = dbc.Tabs(
         [
             dbc.Tab(
@@ -153,10 +135,7 @@ def get_settings():
                 tab_id='settings-tab'),
             dbc.Tab(
                 profile_tab, label="Profile", label_style=card_style,
-                tab_id='profile-tab'),
-            dbc.Tab(
-                subscription_tab, label="Subscription", label_style=card_style,
-                tab_id='subscription-tab')
+                tab_id='profile-tab')
         ],
         id='settings-tabs',
         active_tab='settings-tab'

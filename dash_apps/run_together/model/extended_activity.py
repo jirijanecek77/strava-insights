@@ -5,6 +5,8 @@ from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
 from dash_apps.run_together.utils.conversion import moving_average
 from dash_apps.run_together.utils.conversion import normalize_value
 
+from dash_apps.run_together.utils.interval import get_bpm_pace_zone_intervals
+
 from dash_apps.run_together.model.user import User
 
 
@@ -15,7 +17,6 @@ class ExtendedActivity:
         - Stream Data rom Activity Model of Strava Manager
         - Normalized & other data needed not available in the Strava Manager
     """
-
     def __init__(self, activity_id: int):
         # Get Data Available in the Strava Manager
         self.activity_id = activity_id
@@ -33,10 +34,13 @@ class ExtendedActivity:
             data=self.extended_stream['heartrate']['data'],
             range_points=10
         )
+
+        # Get The pace since we have only the distance and time
         self.range_points_pace = 20
         self.moving_average_pace = self.get_moving_average_pace(
             range_points=self.range_points_pace
         )
+        self.intervals_moving_average_pace_zone = self.get_intervals_moving_average_pace_zone()
 
         # Get The normalize value based on the user setting
         self.normalized_moving_average_heartrate = [
@@ -59,6 +63,7 @@ class ExtendedActivity:
         ]
 
     def get_extended_stream(self):
+
         extended_activity_stream = self.strava_manager.get_activity_stream(
             activity_id=self.activity_id
         )
@@ -97,9 +102,20 @@ class ExtendedActivity:
             )
         }
 
+        # Get the moving in the format MM:SS
         moving_average_pace['minute_second_per_km'] = [
             convert_min_to_min_sec(x)
             for x in moving_average_pace['minute_per_km']
         ]
 
         return moving_average_pace
+
+    def get_intervals_moving_average_pace_zone(self):
+
+        bpm_pace_zone_intervals = get_bpm_pace_zone_intervals(
+            distance_km=self.extended_stream['distance_km'],
+            paces=self.moving_average_pace['minute_per_km'],
+            heart_rates=self.moving_average_heartrate,
+            pace_bpm_mapping=self.user.get_pace_bpm_mapping()
+        )
+        return bpm_pace_zone_intervals

@@ -1,14 +1,24 @@
 /* Define a CSS class named .grid */
 .activity-details-container {
-  margin-left: 50px; /* Add a 20-pixel margin around the grid */
-  margin-right: 50px; /* Add a 20-pixel margin around the grid */
-  transition: 300ms; /* Change as needed */
+    display: grid; /* Use CSS Grid layout */
+    grid-template-columns: 25% 1fr;
+    transition: 300ms; /* Change as needed */
+    height: 500px
 }
 
-.div-range-slider-pace {
-   width: 50%;
-   margin: 0 auto; /* Center the div horizontally if needed */
 
+/* Define a CSS class named .grid */
+.analysis-details-container {
+    display: grid; /* Use CSS Grid layout */
+    grid-template-columns: 70% 1fr;
+    transition: 300ms; /* Change as needed */
+    padding: 50px;
+}
+
+
+.div-range-slider-pace {
+   width: 90%;
+   margin: 0 auto; /* Center the div horizontally if needed */
 }
 
 .activity-graph-container {
@@ -17,6 +27,43 @@
 }
 
 
-.dash-graph {
-    transition: height 0.5s ease, width 0.5s ease;
+/* CSS for the Grid */
+.grid_button {
+  display: grid;
+  grid-gap: 15px;
+  padding-top: 20px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.button-select-intervals {
+    display: inline-block;
+    font-weight: 1000;
+    color: #222;
+    font-size: 1rem;
+    vertical-align: middle;
+    position: relative;
+}
+.button-select-intervals:hover
+{
+  opacity: 1;
+  color: #FFFFFF;
+  background-color: #F39C12;
+  border: 1px #99ccff solid;
+  font-family: 'Outfit';
+
+}
+.button-select-intervals:active
+{
+  font-family: 'Outfit';
+  background-color: #F39C12;
+  border: 1px #000000 solid;
+}
+
+.button-select-intervals:disabled,
+button-select-intervals[disabled]{
+  opacity: 1;
+  color: #FFFFFF;
+  background-color: #F39C12;
+  border: 1px #99ccff solid;
+  font-family: 'Outfit';
 }
