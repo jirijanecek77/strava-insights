@@ -10,22 +10,6 @@ from dash_apps.run_together.model.strava_manager import StravaManager
 def get_month_list() -> List[str]:
     months = list(calendar.month_name).upper()[1:]
     return months
-    print(months)
-
-    return [
-        "JAN",
-        "FEB",
-        "MAR",
-        "APR",
-        "MAY",
-        "JUN",
-        "JUL",
-        "AUG",
-        "SEP",
-        "OCT",
-        "NOV",
-        "DEC",
-    ]
 
 
 def normalize(value: int, max_value: int) -> float:
@@ -268,8 +252,6 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Get the data for the selected year
     strava_manager = StravaManager()
     activities_df = strava_manager.get_activities_for_year(year)
-    print('getting activities')
-    print(activities_df)
 
     # Group the DataFrame by 'year' and 'month_of_year', then sum the 'distance_km' for each group
     monthly_totals = (
