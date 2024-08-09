@@ -4,7 +4,7 @@ import calendar
 from datetime import datetime, date
 from typing import List
 
-from dash_apps.run_together.strava_manager import StravaManager
+from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:
@@ -117,7 +117,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
 
     # Header of the table with each weekday
     calendar_day_head = []
-    # for day in ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+
     for day in [
         "Monday",
         "Tuesday",
@@ -164,7 +164,8 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
                 for index, activity in day_activities.iterrows():
                     activity_div.append(
                         html.Div(
-                            className="event bg-[#F39C12] text-white rounded p-1 text-sm mb-1",
+                            id={"type": "select-activity-btn", "index": activity.id},
+                            className="event bg-[#99CC66] text-white rounded p-1 text-sm mb-1 hover:bg-[#F39C12]",
                             children=[
                                 html.Span(
                                     className="event-name",
@@ -244,8 +245,9 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
     calendar_container = [
         html.Div(children=year_selector),
         html.Button(
-            f"""Back {year}""",
+            f"""{year}""",
             id={"type": "calendar-btn", "index": "back-yearly-calendar"},
+            className="h3"
         ),
         month_calendar,
     ]

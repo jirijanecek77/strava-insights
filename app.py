@@ -1,7 +1,10 @@
 from blueprints.login.login import login_blueprint
 from dash_apps.run_together.run_together_app import run_together_app
+from dash_apps.run_together.pages.first_login_page.first_login_page_cb import first_login_cb
+from dash_apps.run_together.pages.settings_and_profile.settings_profile_cb import settings_profile_cb
 from blueprints.login.aad import authorisation
 
+import dash_bootstrap_components as dbc
 from os import environ as env
 from flask import Flask, session
 from dash_extensions.enrich import DashProxy, MultiplexerTransform
@@ -18,7 +21,8 @@ app.register_blueprint(login_blueprint)
 # Define external stylesheets, including Font Awesome and a local CSS file
 external_stylesheets = [
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css",
-    "./static/css/style.css",  # Add the path to style.css
+    "./static/css/style.css",
+    dbc.themes.BOOTSTRAP # Add the path to style.css
 ]
 
 # Adding the Tailwind CSS script in the application setup
@@ -33,8 +37,7 @@ dash_app = DashProxy(
     transforms=[
         MultiplexerTransform()
     ],  # Apply the MultiplexerTransform for performance optimization
-    pages_folder="./dash_apps/run_together/pages/",  # Specify the folder containing Dash pages
-    routes_pathname_prefix="/run-together/",  # Set the URL prefix for Dash routes
+    pages_folder="./dash_apps/run_together/pages/",  # Specify the folder containing Dash page
     use_pages=True,  # Enable the use of pages for organizing Dash layouts
     assets_folder="./static",  # Specify the folder for static assets (e.g., CSS, images)
     external_stylesheets=external_stylesheets,  # Add external stylesheets to the Dash application
@@ -50,8 +53,10 @@ server = dash_app.server
 
 # Initialize the Run Together Dash application using the configured DashProxy instance
 run_together_app(dash_app=dash_app, app_path="/home")
+first_login_cb(dash_app=dash_app)
+settings_profile_cb(dash_app=dash_app)
 
 # For the deployment of the application locally
 if __name__ == "__main__":
     # Run the Flask app when the script is executed
-    app.run(debug=True, host="0.0.0.0", port=8502)  # use_reloader=False
+    app.run(host="0.0.0.0", port=8502, debug=True, use_reloader=True)  # 

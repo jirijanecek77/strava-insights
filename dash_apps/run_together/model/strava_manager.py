@@ -1,4 +1,5 @@
 import pandas as pd
+import stravalib.exc
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 from os import environ as env
@@ -60,17 +61,14 @@ class StravaManager:
         self, access_token: str, refresh_token: str, expires_at: str
     ) -> None:
         # Now store that short-lived access token somewhere (a database?)
-        logging.info(f"Set access_token to: {access_token}")
         self.strava_client.access_token = access_token
 
         # You must also store the refresh token to be used later on to obtain
         # another valid access token in case the current is already expired
-        logging.info(f"Set refresh_token to: {refresh_token}")
         self.strava_client.refresh_token = refresh_token
 
         # An access_token is only valid for 6 hours, store expires_at somewhere and
         # check it before making an API call.
-        logging.info(f"Set expires_at to: {expires_at}")
         self.strava_client.token_expires_at = expires_at
 
     def set_token_from_env(self):
@@ -111,7 +109,6 @@ class StravaManager:
             client_secret=self.strava_client_secret,
             code=strava_code,
         )
-
         session["access_token"] = token_response["access_token"]
         session["refresh_token"] = token_response["refresh_token"]
         session["expires_at"] = token_response["expires_at"]
@@ -121,6 +118,30 @@ class StravaManager:
             refresh_token=token_response["refresh_token"],
             expires_at=token_response["expires_at"],
         )
+
+    def get_athlete_v2(self):
+        """
+        Get Athlete from  STRAVA API:
+            https://www.strava.com/api/v3/athlete
+
+        Returns
+        -------
+        class:`stravalib.model.Athlete`
+            The athlete model object.
+        """
+        url = "https://www.strava.com/api/v3/athlete"
+
+        headers = {"Authorization": f"Bearer {self.strava_client.access_token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            athlete = response.json()
+
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+        return athlete
 
     def get_athlete(self) -> Athlete:
         """
@@ -133,9 +154,30 @@ class StravaManager:
             The athlete model object.
         """
         athlete = self.strava_client.get_athlete()
-        logging.info(f"Get athlete:{athlete}")
         return athlete
 
+    def update_description_activity(self, activity_id: int, description: str):
+        """
+        Update the Description of an activity using the STRAVA API:
+        https://developers.strava.com/docs/reference/#api-activity
+        """
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        headers = {
+            "Authorization": f"Bearer {self.strava_client.access_token}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "description": description
+        }
+
+        response = requests.put(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            activity = response.json()
+        else:
+            raise Exception(f"Error: {response.status_code} - {response.text}")
+
+        return activity
     def get_activity(self, activity_id: int) -> Activity:
         """
             Get Activity from  STRAVA API:
@@ -262,7 +304,7 @@ def get_strava_activities_string(activities: BatchedResultsIterator) -> List:
         logging.info(
             f"""Retrieve {len(list(activities))} activities from the BatchedResultsIterator"""
         )
-    except TypeError:
+    except (TypeError, stravalib.exc.Fault) as e:
         logging.info("Retrieve 0 activities from the BatchedResultsIterator")
         return data
 

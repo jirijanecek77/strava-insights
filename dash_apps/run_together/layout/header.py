@@ -1,45 +1,51 @@
-from dash import html
+from dash import html, dcc
 from flask import session
+import dash_bootstrap_components as dbc
 
 
+# Sample styles
 container_style = {
-    "display": "flex",  # Use Flexbox layout
-    "justifyContent": "space-between",  # Align children with space between (left and right)
-    # "border": "1px solid blue",
-    "height": "80px",
-    "margin-left": "30px",
-    "margin-right": "30px",
+    'display': 'flex',
+    'justifyContent': 'space-between',
+    'alignItems': 'center',
+    'padding': '10px',
+    'backgroundColor': '#f8f9fa',
+    'height': '60px',  # Reduce header height
+}
+
+shoe_image_style = {
+    'height': '75px',  # Smaller shoe image
 }
 
 avatar_style = {
-    "margin-left": "auto",  # Display the avatar on the right side of the container
-    "height": "95%",
-    "border-radius": "40%",  # Create a circular border
-    # "padding-right": "60px",   # with margin left auto need to have one here
-}
-
-
-menu_style = {
-    "display": "none",  # Initially hide the menu
-    "position": "absolute",
-    "top": "110%",  # Position the menu just below the image
-    "right": 0,  # Position the menu on the right
-    "border": "1px solid #ccc",
-    "background-color": "white",
-    "z-index": 1,  # Ensure the menu appears above other content
-}
-
-menu_item_style = {
-    "padding": "5px",
-    "border-bottom": "1px solid #ccc",
-    "cursor": "pointer",
+    'height': '50px',  # Smaller height
+    'width': '50px',   # Smaller width
+    'borderRadius': '50%',
+    'cursor': 'pointer',
 }
 
 name_application = {
-    "margin-left": "20px",
-    "padding-top": "17px",
-    "font-size": "30px",
-    "font-weight": "bold",
+    'fontSize': '20px',  # Smaller font size
+    'fontWeight': 'bold',
+}
+
+profile_menu_container_style = {
+    'display': 'flex',
+    'alignItems': 'center',  # Center align vertically
+}
+
+menu_style = {
+    "background": "#f8f9fa",
+    "color": "black",
+    "border": "3px solid black",
+    "marginRight": "20px",
+    "fontSize": "15px",
+    "fontWeight": "bold"
+}
+
+menu_item_style = {
+    "color": "black",
+    "fontSize": "15px"
 }
 
 
@@ -49,27 +55,52 @@ def get_header():
             html.Img(
                 src="../../../static/img/running_shoe.png",
                 alt="Running Shoe",
+                style=shoe_image_style,  # Apply new style
             ),
             html.Div(
                 children="Run Together",
                 style=name_application,
             ),
-            html.Img(
-                src=session["user_profile_picture"],
-                alt="Running Shoe",
-                style=avatar_style,
-            ),
             html.Div(
-                id="menu",
-                style=menu_style,
+                id="profile-menu-container",
                 children=[
-                    html.Div("Setting", style=menu_item_style),
-                    html.Div("My Profile", style=menu_item_style),
-                    html.Div("Log Out", style=menu_item_style),
+                    dbc.DropdownMenu(
+                        label="Menu",
+                        id="dropdown-menu",
+                        children=[
+                            dbc.DropdownMenuItem(
+                                "Home", href='/home', style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Settings", href='/settings',
+                                style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Profile", href='/settings',
+                                style=menu_item_style
+                            ),
+                            dbc.DropdownMenuItem(
+                                "Subscription", href='/settings',
+                                style=menu_item_style
+                            )
+                        ],
+                        toggle_style=menu_style
+                    ),
+                    dcc.Location(id='url', refresh=True),
+                    html.Img(
+                        src=session.get("user_profile_picture",
+                                        "static/img/empty_profile.png"
+                        ),
+                        alt="Profile Picture",
+                        id="profile-picture",
+                        style=avatar_style,
+                        n_clicks=0
+                    ),
                 ],
-            ),
+                style=profile_menu_container_style
+            )
         ],
-        style=container_style,
+        style=container_style
     )
 
     return header
