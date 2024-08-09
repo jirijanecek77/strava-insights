@@ -76,7 +76,7 @@ def strava_callback():
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
-    session["selected_month"] = datetime.now().strftime('%b').upper()
+    session["selected_month"] = datetime.now().strftime('%B').upper()
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete_v2()

@@ -8,6 +8,10 @@ from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:
+    months = list(calendar.month_name).upper()[1:]
+    return months
+    print(months)
+
     return [
         "JAN",
         "FEB",
@@ -58,7 +62,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
         html.Div: The children of the "calendar-training-container" in the body.
     """
     # Get the number of days in the selectede month
-    month_number = datetime.strptime(month, "%b").month
+    month_number = datetime.strptime(month, "%B").month
     weekday, num_days = calendar.monthrange(year, month_number)
 
     # Create a DataFrame with all days of the month
@@ -264,6 +268,8 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Get the data for the selected year
     strava_manager = StravaManager()
     activities_df = strava_manager.get_activities_for_year(year)
+    print('getting activities')
+    print(activities_df)
 
     # Group the DataFrame by 'year' and 'month_of_year', then sum the 'distance_km' for each group
     monthly_totals = (

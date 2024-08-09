@@ -130,7 +130,7 @@ def run_together_app(
             # Else get the previous month in the correct format JAN, FEB etc
             else:
                 month_number = (
-                    datetime.strptime(session["selected_month"], "%b").month - 1
+                    datetime.strptime(session["selected_month"], "%B").month - 1
                 )
                 session["selected_month"] = datetime.strftime(
                     date(session["selected_year"], month_number, 1), "%b"

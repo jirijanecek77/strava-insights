@@ -7,9 +7,9 @@ from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_m
 from connections.update_data_mongo import update_user_record
 from dash_apps.run_together.utils.conversion import (
     convert_birthday_back, convert_birthday, marathon_pace, calculate_speed_max)
+from dash_apps.run_together.utils.conversion import calculate_age
 
-
-def settings_profile_cb(dash_app: DashProxy):
+def settings_profile_cb(dash_app: DashProxy):    
     @dash_app.callback(
         Output("display-div", "children"),
         Output("form-div", "children"),
@@ -118,6 +118,18 @@ def settings_profile_cb(dash_app: DashProxy):
                 return display, form, {"display": "block"}
 
         return no_update
+
+    @dash_app.callback(
+        Output("max-bpm", "children"),
+        Input("url", "pathname")
+    )
+    def calculate_max_bpm(url: str):
+        if url == '/settings':
+            max_bpm = 220 - calculate_age(
+                session["run_together_user"]["birthday"])
+            return max_bpm
+        else:
+            no_update
 
     @dash_app.callback(
         Output("calculated-pace", "children"),
