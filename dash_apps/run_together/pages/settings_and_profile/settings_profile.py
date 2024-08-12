@@ -96,9 +96,6 @@ def get_settings():
                                     ],
                                     className='time-dropdowns'
                                 ),
-                                html.Button('Change',
-                                            id='calculate-pace-button',
-                                            n_clicks=0),
                                 html.Div(
                                     children=[
                                         html.P("Pace:"),
