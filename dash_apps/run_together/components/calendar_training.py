@@ -8,20 +8,8 @@ from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:
-    return [
-        "JAN",
-        "FEB",
-        "MAR",
-        "APR",
-        "MAY",
-        "JUN",
-        "JUL",
-        "AUG",
-        "SEP",
-        "OCT",
-        "NOV",
-        "DEC",
-    ]
+    months = list(calendar.month_name).upper()[1:]
+    return months
 
 
 def normalize(value: int, max_value: int) -> float:
@@ -58,7 +46,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
         html.Div: The children of the "calendar-training-container" in the body.
     """
     # Get the number of days in the selectede month
-    month_number = datetime.strptime(month, "%b").month
+    month_number = datetime.strptime(month, "%B").month
     weekday, num_days = calendar.monthrange(year, month_number)
 
     # Create a DataFrame with all days of the month

@@ -58,7 +58,13 @@ def get_header():
                 style=shoe_image_style,  # Apply new style
             ),
             html.Div(
-                children="Run Together",
+                children=[
+                    dcc.Link(
+                        children="Run Together",
+                        href="/home",
+                        style=name_application
+                    )
+                ],
                 style=name_application,
             ),
             html.Div(
@@ -79,10 +85,6 @@ def get_header():
                                 "Profile", href='/settings',
                                 style=menu_item_style
                             ),
-                            dbc.DropdownMenuItem(
-                                "Subscription", href='/settings',
-                                style=menu_item_style
-                            )
                         ],
                         toggle_style=menu_style
                     ),

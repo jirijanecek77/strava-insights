@@ -1,10 +1,8 @@
-from flask import session
 from dash import html, register_page, dcc
 import dash_bootstrap_components as dbc
 
 from dash_apps.run_together.layout.header import get_header
 from dash_apps.run_together.layout.footer import get_footer
-from dash_apps.run_together.utils.conversion import calculate_age
 
 register_page(
     __name__,
@@ -98,9 +96,6 @@ def get_settings():
                                     ],
                                     className='time-dropdowns'
                                 ),
-                                html.Button('Change',
-                                            id='calculate-pace-button',
-                                            n_clicks=0),
                                 html.Div(
                                     children=[
                                         html.P("Pace:"),
@@ -114,7 +109,7 @@ def get_settings():
                                     children=[
                                         html.P("Max BPM:"),
                                         html.P(
-                                            220 - calculate_age(session["run_together_user"]["birthday"])
+                                            id="max-bpm"
                                         )
                                     ],
                                     className='max-bpm'

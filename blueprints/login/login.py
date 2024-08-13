@@ -76,7 +76,7 @@ def strava_callback():
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
-    session["selected_month"] = datetime.now().strftime('%b').upper()
+    session["selected_month"] = datetime.now().strftime('%B').upper()
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete_v2()
@@ -84,12 +84,12 @@ def strava_callback():
 
     # Check if StravaId already exists in MongoDB
     user = find_user_by_strava_id(strava_id=athlete['id'])
-    user['_id'] = str(user['_id'])
-    session['run_together_user'] = user
-    session.modified = True
 
     if user:
         logging.info("User already registered, redirect to home page")
+        user['_id'] = str(user['_id'])
+        session['run_together_user'] = user
+        session.modified = True
         return redirect("/home")
     else:
         logging.info("User not registered, redirect to welcome page")

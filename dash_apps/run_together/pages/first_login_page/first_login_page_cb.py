@@ -2,7 +2,7 @@ from dash import Output, Input, State, no_update
 from dash_extensions.enrich import DashProxy
 from flask import session
 from connections.mongodb import MongoConnection
-from dash_apps.run_together.utils.conversion import convert_birthday
+from dash_apps.run_together.utils.conversion import convert_birthday, calculate_age
 from connections.fetch_data_mongo import find_user_by_strava_id
 from connections.insert_data_to_mongo import insert_new_user_to_mongo
 
@@ -20,11 +20,14 @@ def first_login_cb(dash_app: DashProxy):
 
             converted_bd = convert_birthday(birthday)
             # Data to be inserted
+            max_bpm = 220 - calculate_age(
+                converted_bd)
             data = {
                 "strava_id": session['athlete']['id'],
                 "name": name,
                 "email": emailaddress,
-                "birthday": converted_bd
+                "birthday": converted_bd,
+                "max_bpm": max_bpm
             }
             # Insert data
             insert_new_user_to_mongo(data)
