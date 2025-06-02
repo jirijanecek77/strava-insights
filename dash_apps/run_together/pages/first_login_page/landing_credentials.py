@@ -5,7 +5,7 @@ from dash import html, register_page
 
 register_page(
     __name__,
-    name='Welcome to Run Together',
+    name='Welcome to Strava Insights',
     top_nav=True,
     path='/welcome'
 )
@@ -48,7 +48,6 @@ def welcome_cards():
                     dbc.Button("Submit", id="first-login-submit-button",
                                color="primary", className="mr-2"),
                     html.Div(id="output-state"),
-                    dcc.Location(id="url", refresh=True)
                 ]
             ),
         ]

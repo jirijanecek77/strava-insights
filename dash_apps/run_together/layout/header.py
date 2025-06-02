@@ -55,12 +55,12 @@ def get_header():
             html.Img(
                 src="../../../static/img/running_shoe.png",
                 alt="Running Shoe",
-                style=shoe_image_style,  # Apply new style
+                style=shoe_image_style,
             ),
             html.Div(
                 children=[
                     dcc.Link(
-                        children="Run Together",
+                        children="Strava Insights",
                         href="/home",
                         style=name_application
                     )
@@ -70,24 +70,6 @@ def get_header():
             html.Div(
                 id="profile-menu-container",
                 children=[
-                    dbc.DropdownMenu(
-                        label="Menu",
-                        id="dropdown-menu",
-                        children=[
-                            dbc.DropdownMenuItem(
-                                "Home", href='/home', style=menu_item_style
-                            ),
-                            dbc.DropdownMenuItem(
-                                "Settings", href='/settings',
-                                style=menu_item_style
-                            ),
-                            dbc.DropdownMenuItem(
-                                "Profile", href='/settings',
-                                style=menu_item_style
-                            ),
-                        ],
-                        toggle_style=menu_style
-                    ),
                     dcc.Location(id='url', refresh=True),
                     html.Img(
                         src=session.get("user_profile_picture",

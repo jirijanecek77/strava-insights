@@ -19,12 +19,10 @@ from dash_apps.run_together.components.calendar_training import get_monthly_cale
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
 from dash_apps.run_together.components.activity_details import get_activity_details
 
-from dash_apps.run_together.model.strava_manager import StravaManager
-
 
 def run_together_app(
-    dash_app: DashProxy,
-    app_path: str,
+        dash_app: DashProxy,
+        app_path: str,
 ) -> object:
     dash.register_page(__name__, layout=get_home_layout, path=app_path)
 
@@ -101,8 +99,8 @@ def run_together_app(
         prevent_initial_call=True,
     )
     def update_calendar_training_container(
-        month_n_clicks,
-        calendar_n_clicks,
+            month_n_clicks,
+            calendar_n_clicks,
     ):
         triggered_id = ctx.triggered_id
 
@@ -129,7 +127,7 @@ def run_together_app(
             # Else get the previous month in the correct format JAN, FEB etc
             else:
                 month_number = (
-                    datetime.strptime(session["selected_month"], "%B").month - 1
+                        datetime.strptime(session["selected_month"], "%B").month - 1
                 )
                 session["selected_month"] = datetime.strftime(
                     date(session["selected_year"], month_number, 1), "%b"
@@ -153,7 +151,7 @@ def run_together_app(
             # Else get the next month in the correct format JAN, FEB et
             else:
                 month_number = (
-                    datetime.strptime(session["selected_month"], "%b").month + 1
+                        datetime.strptime(session["selected_month"], "%b").month + 1
                 )
                 session["selected_month"] = datetime.strftime(
                     date(session["selected_year"], month_number, 1), "%b"
@@ -208,7 +206,7 @@ def run_together_app(
 
         Input("range-slider-pace", "value"),
 
-        Input("button-display-interval", "n_clicks"), # Case to display the working interval
+        Input("button-display-interval", "n_clicks"),  # Case to display the working interval
         Input("button-display-jogging", "n_clicks"),  # Case to display the working interval
         Input("button-display-all", "n_clicks"),  # Case to display the working interval
 
@@ -220,16 +218,16 @@ def run_together_app(
         prevent_initial_call=True,
     )
     def update_calendar_training_container_new(
-        range_slider_pace: int,
-        button_interval_n_clicks,
-        button_jogging_n_clicks,
-        button_all_n_clicks,
+            range_slider_pace: int,
+            button_interval_n_clicks,
+            button_jogging_n_clicks,
+            button_all_n_clicks,
 
-        extended_stream: dict,
-        pace_bpm_mapping: dict,
-        kpi_bpm_pace_distance_activity: Tuple,
+            extended_stream: dict,
+            pace_bpm_mapping: dict,
+            kpi_bpm_pace_distance_activity: Tuple,
 
-        figure: go.Figure,
+            figure: go.Figure,
     ):
         triggered_id = ctx.triggered_id
 
@@ -273,25 +271,3 @@ def run_together_app(
                 extended_stream=extended_stream,
                 kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity
             )
-
-    @dash_app.callback(
-        Input("button-update-description-strava", "n_clicks"),
-        Output("button-update-description-strava", "disabled"),
-        prevent_initial_call=True,
-    )
-    def update_description_on_strava(n_clicks):
-        """
-        Clost the Modal box when user click on the cross
-        :param n_clicks:  User Clicking on the cross
-        :return: Hidden = True for the model Component
-        """
-
-        logging.info("User Action: button-update-description-strava. Update Description")
-        strava_manager = StravaManager()
-        description = strava_manager.get_activity(session["displayed_activity_id"])['description']
-        strava_manager.update_description_activity(
-            activity_id=session["displayed_activity_id"],
-            description=description + str(datetime.now())
-        )
-
-        return False

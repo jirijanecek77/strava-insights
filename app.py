@@ -33,7 +33,7 @@ external_script = ["https://tailwindcss.com/", {"src": "https://cdn.tailwindcss.
 dash_app = DashProxy(
     __name__,  # Set the name of the Dash application
     server=app,  # Connect the Dash application to the Flask app
-    title="Run Together",  # Set the title of the Dash application
+    title="Strava insights",  # Set the title of the Dash application
     transforms=[
         MultiplexerTransform()
     ],  # Apply the MultiplexerTransform for performance optimization
@@ -51,7 +51,7 @@ app = authorisation(app, session, excluded)
 # For the deployement of the heroku application
 server = dash_app.server
 
-# Initialize the Run Together Dash application using the configured DashProxy instance
+# Initialize the Dash application using the configured DashProxy instance
 run_together_app(dash_app=dash_app, app_path="/home")
 first_login_cb(dash_app=dash_app)
 settings_profile_cb(dash_app=dash_app)

@@ -125,15 +125,9 @@ def get_settings():
 
     tabs = dbc.Tabs(
         [
-            dbc.Tab(
-                settings_tab, label="Settings", label_style=card_style,
-                tab_id='settings-tab'),
-            dbc.Tab(
-                profile_tab, label="Profile", label_style=card_style,
-                tab_id='profile-tab')
-        ],
-        id='settings-tabs',
-        active_tab='settings-tab'
+            dbc.Tab(settings_tab, label="Settings", label_style=card_style),
+            dbc.Tab(profile_tab, label="Profile",label_style=card_style),
+        ]
     )
     return tabs
 
@@ -146,7 +140,7 @@ def layout():
     basic_components = [
         header,
         html.Div(
-            children=[body, dcc.Location(id="url", refresh=False)],
+            children=body,
             style={
                 "flex": "1",
                 "padding": "20px"

@@ -157,7 +157,6 @@ def get_activity_analysis(extended_activity: ExtendedActivity):
         analysis = analysis + f" | {round(zone_to_display['distance'], 2)}" \
                               f" km @ {zone_to_display['pace_zone']} Pace"
 
-    analysis = analysis + f" | www.run-together.com"
 
     # Get the score for the most important interval calculated distance pace below / distance total
     # Loop per difficulties-priority eg: Marathon > Jogging

@@ -116,20 +116,7 @@ def get_activity_details(activity_id: int) -> Div:
         children=[
             activity_details,
             html.Div(
-                children=[
-                    activity_analysis,
-                    html.Button(
-                        id='button-update-description-strava',
-                        children=[
-                            html.I(className="fas fa-running",
-                                   style={"padding-right": "8px"}),
-                            "Update Description on Strava",
-                        ],
-                        disabled=False,
-                        className="Button_login",
-                        style={"font-weight": "500"}
-                    ),
-                ],
+                activity_analysis,
                 className="analysis-details-container"
             ),
             dcc.Store(

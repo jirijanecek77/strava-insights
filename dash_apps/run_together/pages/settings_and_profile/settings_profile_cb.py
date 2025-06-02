@@ -2,7 +2,8 @@ from flask import session
 import dash
 from dash import Output, Input, State, html, no_update, dcc
 from dash_extensions.enrich import DashProxy
-from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_method import which_race_button, which_race_distance
+from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_method import which_race_button, \
+    which_race_distance
 from connections.update_data_mongo import update_user_record
 from dash_apps.run_together.utils.conversion import (
     convert_birthday_back, convert_birthday, marathon_pace, calculate_speed_max)
@@ -106,7 +107,7 @@ def settings_profile_cb(dash_app: DashProxy):
                     "name": name,
                     "email": email,
                     "max_bpm": max_bpm}
-                )
+                                   )
                 session["run_together_user"]["max_bpm"] = max_bpm
                 session["run_together_user"]["birthday"] = converted_bd
                 session["run_together_user"]["name"] = name
@@ -137,11 +138,11 @@ def settings_profile_cb(dash_app: DashProxy):
             speed_max = session["run_together_user"].get("speed_max", 0)
             race_distance = session["run_together_user"].get("race_distance", 0)
             target_time = session["run_together_user"].get("target_time", {
-                    "hours": 0, "minutes": 0, "seconds": 0})
+                "hours": 0, "minutes": 0, "seconds": 0})
 
             if (
-                pace == 0 or speed_max == 0 or race_distance == 0 or
-                target_time == {"hours": 0, "minutes": 0, "seconds": 0}
+                    pace == 0 or speed_max == 0 or race_distance == 0 or
+                    target_time == {"hours": 0, "minutes": 0, "seconds": 0}
             ):
                 return '', html.P("Please fill in your target time and click the race you plan to run"), html.P("")
             else:
@@ -169,20 +170,18 @@ def settings_profile_cb(dash_app: DashProxy):
         ctx = dash.callback_context
 
         if not ctx.triggered:
-            button_id = 'No clicks yet'
-            distance = None
             return no_update
-        else:
-            button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-            distance, coefficient = which_race_button(button_id)
+
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        distance, coefficient = which_race_button(button_id)
 
         if hours is None or minutes is None or seconds is None:
-            return html.P("Please fill in all the dropdowns")
+            return html.P("Please fill in all the dropdowns"), no_update, no_update
         else:
             min, sec = marathon_pace(hours, minutes, seconds, distance)
-            pace = min+(sec/60)
+            pace = min + (sec / 60)
 
-            speed_max = calculate_speed_max((min+(sec/60)), coefficient)
+            speed_max = calculate_speed_max((min + (sec / 60)), coefficient)
             race_distance = which_race_distance(button_id)
 
             update_user_record(session, {
@@ -191,8 +190,7 @@ def settings_profile_cb(dash_app: DashProxy):
                 "race_distance": distance,
                 "target_time": {
                     "hours": hours, "minutes": minutes, "seconds": seconds}
-                }
-            )
+            })
             max_bpm = session["run_together_user"]["max_bpm"]
             session["run_together_user"]["target_time"] = (hours, minutes, seconds)
             session["run_together_user"]["speed_max"] = speed_max
