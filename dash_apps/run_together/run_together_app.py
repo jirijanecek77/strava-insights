@@ -121,8 +121,8 @@ def run_together_app(
         # Case: the user click on the previous month on the monthly calendar
         if triggered_id.index == "prev-month":
             # If Month is JAN, update the year to the previous one
-            if session["selected_month"] == "JAN":
-                session["selected_month"] = "DEC"
+            if session["selected_month"] == "JANUARY":
+                session["selected_month"] = "DECEMBER"
                 session["selected_year"] = session["selected_year"] - 1
             # Else get the previous month in the correct format JAN, FEB etc
             else:
@@ -130,7 +130,7 @@ def run_together_app(
                         datetime.strptime(session["selected_month"], "%B").month - 1
                 )
                 session["selected_month"] = datetime.strftime(
-                    date(session["selected_year"], month_number, 1), "%b"
+                    date(session["selected_year"], month_number, 1), "%B"
                 ).upper()
 
             logging.info(
@@ -145,16 +145,16 @@ def run_together_app(
         # Case: the user click on the next month on the monthly calendar
         if triggered_id.index == "next-month":
             # If Month is DEC, update the year to the next one
-            if session["selected_month"] == "DEC":
-                session["selected_month"] = "JAN"
+            if session["selected_month"] == "DECEMBER":
+                session["selected_month"] = "JANUARY"
                 session["selected_year"] = session["selected_year"] + 1
             # Else get the next month in the correct format JAN, FEB et
             else:
                 month_number = (
-                        datetime.strptime(session["selected_month"], "%b").month + 1
+                        datetime.strptime(session["selected_month"], "%B").month + 1
                 )
                 session["selected_month"] = datetime.strftime(
-                    date(session["selected_year"], month_number, 1), "%b"
+                    date(session["selected_year"], month_number, 1), "%B"
                 ).upper()
 
             logging.info(
