@@ -12,7 +12,7 @@ class User:
     def __init__(self, ):
         self.age = calculate_age(session["run_together_user"]["birthday"])
         self.bpm_max = 220 - 0.7 * self.age
-        self.speed_max = session["run_together_user"]["speed_max"]
+        self.speed_max = session["run_together_user"].get("speed_max", 15)
         self.pace_bpm_mapping = self.get_pace_bpm_mapping()
 
     def get_pace_bpm_mapping(self):

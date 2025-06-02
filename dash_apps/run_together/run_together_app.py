@@ -6,7 +6,6 @@ from datetime import datetime, date
 import logging
 import dash_leaflet as dl
 import plotly.graph_objects as go
-from connections.mongodb import MongoConnection
 from typing import Tuple
 
 from dash_apps.run_together.pages.home import get_home_layout

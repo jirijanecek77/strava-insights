@@ -309,7 +309,7 @@ def get_strava_activities_string(activities: BatchedResultsIterator) -> List:
         return data
 
     for activity in activities:
-        my_dict = activity.dict()
+        my_dict = activity.model_dump()
         data.append(
             [activity.id] + [my_dict.get(x) for x in get_strava_activity_column()]
         )

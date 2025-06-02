@@ -8,7 +8,7 @@ from dash_apps.run_together.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:
-    months = list(calendar.month_name).upper()[1:]
+    months = list(map(lambda x: x.upper(), calendar.month_name))[1:]
     return months
 
 
@@ -271,7 +271,7 @@ def get_yearly_calendar(year: int) -> html.Div:
         # Create a dictionary with month abbreviations as keys and aggregated distances as values
         activities_dict = {
             pd.to_datetime(f"{year}-{month}-01")
-            .strftime("%b")
+            .strftime("%B")
             .upper(): {
                 "distance": int(distance),
                 "moving_time": int(divmod(moving_time, 3600)[0]),

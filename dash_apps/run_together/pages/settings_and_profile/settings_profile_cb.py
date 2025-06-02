@@ -2,7 +2,6 @@ from flask import session
 import dash
 from dash import Output, Input, State, html, no_update, dcc
 from dash_extensions.enrich import DashProxy
-import logging
 from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_method import which_race_button, which_race_distance
 from connections.update_data_mongo import update_user_record
 from dash_apps.run_together.utils.conversion import (
