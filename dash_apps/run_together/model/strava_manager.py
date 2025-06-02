@@ -10,7 +10,7 @@ from flask import session
 import requests
 from stravalib.client import Client
 from stravalib.client import BatchedResultsIterator
-from stravalib.model import Athlete, Activity
+from stravalib.model import DetailedAthlete, DetailedActivity
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -50,8 +50,8 @@ class StravaManager:
 
     def __init__(self, session=True):
         """Init Strava CLient"""
-        self.strava_client_id = int(env["stravaClientId"])
-        self.strava_client_secret = env["stravaClientSecret"]
+        self.strava_client_id = int(env["STRAVA_CLIENT_ID"])
+        self.strava_client_secret = env["STRAVA_CLIENT_SECRET"]
         self.strava_activity_column = get_strava_activity_column()
         self.strava_client = Client()
         if session:
@@ -143,7 +143,7 @@ class StravaManager:
 
         return athlete
 
-    def get_athlete(self) -> Athlete:
+    def get_athlete(self) -> DetailedAthlete:
         """
             Get Athlete from  STRAVA API:
             https://developers.strava.com/docs/reference/#api-Athletes
@@ -178,7 +178,7 @@ class StravaManager:
             raise Exception(f"Error: {response.status_code} - {response.text}")
 
         return activity
-    def get_activity(self, activity_id: int) -> Activity:
+    def get_activity(self, activity_id: int) -> DetailedActivity:
         """
             Get Activity from  STRAVA API:
             https://developers.strava.com/docs/reference/#api-activity

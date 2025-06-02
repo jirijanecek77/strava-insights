@@ -1,4 +1,3 @@
-import logging
 from os import environ as env
 from dotenv import load_dotenv
 from flask import Blueprint, render_template
@@ -20,8 +19,8 @@ login_blueprint = Blueprint(
 
 # Load .env file where are stored my strava credential
 load_dotenv()
-strava_client_id = int(env["stravaClientId"])
-strava_client_secret = env["stravaClientSecret"]
+strava_client_id = int(env["STRAVA_CLIENT_ID"])
+strava_client_secret = env["STRAVA_CLIENT_SECRET"]
 web_app_url = env["web_app_url"]
 
 # Strava Lib Client
@@ -42,7 +41,7 @@ def landing():
         scope=["read_all", "profile:read_all", "activity:read_all", "activity:write"],
     )
     logging.info(f"Login Completed, authorize_url: {authorize_url}")
-    
+
     return render_template("login.html", authorize_url=authorize_url)
 
 
