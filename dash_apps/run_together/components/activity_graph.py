@@ -1,10 +1,11 @@
-from dash import html
+import dash_mantine_components as dmc
 import plotly.graph_objects as go
 from dash import dcc
-import dash_mantine_components as dmc
+from dash import html
 from dash.html import Div
-from dash_apps.run_together.utils.colors import Colors
+
 from dash_apps.run_together.model.extended_activity import ExtendedActivity
+from dash_apps.run_together.utils.colors import Colors
 from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
 
 
@@ -78,6 +79,21 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
         )
     )
 
+    fig.add_trace(
+        go.Scatter(
+            x=extended_activity.extended_stream["distance_km"],
+            y=extended_activity.elevation_gain,
+            name="Elevation (m)",
+            mode="lines",
+            line=dict(color=Colors.gray, width=2),
+            hovertemplate="Elevation: %{customdata} m<extra></extra>",
+            customdata=[int(x) for x in extended_activity.elevation_gain],
+            fill="tozeroy",
+            fillcolor="rgba(200,200,200,0.3)",  # Light gray with transparency
+            yaxis="y3",
+        )
+    )
+
     # Add background color and labels for each pace zone
     shapes = []
 
@@ -125,6 +141,17 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             ticktext=[int(x) for x in y_bpm_axis],
             range=[max(zone), min(zone)],
         ),
+        yaxis3=dict(
+            side="right",
+            showgrid=False,
+            overlaying="y",
+            anchor="free",
+            position=0,
+            range=[
+                min(extended_activity.elevation_gain),
+                max(extended_activity.elevation_gain),
+            ],
+        ),
         hovermode="x unified",
         plot_bgcolor="rgba(0,0,0,0)",
         legend=dict(
@@ -136,9 +163,8 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             t=30,
             r=5,
             l=5,
-            b=5,
+            b=20,
             pad=15,  # padding y-axis and the graph
-            # autoexpand=False
         ),
     )
 

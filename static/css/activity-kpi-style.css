@@ -1,27 +1,27 @@
 /* CSS for the Grid */
 .card_grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-gap: 15px;
-  margin: 0 auto; /* Center the grid horizontally */
-  padding-top: 20px;
-  padding-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-gap: 15px;
+    margin: 0 auto; /* Center the grid horizontally */
+    padding-top: 20px;
+    padding-bottom: 20px;
 
 }
 
 /* CSS for the Race Columns */
 .kpi-icons {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: #99CC66; /* Set background color */
-  padding: 10px;
-  border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #99CC66; /* Set background color */
+    padding: 10px;
+    border-radius: 10px;
 }
 
 /* CSS for the Icons */
 .kpi-icons .fas {
-  font-size: 24px;
-  margin-bottom: 10px;
+    font-size: 24px;
+    margin-bottom: 10px;
 }

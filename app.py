@@ -1,14 +1,18 @@
-from blueprints.login.login import login_blueprint
-from dash_apps.run_together.run_together_app import run_together_app
-from dash_apps.run_together.pages.first_login_page.first_login_page_cb import first_login_cb
-from dash_apps.run_together.pages.settings_and_profile.settings_profile_cb import settings_profile_cb
-from blueprints.login.aad import authorisation
+from os import environ as env
 
 import dash_bootstrap_components as dbc
-from os import environ as env
-from flask import Flask, session
 from dash_extensions.enrich import DashProxy, MultiplexerTransform
+from flask import Flask, session
 
+from blueprints.login.aad import authorisation
+from blueprints.login.login import login_blueprint
+from dash_apps.run_together.pages.first_login_page.first_login_page_cb import (
+    first_login_cb,
+)
+from dash_apps.run_together.pages.settings_and_profile.settings_profile_cb import (
+    settings_profile_cb,
+)
+from dash_apps.run_together.run_together_app import run_together_app
 
 # python -m run_together.app
 
@@ -22,7 +26,7 @@ app.register_blueprint(login_blueprint)
 external_stylesheets = [
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css",
     "./static/css/style.css",
-    dbc.themes.BOOTSTRAP # Add the path to style.css
+    dbc.themes.BOOTSTRAP,  # Add the path to style.css
 ]
 
 # Adding the Tailwind CSS script in the application setup
@@ -59,4 +63,4 @@ settings_profile_cb(dash_app=dash_app)
 # For the deployment of the application locally
 if __name__ == "__main__":
     # Run the Flask app when the script is executed
-    app.run(host="0.0.0.0", port=8502, debug=True, use_reloader=True)  # 
+    app.run(host="0.0.0.0", port=8502, debug=True, use_reloader=True)  #

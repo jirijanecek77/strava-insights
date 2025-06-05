@@ -1,15 +1,15 @@
-import pandas as pd
-import stravalib.exc
-from dotenv import load_dotenv
+import logging
 from datetime import datetime, timedelta, date
 from os import environ as env
-import logging
 from typing import List
-from flask import session
 
+import pandas as pd
 import requests
-from stravalib.client import Client
+import stravalib.exc
+from dotenv import load_dotenv
+from flask import session
 from stravalib.client import BatchedResultsIterator
+from stravalib.client import Client
 from stravalib.model import DetailedAthlete, DetailedActivity
 
 logging.basicConfig(
@@ -156,7 +156,6 @@ class StravaManager:
         athlete = self.strava_client.get_athlete()
         return athlete
 
-
     def get_activity(self, activity_id: int) -> DetailedActivity:
         """
             Get Activity from  STRAVA API:
@@ -194,7 +193,7 @@ class StravaManager:
 
         url = (
             f"https://www.strava.com/api/v3/activities/{activity_id}/"
-            f"streams?keys=time,heartrate,latlng&key_by_type=true"
+            f"streams?keys=time,heartrate,latlng,altitude&key_by_type=true"
         )
 
         headers = {"Authorization": f"Bearer {self.strava_client.access_token}"}

@@ -1,13 +1,10 @@
 from dash_apps.run_together.model.strava_manager import StravaManager
-
+from dash_apps.run_together.model.user import User
 from dash_apps.run_together.utils.conversion import calculate_pace
 from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
 from dash_apps.run_together.utils.conversion import moving_average
 from dash_apps.run_together.utils.conversion import normalize_value
-
 from dash_apps.run_together.utils.interval import get_bpm_pace_zone_intervals
-
-from dash_apps.run_together.model.user import User
 
 
 class ExtendedActivity:
@@ -17,13 +14,12 @@ class ExtendedActivity:
         - Stream Data rom Activity Model of Strava Manager
         - Normalized & other data needed not available in the Strava Manager
     """
+
     def __init__(self, activity_id: int):
         # Get Data Available in the Strava Manager
         self.activity_id = activity_id
         self.strava_manager = StravaManager()
-        self.activity = self.strava_manager.get_activity(
-            activity_id=activity_id
-        )
+        self.activity = self.strava_manager.get_activity(activity_id=activity_id)
         self.user = User()
         # Extend the stream to have distance in km
         self.extended_stream = self.get_extended_stream()
@@ -31,8 +27,7 @@ class ExtendedActivity:
         # Get an average to have a smoother visualisation
         # TODO Find the best fit for n depending on the number of points got by the user devise
         self.moving_average_heartrate = moving_average(
-            data=self.extended_stream['heartrate']['data'],
-            range_points=10
+            data=self.extended_stream["heartrate"]["data"], range_points=10
         )
 
         # Get The pace since we have only the distance and time
@@ -40,14 +35,18 @@ class ExtendedActivity:
         self.moving_average_pace = self.get_moving_average_pace(
             range_points=self.range_points_pace
         )
-        self.intervals_moving_average_pace_zone = self.get_intervals_moving_average_pace_zone()
+        self.intervals_moving_average_pace_zone = (
+            self.get_intervals_moving_average_pace_zone()
+        )
+
+        self.elevation_gain = self.extended_stream["altitude"]["data"]
 
         # Get The normalize value based on the user setting
         self.normalized_moving_average_heartrate = [
             normalize_value(
                 value=x,
-                original_range=[x['bpm'] for x in self.user.pace_bpm_mapping.values()],
-                target_range=list(range(len(self.user.pace_bpm_mapping.values())))
+                original_range=[x["bpm"] for x in self.user.pace_bpm_mapping.values()],
+                target_range=list(range(len(self.user.pace_bpm_mapping.values()))),
             )
             for x in self.moving_average_heartrate
         ]
@@ -56,10 +55,10 @@ class ExtendedActivity:
         self.normalized_moving_average_pace = [
             normalize_value(
                 value=x,
-                original_range=[x['pace'] for x in self.user.pace_bpm_mapping.values()],
-                target_range=list(range(len(self.user.pace_bpm_mapping.values())))
+                original_range=[x["pace"] for x in self.user.pace_bpm_mapping.values()],
+                target_range=list(range(len(self.user.pace_bpm_mapping.values()))),
             )
-            for x in self.moving_average_pace['minute_per_km']
+            for x in self.moving_average_pace["minute_per_km"]
         ]
 
     def get_extended_stream(self):
@@ -68,8 +67,7 @@ class ExtendedActivity:
             activity_id=self.activity_id
         )
         extended_activity_stream["distance_km"] = [
-            x / 1000
-            for x in extended_activity_stream["distance"]["data"]
+            x / 1000 for x in extended_activity_stream["distance"]["data"]
         ]
         return extended_activity_stream
 
@@ -95,17 +93,16 @@ class ExtendedActivity:
         """
         # Get also the pace in both format (MM.2f use for the real y value and MM:SS for the better display)
         moving_average_pace = {
-            'minute_per_km': calculate_pace(
-                seconds=self.extended_stream['time']['data'][0:],
-                distances=self.extended_stream['distance']['data'][0:],
+            "minute_per_km": calculate_pace(
+                seconds=self.extended_stream["time"]["data"][0:],
+                distances=self.extended_stream["distance"]["data"][0:],
                 range_points=range_points,
             )
         }
 
         # Get the moving in the format MM:SS
-        moving_average_pace['minute_second_per_km'] = [
-            convert_min_to_min_sec(x)
-            for x in moving_average_pace['minute_per_km']
+        moving_average_pace["minute_second_per_km"] = [
+            convert_min_to_min_sec(x) for x in moving_average_pace["minute_per_km"]
         ]
 
         return moving_average_pace
@@ -113,9 +110,9 @@ class ExtendedActivity:
     def get_intervals_moving_average_pace_zone(self):
 
         bpm_pace_zone_intervals = get_bpm_pace_zone_intervals(
-            distance_km=self.extended_stream['distance_km'],
-            paces=self.moving_average_pace['minute_per_km'],
+            distance_km=self.extended_stream["distance_km"],
+            paces=self.moving_average_pace["minute_per_km"],
             heart_rates=self.moving_average_heartrate,
-            pace_bpm_mapping=self.user.get_pace_bpm_mapping()
+            pace_bpm_mapping=self.user.get_pace_bpm_mapping(),
         )
         return bpm_pace_zone_intervals

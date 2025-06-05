@@ -1,10 +1,10 @@
-from dash import html
 from typing import List
 
-from dash_apps.run_together.utils.conversion import speed_to_pace
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
+from dash import html
 
 from dash_apps.run_together.model.extended_activity import ExtendedActivity
+from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
+from dash_apps.run_together.utils.conversion import speed_to_pace
 
 
 def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
@@ -21,12 +21,12 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
         children=[
             html.Div(
                 children=[
-                    html.I(className="fas fa-heart"),
+                    html.I(className="fas fa-route"),
                     html.Div(
-                        children=f"{extended_activity.activity['average_heartrate']}",
-                        id="bpm-kpi",
+                        children=f"{round(extended_activity.activity['distance'] / 1000, 2)}",
+                        id="distance-kpi",
                     ),
-                    f"bpm",
+                    f"km",
                 ],
                 className="kpi-icons",
             ),
@@ -43,12 +43,23 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
             ),
             html.Div(
                 children=[
-                    html.I(className="fas fa-route"),
+                    html.I(className="fas fa-chart-line"),
                     html.Div(
-                        children=f"{round(extended_activity.activity['distance'] / 1000, 2)}",
-                        id="distance-kpi",
+                        children=f"{extended_activity.activity['total_elevation_gain']}",
+                        id="elevation-kpi",
                     ),
-                    f"km",
+                    f"m",
+                ],
+                className="kpi-icons",
+            ),
+            html.Div(
+                children=[
+                    html.I(className="fas fa-heart"),
+                    html.Div(
+                        children=f"{extended_activity.activity['average_heartrate']}",
+                        id="bpm-kpi",
+                    ),
+                    f"bpm",
                 ],
                 className="kpi-icons",
             ),

@@ -1,36 +1,37 @@
+import logging
+from datetime import datetime, date
+from typing import Tuple
+
 import dash
+import dash_leaflet as dl
+import plotly.graph_objects as go
 from dash import Input, Output, ctx, ALL, no_update, State
 from dash_extensions.enrich import DashProxy
 from flask import session
-from datetime import datetime, date
-import logging
-import dash_leaflet as dl
-import plotly.graph_objects as go
-from typing import Tuple
 
-from dash_apps.run_together.pages.home import get_home_layout
-
-from dash_apps.run_together.utils.activity_update_manager import update_graph_moving_average_pace
-
+from dash_apps.run_together.components.activity_details import get_activity_details
 from dash_apps.run_together.components.calendar_training import get_monthly_calendar
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
-from dash_apps.run_together.components.activity_details import get_activity_details
+from dash_apps.run_together.pages.home import get_home_layout
+from dash_apps.run_together.utils.activity_update_manager import (
+    update_graph_moving_average_pace,
+)
 
 
 def run_together_app(
-        dash_app: DashProxy,
-        app_path: str,
+    dash_app: DashProxy,
+    app_path: str,
 ) -> object:
     dash.register_page(__name__, layout=get_home_layout, path=app_path)
 
     @dash_app.callback(
-        Output('url', 'href'),
-        Input('profile-picture', 'n_clicks'),
-        prevent_initial_call=True
+        Output("url", "href"),
+        Input("profile-picture", "n_clicks"),
+        prevent_initial_call=True,
     )
     def go_to_settings(n_clicks):
         if n_clicks > 0:
-            return '/settings'
+            return "/settings"
         return no_update, no_update
 
     @dash_app.callback(
@@ -96,8 +97,8 @@ def run_together_app(
         prevent_initial_call=True,
     )
     def update_calendar_training_container(
-            month_n_clicks,
-            calendar_n_clicks,
+        month_n_clicks,
+        calendar_n_clicks,
     ):
         triggered_id = ctx.triggered_id
 
@@ -124,7 +125,7 @@ def run_together_app(
             # Else get the previous month in the correct format JAN, FEB etc
             else:
                 month_number = (
-                        datetime.strptime(session["selected_month"], "%B").month - 1
+                    datetime.strptime(session["selected_month"], "%B").month - 1
                 )
                 session["selected_month"] = datetime.strftime(
                     date(session["selected_year"], month_number, 1), "%B"
@@ -148,7 +149,7 @@ def run_together_app(
             # Else get the next month in the correct format JAN, FEB et
             else:
                 month_number = (
-                        datetime.strptime(session["selected_month"], "%B").month + 1
+                    datetime.strptime(session["selected_month"], "%B").month + 1
                 )
                 session["selected_month"] = datetime.strftime(
                     date(session["selected_year"], month_number, 1), "%B"
@@ -192,26 +193,22 @@ def run_together_app(
     @dash_app.callback(
         Output("activity-graph", "figure"),
         Output("moving-average-stream", "data"),
-
         Output("bpm-kpi", "children"),
         Output("pace-kpi", "children"),
         Output("distance-kpi", "children"),
-
         Input("range-slider-pace", "value"),
-
         Input("extended-stream", "data"),
         Input("bpm-pace-mapping", "data"),
         Input("kpi-bpm-pace-distance-activity", "data"),
-
-        State('activity-graph', 'figure'),
+        State("activity-graph", "figure"),
         prevent_initial_call=True,
     )
     def update_calendar_training_container_new(
-            range_slider_pace: int,
-            extended_stream: dict,
-            pace_bpm_mapping: dict,
-            kpi_bpm_pace_distance_activity: Tuple,
-            figure: go.Figure,
+        range_slider_pace: int,
+        extended_stream: dict,
+        pace_bpm_mapping: dict,
+        kpi_bpm_pace_distance_activity: Tuple,
+        figure: go.Figure,
     ):
         triggered_id = ctx.triggered_id
 
@@ -227,5 +224,5 @@ def run_together_app(
                 extended_stream=extended_stream,
                 pace_bpm_mapping=pace_bpm_mapping,
                 kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity,
-                figure=figure
+                figure=figure,
             )
