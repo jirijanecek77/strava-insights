@@ -14,7 +14,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
 
     :param activities_df:
     :return:
-"""
+    """
 
     # Second row with three columns and icons
     kpi_icons = html.Div(
@@ -24,7 +24,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                     html.I(className="fas fa-heart"),
                     html.Div(
                         children=f"{extended_activity.activity['average_heartrate']}",
-                        id="bpm-kpi"
+                        id="bpm-kpi",
                     ),
                     f"bpm",
                 ],
@@ -35,7 +35,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                     html.I(className="fas fa-tachometer-alt"),
                     html.Div(
                         children=f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}",
-                        id="pace-kpi"
+                        id="pace-kpi",
                     ),
                     f"min/km",
                 ],
@@ -46,7 +46,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                     html.I(className="fas fa-route"),
                     html.Div(
                         children=f"{round(extended_activity.activity['distance'] / 1000, 2)}",
-                        id="distance-kpi"
+                        id="distance-kpi",
                     ),
                     f"km",
                 ],

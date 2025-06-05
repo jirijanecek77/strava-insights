@@ -11,9 +11,6 @@ from typing import Tuple
 from dash_apps.run_together.pages.home import get_home_layout
 
 from dash_apps.run_together.utils.activity_update_manager import update_graph_moving_average_pace
-from dash_apps.run_together.utils.activity_update_manager import update_graph_display_interval
-from dash_apps.run_together.utils.activity_update_manager import update_graph_display_jogging
-from dash_apps.run_together.utils.activity_update_manager import update_graph_display_all
 
 from dash_apps.run_together.components.calendar_training import get_monthly_calendar
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
@@ -200,15 +197,7 @@ def run_together_app(
         Output("pace-kpi", "children"),
         Output("distance-kpi", "children"),
 
-        Output("button-display-interval", "disabled"),  # Case to display the working interval
-        Output("button-display-jogging", "disabled"),  # Case to display the working interval
-        Output("button-display-all", "disabled"),  # Case to display the working interval
-
         Input("range-slider-pace", "value"),
-
-        Input("button-display-interval", "n_clicks"),  # Case to display the working interval
-        Input("button-display-jogging", "n_clicks"),  # Case to display the working interval
-        Input("button-display-all", "n_clicks"),  # Case to display the working interval
 
         Input("extended-stream", "data"),
         Input("bpm-pace-mapping", "data"),
@@ -219,14 +208,9 @@ def run_together_app(
     )
     def update_calendar_training_container_new(
             range_slider_pace: int,
-            button_interval_n_clicks,
-            button_jogging_n_clicks,
-            button_all_n_clicks,
-
             extended_stream: dict,
             pace_bpm_mapping: dict,
             kpi_bpm_pace_distance_activity: Tuple,
-
             figure: go.Figure,
     ):
         triggered_id = ctx.triggered_id
@@ -244,30 +228,4 @@ def run_together_app(
                 pace_bpm_mapping=pace_bpm_mapping,
                 kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity,
                 figure=figure
-            )
-
-        if triggered_id == "button-display-interval":
-            logging.info(
-                f"User Action: Update Graph, Display intervals"
-            )
-            return update_graph_display_interval(
-                figure=figure
-            )
-
-        if triggered_id == "button-display-jogging":
-            logging.info(
-                f"User Action: Update Graph, Display Jogging"
-            )
-            return update_graph_display_jogging(
-                figure=figure
-            )
-
-        if triggered_id == "button-display-all":
-            logging.info(
-                f"User Action: Update Graph, Display All"
-            )
-            return update_graph_display_all(
-                figure=figure,
-                extended_stream=extended_stream,
-                kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity
             )

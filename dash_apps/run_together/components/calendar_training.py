@@ -18,9 +18,9 @@ def normalize(value: int, max_value: int) -> float:
     min_range = 40  # Minimum value in the desired range
     max_range = 140  # Maximum value in the desired range
     return (
-            (value - min_value) / (max_value - min_value) * (max_range - min_range)
-            + min_range
-            - 2
+        (value - min_value) / (max_value - min_value) * (max_range - min_range)
+        + min_range
+        - 2
     )
 
 
@@ -118,7 +118,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
         calendar_day_head.append(
             html.Th(
                 className="p-2 border-r h-10 xl:w-40 lg:w-30 md:w-30 "
-                          "sm:w-20 w-10 xl:text-sm text-xs",
+                "sm:w-20 w-10 xl:text-sm text-xs",
                 children=[
                     html.Span(
                         className="xl:block lg:block md:block sm:block hidden",
@@ -144,7 +144,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
             # Extract activities for the current day
             day_activities = week_data[
                 (week_data.day == day) & (~week_data.id.isna())
-                ].copy()
+            ].copy()
             activity_div = []
 
             if len(day_activities) > 0:
@@ -171,11 +171,11 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
             week_rows.append(
                 html.Td(
                     className="border p-1 h-28 xl:w-40 lg:w-30 md:w-30 sm:w-20 w-10 "
-                              "overflow-auto transition cursor-pointer duration-500 ease hover:bg-gray-300",
+                    "overflow-auto transition cursor-pointer duration-500 ease hover:bg-gray-300",
                     children=[
                         html.Div(
                             className="flex flex-col h-28 mx-auto xl:w-40 lg:w-30 md:w-30 "
-                                      "sm:w-full w-10 mx-auto overflow-hidden",
+                            "sm:w-full w-10 mx-auto overflow-hidden",
                             children=[
                                 # Top part with day name
                                 html.Div(
@@ -235,7 +235,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
         html.Button(
             f"""{year}""",
             id={"type": "calendar-btn", "index": "back-yearly-calendar"},
-            className="h3"
+            className="h3",
         ),
         month_calendar,
     ]
@@ -359,10 +359,10 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Create the overall calendar container with navigation buttons and rows
     calendar_container = html.Div(
         children=[
-                     html.Div(children=" "),
-                     year_selector,
-                 ]
-                 + rows,
+            html.Div(children=" "),
+            year_selector,
+        ]
+        + rows,
     )
 
     return calendar_container
