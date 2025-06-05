@@ -18,9 +18,9 @@ def normalize(value: int, max_value: int) -> float:
     min_range = 40  # Minimum value in the desired range
     max_range = 140  # Maximum value in the desired range
     return (
-        (value - min_value) / (max_value - min_value) * (max_range - min_range)
-        + min_range
-        - 2
+            (value - min_value) / (max_value - min_value) * (max_range - min_range)
+            + min_range
+            - 2
     )
 
 
@@ -144,7 +144,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
             # Extract activities for the current day
             day_activities = week_data[
                 (week_data.day == day) & (~week_data.id.isna())
-            ].copy()
+                ].copy()
             activity_div = []
 
             if len(day_activities) > 0:
@@ -171,11 +171,11 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
             week_rows.append(
                 html.Td(
                     className="border p-1 h-28 xl:w-40 lg:w-30 md:w-30 sm:w-20 w-10 "
-                    "overflow-auto transition cursor-pointer duration-500 ease hover:bg-gray-300",
+                              "overflow-auto transition cursor-pointer duration-500 ease hover:bg-gray-300",
                     children=[
                         html.Div(
                             className="flex flex-col h-28 mx-auto xl:w-40 lg:w-30 md:w-30 "
-                            "sm:w-full w-10 mx-auto overflow-hidden",
+                                      "sm:w-full w-10 mx-auto overflow-hidden",
                             children=[
                                 # Top part with day name
                                 html.Div(
@@ -256,8 +256,12 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Group the DataFrame by 'year' and 'month_of_year', then sum the 'distance_km' for each group
     monthly_totals = (
         activities_df[activities_df.year == year]
-        .groupby(["year", "month_of_year"])[["distance_km", "moving_time"]]
-        .sum()
+        .groupby(["year", "month_of_year"])
+        .agg(
+            distance_km=("distance_km", "sum"),
+            moving_time=("moving_time", "sum"),
+            activity_count=("id", "count"),
+        )
         .reset_index()
     )
 
@@ -275,12 +279,14 @@ def get_yearly_calendar(year: int) -> html.Div:
             .upper(): {
                 "distance": int(distance),
                 "moving_time": int(divmod(moving_time, 3600)[0]),
+                "activity_count": int(activity_count),
             }
-            for year, month, distance, moving_time in zip(
+            for year, month, distance, moving_time, activity_count in zip(
                 monthly_totals["year"],
                 monthly_totals["month_of_year"],
                 monthly_totals["distance_km"],
                 monthly_totals["moving_time"],
+                monthly_totals["activity_count"],
             )
         }
 
@@ -302,6 +308,7 @@ def get_yearly_calendar(year: int) -> html.Div:
                 # Set up variables for distance and time run
                 distance_run = activities_dict[month_name]["distance"]
                 time_run = activities_dict[month_name]["moving_time"]
+                nr_runs = activities_dict[month_name]["activity_count"]
 
                 # Normalize circle size based on distance run
                 circle_size = normalize(value=distance_run, max_value=max_value)
@@ -311,6 +318,7 @@ def get_yearly_calendar(year: int) -> html.Div:
                 label_hours_run = ""
                 circle_size = 10
                 time_run = 0
+                nr_runs = 0
 
             # Create a calendar square with a button
             square = html.Button(
@@ -321,7 +329,6 @@ def get_yearly_calendar(year: int) -> html.Div:
                 },  # Unique ID for each button
                 children=[
                     html.Div(className="month-name", children=month_name),
-                    html.Div(className="month-hours", children=f"{time_run} Hours"),
                     html.Div(
                         className="yearly-calendar-circle",
                         children=label_hours_run,
@@ -329,6 +336,8 @@ def get_yearly_calendar(year: int) -> html.Div:
                             "width": f"{circle_size}px",
                         },
                     ),
+                    html.Div(className="month-hours", children=f"{time_run} Hours"),
+                    html.Div(className="month-count", children=f"{nr_runs} Runs"),
                 ],
             )
             row_children.append(square)
@@ -350,10 +359,10 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Create the overall calendar container with navigation buttons and rows
     calendar_container = html.Div(
         children=[
-            html.Div(children=" "),
-            year_selector,
-        ]
-        + rows,
+                     html.Div(children=" "),
+                     year_selector,
+                 ]
+                 + rows,
     )
 
     return calendar_container
