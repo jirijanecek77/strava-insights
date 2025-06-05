@@ -1,13 +1,15 @@
-from os import environ as env
-from dotenv import load_dotenv
-from flask import Blueprint, render_template
-from stravalib import client
-from flask import request, redirect, session
 import logging
 import time
 from datetime import datetime
-from dash_apps.run_together.model.strava_manager import StravaManager
+from os import environ as env
+
+from dotenv import load_dotenv
+from flask import Blueprint, render_template
+from flask import request, redirect, session
+from stravalib import client
+
 from connections.fetch_data_mongo import find_user_by_strava_id
+from dash_apps.run_together.model.strava_manager import StravaManager
 
 # Create the Blueprint Login
 login_blueprint = Blueprint(
@@ -21,7 +23,8 @@ login_blueprint = Blueprint(
 load_dotenv()
 strava_client_id = int(env["STRAVA_CLIENT_ID"])
 strava_client_secret = env["STRAVA_CLIENT_SECRET"]
-web_app_url = env["web_app_url"]
+web_app_url = env["WEB_APP_URL"]
+mapy_cz_api_key = env["MAPY_CZ_API_KEY"]
 
 # Strava Lib Client
 client = client.Client()
@@ -65,29 +68,29 @@ def strava_callback():
     # no token yet associate to the session
     # TODO: move the below logic into a method
     if "expires_at" not in session:
-        logging.info('running generate token from login')
+        logging.info("running generate token from login")
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     # token expired
     elif time.time() > session["expires_at"]:
-        logging.info('running else generate token from login')
+        logging.info("running else generate token from login")
         strava_manager.generate_token_response(strava_code=session["strava_code"])
     else:
         strava_manager.set_token_from_session()
 
     session["selected_year"] = datetime.now().year
-    session["selected_month"] = datetime.now().strftime('%B').upper()
+    session["selected_month"] = datetime.now().strftime("%B").upper()
 
     # Add in the session the current athlete
     athlete = strava_manager.get_athlete_v2()
-    session['athlete'] = athlete
+    session["athlete"] = athlete
 
     # Check if StravaId already exists in MongoDB
-    user = find_user_by_strava_id(strava_id=athlete['id'])
+    user = find_user_by_strava_id(strava_id=athlete["id"])
 
     if user:
         logging.info("User already registered, redirect to home page")
-        user['_id'] = str(user['_id'])
-        session['run_together_user'] = user
+        user["_id"] = str(user["_id"])
+        session["run_together_user"] = user
         session.modified = True
         return redirect("/home")
     else:

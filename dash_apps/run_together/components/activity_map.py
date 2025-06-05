@@ -1,5 +1,6 @@
 import dash_leaflet as dl
 
+from blueprints.login.login import mapy_cz_api_key
 from dash_apps.run_together.model.extended_activity import ExtendedActivity
 
 
@@ -29,12 +30,14 @@ def get_activity_map(extended_activity: ExtendedActivity) -> dl.Map:
         [max_latitude, max_longitude],  # North East
     ]
 
-    # https://leaflet-extras.github.io/leaflet-providers/preview/
-    url = "https://tiles.stadiamaps.com/tiles/outdoors/{z}/{x}/{y}{r}.png"
+    url = (
+        "https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey="
+        + mapy_cz_api_key
+    )
 
     activity_map = dl.Map(
         id={"type": "activity-map", "index": extended_activity.activity_id},
-        style={"height": "30vh"},
+        style={"height": "40vh"},
         bounds=bounds_points,
         children=[
             dl.TileLayer(

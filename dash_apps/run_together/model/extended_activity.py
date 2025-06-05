@@ -2,7 +2,6 @@ from dash_apps.run_together.model.strava_manager import StravaManager
 from dash_apps.run_together.model.user import User
 from dash_apps.run_together.utils.conversion import calculate_pace
 from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
-from dash_apps.run_together.utils.conversion import moving_average
 from dash_apps.run_together.utils.conversion import normalize_value
 from dash_apps.run_together.utils.interval import get_bpm_pace_zone_intervals
 
@@ -25,10 +24,7 @@ class ExtendedActivity:
         self.extended_stream = self.get_extended_stream()
 
         # Get an average to have a smoother visualisation
-        # TODO Find the best fit for n depending on the number of points got by the user devise
-        self.moving_average_heartrate = moving_average(
-            data=self.extended_stream["heartrate"]["data"], range_points=10
-        )
+        self.moving_average_heartrate = self.extended_stream["heartrate"]["data"]
 
         # Get The pace since we have only the distance and time
         self.range_points_pace = 20

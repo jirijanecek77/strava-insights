@@ -110,7 +110,7 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
                 x1=1,
                 y1=i + 1 - 0.5,
                 fillcolor=colors[i],
-                opacity=0.8,
+                opacity=0.5,
                 layer="below",
                 line_width=0,
             )
@@ -118,7 +118,6 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
 
     # Update layout
     fig.update_layout(
-        # title="<b> Pace & Heart rate <b>",
         xaxis=dict(
             title="<b>Distance</b> (km)",
         ),
@@ -154,16 +153,13 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
         ),
         hovermode="x unified",
         plot_bgcolor="rgba(0,0,0,0)",
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-        ),
+        legend=dict(orientation="h", yanchor="top", y=-0.15),
         shapes=shapes,  # Add shapes to the layout
         margin=dict(
             t=30,
             r=5,
             l=5,
-            b=20,
+            b=5,
             pad=15,  # padding y-axis and the graph
         ),
     )

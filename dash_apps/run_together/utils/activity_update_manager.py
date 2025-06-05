@@ -1,32 +1,21 @@
-import logging
-
-import dash
-import plotly.graph_objects as go
-from typing import List, Tuple
 from statistics import mean
+from typing import List
 
-from dash_apps.run_together.utils.conversion import normalize_value
-from dash_apps.run_together.utils.conversion import calculate_pace
+import plotly.graph_objects as go
+
 from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
-from dash_apps.run_together.utils.conversion import convert_min_sec_to_min
-
-from dash_apps.run_together.utils.interval import extract_intervals
-from dash_apps.run_together.utils.interval import get_kpi_interval
 
 
-def add_interval_figure(
-        figure: go.Figure,
-        intervals: List[dict]
-):
+def add_interval_figure(figure: go.Figure, intervals: List[dict]):
     for interval in intervals:
         # if interval['reason'] == 'Kept':
-        figure['layout']['shapes'].append(
+        figure["layout"]["shapes"].append(
             dict(
-                id='interval',
+                id="interval",
                 type="rect",
-                x0=min(interval['distance_km']),
+                x0=min(interval["distance_km"]),
                 y0=0,
-                x1=max(interval['distance_km']),
+                x1=max(interval["distance_km"]),
                 y1=7,
                 line_width=0,
                 layer="below",
@@ -35,78 +24,33 @@ def add_interval_figure(
             )
         )
 
-        distance = round(max(interval['distance_km']) - min(interval['distance_km']), 2)
-        pace = convert_min_to_min_sec(mean(interval['pace']))
+        distance = round(max(interval["distance_km"]) - min(interval["distance_km"]), 2)
+        pace = convert_min_to_min_sec(mean(interval["pace"]))
 
-        figure['layout']['annotations'].append(
+        figure["layout"]["annotations"].append(
             dict(
-                x=(min(interval['distance_km']) + max(interval['distance_km'])) / 2,
+                x=(min(interval["distance_km"]) + max(interval["distance_km"])) / 2,
                 # Place the annotation in the middle of the interval
                 y=7,  # Adjust the y position as needed
                 text=f"<b>Distance:</b> {distance} km<br>"
-                     f"<b>Pace:</b> {pace} min/km",
+                f"<b>Pace:</b> {pace} min/km",
                 showarrow=False,
                 font=dict(size=15),
                 xanchor="center",
-                yanchor="bottom"
+                yanchor="bottom",
             )
         )
     return figure
 
 
 def reset_annotation_and_shapes(
-        figure: go.Figure,
+    figure: go.Figure,
 ):
     # If not annotation we need to initiate it
-    figure['layout']['annotations'] = []
+    figure["layout"]["annotations"] = []
 
     # Drop all te previous shapes build if user click multiple times on analyze
-    figure['layout']['shapes'] = [
-        shape for shape in figure['layout']['shapes']
-        if shape.get('id') != 'interval'
+    figure["layout"]["shapes"] = [
+        shape for shape in figure["layout"]["shapes"] if shape.get("id") != "interval"
     ]
     return figure
-
-
-def update_graph_moving_average_pace(
-        range_slider_pace: int,
-        extended_stream: dict,
-        pace_bpm_mapping: dict,
-        kpi_bpm_pace_distance_activity: Tuple,
-        figure: go.Figure,
-):
-    figure = reset_annotation_and_shapes(figure=figure)
-
-    # Get the new pace with the new range slider input
-    moving_average_pace = {
-        'minute_per_km': calculate_pace(
-            seconds=extended_stream['time']['data'][0:],
-            distances=extended_stream['distance']['data'][0:],
-            range_points=range_slider_pace,
-        )
-    }
-
-    moving_average_pace['minute_second_per_km'] = [
-        convert_min_to_min_sec(x)
-        for x in moving_average_pace['minute_per_km']
-    ]
-
-    # Normalize it based on the user information
-    normalized_moving_average_pace = [
-        normalize_value(
-            value=x,
-            original_range=[x['pace'] for x in pace_bpm_mapping.values()],
-            target_range=list(range(len(pace_bpm_mapping.values())))
-        )
-        for x in moving_average_pace['minute_per_km']
-    ]
-
-    # Update the graph
-    figure['data'][0]['x'] = extended_stream["distance_km"]
-    figure['data'][0]['y'] = normalized_moving_average_pace
-    figure['data'][0]['customdata'] = moving_average_pace['minute_second_per_km']
-
-    return figure, moving_average_pace, \
-        kpi_bpm_pace_distance_activity[0], \
-        kpi_bpm_pace_distance_activity[1], \
-        kpi_bpm_pace_distance_activity[2]

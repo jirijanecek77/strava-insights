@@ -34,15 +34,6 @@ def get_activity_details(activity_id: int) -> Div:
     # Get activity map component
     activity_map = get_activity_map(extended_activity=extended_activity)
 
-    range_slider = dcc.Slider(
-        id="range-slider-pace",
-        min=10,
-        max=80,
-        step=1,
-        value=extended_activity.range_points_pace,
-        marks={10: "10", 50: "50", 90: "90"},
-    )
-
     activity_analysis = get_activity_analysis(extended_activity=extended_activity)
 
     # Create the activity Details with two columns
@@ -62,15 +53,11 @@ def get_activity_details(activity_id: int) -> Div:
                             dbc.Row(activity_kpi),
                             dbc.Row(activity_map, className="mb-2"),
                         ],
-                        width=3,
+                        width=4,
                     ),
-                    dbc.Col(
-                        [
-                            dbc.Row(activity_graph),
-                            dbc.Row(range_slider, className="mx-8"),
-                        ]
-                    ),
-                ]
+                    dbc.Col(activity_graph),
+                ],
+                className="mb-3",
             ),
             dbc.Row(activity_analysis),
             dcc.Store(

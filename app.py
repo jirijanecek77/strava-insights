@@ -18,7 +18,7 @@ from dash_apps.run_together.run_together_app import run_together_app
 
 # Create the Flask App
 app = Flask(__name__)
-app.config["SECRET_KEY"] = env["cookiePassword"]
+app.config["SECRET_KEY"] = env["SECRET_KEY"]
 
 app.register_blueprint(login_blueprint)
 # To use the small icon in the app & use static file in a sub-folder of static

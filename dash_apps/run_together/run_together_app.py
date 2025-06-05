@@ -1,11 +1,9 @@
 import logging
 from datetime import datetime, date
-from typing import Tuple
 
 import dash
 import dash_leaflet as dl
-import plotly.graph_objects as go
-from dash import Input, Output, ctx, ALL, no_update, State
+from dash import Input, Output, ctx, ALL, no_update
 from dash_extensions.enrich import DashProxy
 from flask import session
 
@@ -13,9 +11,6 @@ from dash_apps.run_together.components.activity_details import get_activity_deta
 from dash_apps.run_together.components.calendar_training import get_monthly_calendar
 from dash_apps.run_together.components.calendar_training import get_yearly_calendar
 from dash_apps.run_together.pages.home import get_home_layout
-from dash_apps.run_together.utils.activity_update_manager import (
-    update_graph_moving_average_pace,
-)
 
 
 def run_together_app(
@@ -189,40 +184,3 @@ def run_together_app(
                 f"User Action: next-year. Get yearly Calendar: year={session['selected_year']}"
             )
             return get_yearly_calendar(year=session["selected_year"])
-
-    @dash_app.callback(
-        Output("activity-graph", "figure"),
-        Output("moving-average-stream", "data"),
-        Output("bpm-kpi", "children"),
-        Output("pace-kpi", "children"),
-        Output("distance-kpi", "children"),
-        Input("range-slider-pace", "value"),
-        Input("extended-stream", "data"),
-        Input("bpm-pace-mapping", "data"),
-        Input("kpi-bpm-pace-distance-activity", "data"),
-        State("activity-graph", "figure"),
-        prevent_initial_call=True,
-    )
-    def update_calendar_training_container_new(
-        range_slider_pace: int,
-        extended_stream: dict,
-        pace_bpm_mapping: dict,
-        kpi_bpm_pace_distance_activity: Tuple,
-        figure: go.Figure,
-    ):
-        triggered_id = ctx.triggered_id
-
-        # Case: Range is updated & display the recalculate moving pace average.
-        if triggered_id == "range-slider-pace":
-            logging.info(
-                f"User Action: Update Graph with new range for Moving Average Pace  "
-                f"range={range_slider_pace}"
-            )
-
-            return update_graph_moving_average_pace(
-                range_slider_pace=range_slider_pace,
-                extended_stream=extended_stream,
-                pace_bpm_mapping=pace_bpm_mapping,
-                kpi_bpm_pace_distance_activity=kpi_bpm_pace_distance_activity,
-                figure=figure,
-            )
