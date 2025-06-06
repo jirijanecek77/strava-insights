@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 from os import environ as env
 from typing import List
 
@@ -11,6 +11,14 @@ from flask import session
 from stravalib.client import BatchedResultsIterator
 from stravalib.client import Client
 from stravalib.model import DetailedAthlete, DetailedActivity
+
+from dash_apps.run_together.model.mock import (
+    ACTIVITIES_MOCK,
+    ATHLETE_MOCK,
+    ATHLETE_DICT_MOCK,
+    ACTIVITY_MOCK,
+    ACTIVITY_STREAM_MOCK,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -56,6 +64,9 @@ class StravaManager:
         self.strava_client = Client()
         if session:
             self.set_token_from_session()
+
+    def is_mock(self) -> bool:
+        return env.get("MOCK", "false").lower() == "true"
 
     def set_token_response(
         self, access_token: str, refresh_token: str, expires_at: str
@@ -129,6 +140,9 @@ class StravaManager:
         class:`stravalib.model.Athlete`
             The athlete model object.
         """
+        if self.is_mock():
+            return ATHLETE_DICT_MOCK
+
         url = "https://www.strava.com/api/v3/athlete"
 
         headers = {"Authorization": f"Bearer {self.strava_client.access_token}"}
@@ -153,6 +167,10 @@ class StravaManager:
         class:`stravalib.model.Athlete`
             The athlete model object.
         """
+
+        if self.is_mock():
+            return ATHLETE_MOCK
+
         athlete = self.strava_client.get_athlete()
         return athlete
 
@@ -166,6 +184,9 @@ class StravaManager:
         class:`stravalib.model.Activity`
             The Activity model object.
         """
+
+        if self.is_mock():
+            return ACTIVITY_MOCK
 
         url = f"https://www.strava.com/api/v3/activities/{activity_id}?include_all_efforts="
 
@@ -190,6 +211,9 @@ class StravaManager:
         -------
         Dict stream From Strava API V3 with the time, heart-rate latitude and longitude.
         """
+
+        if self.is_mock():
+            return ACTIVITY_STREAM_MOCK
 
         url = (
             f"https://www.strava.com/api/v3/activities/{activity_id}/"
@@ -219,49 +243,18 @@ class StravaManager:
         # Set the end date to the end of the year
         end_date = datetime(year, 12, 31, 23, 59, 59)
 
-        # Convert datetime objects to ISO format strings
-        start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # Call the get_activities function with the calculated parameters
-        activities = self.strava_client.get_activities(
-            after=start_date_str,
-            before=end_date_str,
-        )
-
-        # Format to have a DataFrame
-        activities_dict = get_strava_activities_string(activities)
-        activities_df = get_strava_activities_pandas(activities_dict)
-
-        return activities_df
-
-    def get_activities_for_month(self, year: int, month: int) -> BatchedResultsIterator:
-        # Set the start date to the beginning of the specified month
-        start_date = datetime(year, month, 1, 0, 0, 0)
-
-        # Calculate the end of the month by adding one month and subtracting one second
-        end_date = (datetime(year, month, 1, 0, 0, 0) + timedelta(days=32)).replace(
-            day=1, second=0, microsecond=0
-        ) - timedelta(seconds=1)
-
-        # Convert datetime objects to ISO format strings
-        start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # Call the get_activities function with the calculated parameters
-        activities = self.strava_client.get_activities(
-            after=start_date_str, before=end_date_str, limit=None
-        )
-
-        return activities
+        return self.get_activities_between(start_date, end_date)
 
     def get_activities_between(self, start_date: date, end_date: date) -> pd.DataFrame:
+        if self.is_mock():
+            return get_strava_activities_pandas(ACTIVITIES_MOCK)
+
         # Call the get_activities function with the calculated parameters
         start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         activities = self.strava_client.get_activities(
-            after=start_date_str, before=end_date_str, limit=None
+            after=start_date_str, before=end_date_str
         )
 
         # Format to have a DataFrame
@@ -335,8 +328,8 @@ def get_strava_activities_pandas(activities: List) -> pd.DataFrame:
     my_cols.insert(0, "id")
 
     df = pd.DataFrame(activities, columns=my_cols)
-    # Make all walks into hikes for consistency
-    df["type"] = df["type"].replace("Walk", "Hike")
+    df = df[df.type == "Run"]
+
     # Create a distance in km column
     df["distance_km"] = df["distance"] / 1e3
     # Convert dates to datetime type
@@ -349,5 +342,20 @@ def get_strava_activities_pandas(activities: List) -> pd.DataFrame:
     # Apply the function to the duration_seconds column
     df["moving_time_format"] = df["moving_time"].apply(seconds_to_hms)
 
-    # Keep only runs
-    return df[df.type == "Run"]
+    df["d_distance_km"] = df["distance_km"] / 15
+    df["d_total_elevation_gain"] = df["total_elevation_gain"] / 150
+    df["d_average_heartrate"] = (
+        df["average_heartrate"] / session["run_together_user"]["max_bpm"]
+    )
+    df["d_average_speed"] = 6 - abs(
+        session["run_together_user"]["speed_max"] - 3.6 * df["average_speed"]
+    )
+
+    df["difficulty"] = (
+        df["d_distance_km"]
+        * df["d_total_elevation_gain"]
+        * df["d_average_heartrate"]
+        * df["d_average_speed"]
+    )
+
+    return df

@@ -1,8 +1,9 @@
-from dash import html
-import pandas as pd
 import calendar
 from datetime import datetime, date
 from typing import List
+
+import pandas as pd
+from dash import html
 
 from dash_apps.run_together.model.strava_manager import StravaManager
 
@@ -32,6 +33,14 @@ def get_monday_of_week(year, week_number) -> date:
 def get_sunday_of_week(year, week_number) -> date:
     # Get the Monday of the week
     return date.fromisocalendar(year=year, week=week_number, day=7)
+
+
+def map_activity_difficulty_to_icon(difficulty: float) -> str:
+    if difficulty < 0.5:
+        return "🟢"
+    if difficulty < 1.0:
+        return "🟡"
+    return "🔴"
 
 
 def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
@@ -161,7 +170,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
                                 ),
                                 html.Span(
                                     className="event-time",
-                                    children=f"{int(activity.distance_km)} km",
+                                    children=f"{int(activity.distance_km)} km  {map_activity_difficulty_to_icon(activity.difficulty)}",
                                 ),
                             ],
                         )
@@ -225,18 +234,27 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
         className="calendar-selector",
         children=[
             html.Button("<", id={"type": "calendar-btn", "index": "prev-month"}),
-            html.Div(className="current-selection", children=f" {month} "),
+            html.Div(
+                className="current-selection",
+                children=html.Div(
+                    [
+                        f" {month} ",
+                        html.Button(
+                            f"""{year}""",
+                            id={
+                                "type": "calendar-btn",
+                                "index": "back-yearly-calendar",
+                            },
+                        ),
+                    ]
+                ),
+            ),
             html.Button(">", id={"type": "calendar-btn", "index": "next-month"}),
         ],
     )
 
     calendar_container = [
         html.Div(children=year_selector),
-        html.Button(
-            f"""{year}""",
-            id={"type": "calendar-btn", "index": "back-yearly-calendar"},
-            className="h3",
-        ),
         month_calendar,
     ]
     return calendar_container
