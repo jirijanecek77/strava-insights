@@ -14,26 +14,20 @@ minutes_seconds_options = [{"label": str(i), "value": i} for i in range(61)]
 
 
 def get_settings():
+    user = session.get("run_together_user", {})
+    hours, minutes, seconds = user.get(
+        "target_time", {"hours": 0, "minutes": 0, "seconds": 0}
+    ).values()
     return dbc.Container(
         [
             dbc.Card(
                 dbc.CardBody(
                     [
                         dbc.Label("User Information", className="h2"),
+                        dbc.Row(dbc.Label(f"Name: {user.get('name')}")),
+                        dbc.Row(dbc.Label(f"Email: {user.get('email')}")),
                         dbc.Row(
-                            dbc.Label(
-                                f"Name: {session.get("run_together_user", {}).get('name')}"
-                            )
-                        ),
-                        dbc.Row(
-                            dbc.Label(
-                                f"Email: {session.get("run_together_user", {}).get('email')}"
-                            )
-                        ),
-                        dbc.Row(
-                            dbc.Label(
-                                f"Birthday: {session.get("run_together_user", {}).get('birthday')}"
-                            ),
+                            dbc.Label(f"Birthday: {user.get('birthday')}"),
                             className="mb-3",
                         ),
                         dbc.Label("Race pace setting", className="h2"),
@@ -78,21 +72,21 @@ def get_settings():
                                 dcc.Dropdown(
                                     id="hours-dropdown",
                                     options=hours_options,
-                                    value=0,
+                                    value=hours,
                                     placeholder="Hours",
                                 ),
                                 html.Label("h"),
                                 dcc.Dropdown(
                                     id="minutes-dropdown",
                                     options=minutes_seconds_options,
-                                    value=0,
+                                    value=minutes,
                                     placeholder="Minutes",
                                 ),
                                 html.Label("min"),
                                 dcc.Dropdown(
                                     id="seconds-dropdown",
                                     options=minutes_seconds_options,
-                                    value=0,
+                                    value=seconds,
                                     placeholder="Seconds",
                                 ),
                                 html.Label("sec"),

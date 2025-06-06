@@ -23,8 +23,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 children=[
                     html.I(className="fas fa-route"),
                     html.Div(
-                        children=f"{round(extended_activity.activity['distance'] / 1000, 2)}",
-                        id="distance-kpi",
+                        children=f"{round(extended_activity.activity['distance'] / 1000, 2)}"
                     ),
                     f"km",
                 ],
@@ -34,8 +33,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 children=[
                     html.I(className="fas fa-clock"),
                     html.Div(
-                        children=f"{convert_min_to_min_sec(extended_activity.activity['moving_time']/60)}",
-                        id="pace-kpi",
+                        f"{convert_min_to_min_sec(extended_activity.activity['moving_time']/60)}"
                     ),
                     f"min",
                 ],
@@ -45,8 +43,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 children=[
                     html.I(className="fas fa-tachometer-alt"),
                     html.Div(
-                        children=f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}",
-                        id="pace-kpi",
+                        f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}"
                     ),
                     f"min/km",
                 ],
@@ -56,8 +53,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 children=[
                     html.I(className="fas fa-chart-line"),
                     html.Div(
-                        children=f"{extended_activity.activity['total_elevation_gain']}",
-                        id="elevation-kpi",
+                        children=f"{extended_activity.activity['total_elevation_gain']}"
                     ),
                     f"m",
                 ],
@@ -67,8 +63,7 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 children=[
                     html.I(className="fas fa-heart"),
                     html.Div(
-                        children=f"{extended_activity.activity['average_heartrate']}",
-                        id="bpm-kpi",
+                        children=f"{extended_activity.activity['average_heartrate']}"
                     ),
                     f"bpm",
                 ],
