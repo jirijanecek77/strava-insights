@@ -32,6 +32,17 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
             ),
             html.Div(
                 children=[
+                    html.I(className="fas fa-clock"),
+                    html.Div(
+                        children=f"{convert_min_to_min_sec(extended_activity.activity['moving_time']/60)}",
+                        id="pace-kpi",
+                    ),
+                    f"min",
+                ],
+                className="kpi-icons",
+            ),
+            html.Div(
+                children=[
                     html.I(className="fas fa-tachometer-alt"),
                     html.Div(
                         children=f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}",

@@ -1,5 +1,5 @@
-from typing import List
 from datetime import datetime
+from typing import List
 
 
 def speed_to_pace(speed_mps):
@@ -27,21 +27,23 @@ def speed_to_pace(speed_mps):
     return time_per_km_min
 
 
-def normalize_value(value: float, original_range: List[float], target_range: List[float]):
+def normalize_value(
+    value: float, original_range: List[float], target_range: List[float]
+):
     """
-     Normalize a value based on a given original range and a target range using linear interpolation.
+    Normalize a value based on a given original range and a target range using linear interpolation.
 
-     This function takes an input value and maps it from its original range to a target range.
-     The function handles cases where the original range values can be either increasing or decreasing.
+    This function takes an input value and maps it from its original range to a target range.
+    The function handles cases where the original range values can be either increasing or decreasing.
 
 
-     Parameters:
-     value (float): The value to be normalized.
-     original_range (list of float): A list of values representing the original range.
-     target_range (list of float): A list of values representing the target range.
+    Parameters:
+    value (float): The value to be normalized.
+    original_range (list of float): A list of values representing the original range.
+    target_range (list of float): A list of values representing the target range.
 
-     Returns:
-        float: The normalized value mapped from the original range to the target range.
+    Returns:
+       float: The normalized value mapped from the original range to the target range.
     """
     # Example usage:
     # original_range = [190.0, 180.0, 170.0, 160.0, 150.0, 130.0]
@@ -84,6 +86,8 @@ def convert_min_to_min_sec(minutes: float):
     - str: Time in "M:S" format.
     """
     # Separate the integer part (minutes) from the fractional part (seconds)
+    if minutes == float("inf"):
+        return "0:00"  # Handle infinite pace case
     int_minutes = int(minutes)
     secs = (minutes - int_minutes) * 60
     return f"{int_minutes}:{int(secs):02d}"
@@ -100,7 +104,7 @@ def convert_min_sec_to_min(time_str: str) -> float:
     - float: Time in minutes.
     """
     # Split the string into minutes and seconds
-    minutes, seconds = map(int, time_str.split(':'))
+    minutes, seconds = map(int, time_str.split(":"))
 
     # Convert the time to minutes
     total_minutes = minutes + seconds / 60
@@ -108,7 +112,9 @@ def convert_min_sec_to_min(time_str: str) -> float:
     return total_minutes
 
 
-def calculate_pace(seconds: List[int], distances: List[float], range_points: int) -> List[float]:
+def calculate_pace(
+    seconds: List[int], distances: List[float], range_points: int
+) -> List[float]:
     """
     Calculate the speed in minutes per kilometer (min/km) for an athlete's run.
 
@@ -133,7 +139,7 @@ def calculate_pace(seconds: List[int], distances: List[float], range_points: int
         total_distance = distances[end_index] - distances[start_index]
 
         if total_distance == 0:
-            paces.append(float('inf'))
+            paces.append(float("inf"))
         else:
             # Convert meters to kilometers and seconds to minutes
             total_time_min = total_time / 60
@@ -188,8 +194,8 @@ def convert_birthday(date: str) -> str:
     ValueError: If the input date is not in the correct format.
     """
     try:
-        date_object = datetime.strptime(date, '%Y-%m-%d')
-        formatted_date = date_object.strftime('%d-%m-%Y')
+        date_object = datetime.strptime(date, "%Y-%m-%d")
+        formatted_date = date_object.strftime("%d-%m-%Y")
         return formatted_date
     except ValueError as e:
         raise ValueError(f"Incorrect date format, should be YYYY-MM-DD. Error: {e}")
@@ -209,8 +215,8 @@ def convert_birthday_back(date: str) -> str:
     ValueError: If the input date is not in the correct format.
     """
     try:
-        date_object = datetime.strptime(date, '%d-%m-%Y')
-        formatted_date = date_object.strftime('%Y-%m-%d')
+        date_object = datetime.strptime(date, "%d-%m-%Y")
+        formatted_date = date_object.strftime("%Y-%m-%d")
         return formatted_date
     except ValueError as e:
         raise ValueError(f"Incorrect date format, should be DD-MM-YYYY. Error: {e}")
@@ -222,7 +228,11 @@ def calculate_age(birthday_str):
 
     today = datetime.today()
 
-    age = today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day))
+    age = (
+        today.year
+        - birthday.year
+        - ((today.month, today.day) < (birthday.month, birthday.day))
+    )
 
     return age
 
