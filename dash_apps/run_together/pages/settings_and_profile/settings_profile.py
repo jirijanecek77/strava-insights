@@ -1,135 +1,108 @@
-from dash import html, register_page, dcc
 import dash_bootstrap_components as dbc
+from dash import html, register_page, dcc
 
-from dash_apps.run_together.layout.header import get_header
 from dash_apps.run_together.layout.footer import get_footer
+from dash_apps.run_together.layout.header import get_header
 
-register_page(
-    __name__,
-    name='Settings',
-    top_nav=True,
-    path='/settings'
-)
+register_page(__name__, name="Settings", top_nav=True, path="/settings")
 
-card_style = {
-    "color": "black",
-    "fontSize": "15px"
-}
+card_style = {"color": "black", "fontSize": "15px"}
 
-hours_options = [{'label': str(i), 'value': i} for i in range(6)]
-minutes_seconds_options = [{'label': str(i), 'value': i} for i in range(61)]
+hours_options = [{"label": str(i), "value": i} for i in range(6)]
+minutes_seconds_options = [{"label": str(i), "value": i} for i in range(61)]
 
 
 def get_settings():
-    settings_tab = html.Div(
-        style={
-            'display': 'flex',
-            'flexDirection': 'column',
-            'justifyContent': 'center',
-            'alignItems': 'center',
-            'height': '100vh',
-            'padding': '20px',
-        },
-        children=[
-            html.Div([
-                html.H1('User Information'),
-                html.Div(id='display-div'),
-                html.Div(id='form-div'),
-                html.Button('Change', id='change-button', n_clicks=0)
-            ])
-        ]
-    )
-
-    profile_tab = dbc.Card(
-        dbc.CardBody(
-            [
-                html.Div(
-                    style={
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center',
-                        'alignItems': 'center',
-                        'height': '100vh',
-                        'padding': '20px',
-                    },
-                    children=[
-                        # Buttons in the middle of the body
+    return dbc.Container(
+        [
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        dbc.Label("User Information", className="h2"),
+                        html.Div(id="display-div"),
                         html.Div(
-                            style={
-                                'display': 'flex',
-                                'justifyContent': 'center',
-                                'alignItems': 'center',
-                                'marginBottom': '20px',
-                            },
                             children=[
-                                dbc.Button("10 kilometers", id="ten-k-button",
-                                           color="secondary", className="mr-2"),
-                                dbc.Button("Semi-marathon", id="semi-button",
-                                           color="secondary", className="mr-2"),
-                                dbc.Button("Marathon", id="full-button",
-                                           color="secondary"),
-                            ]
+                                dbc.Stack(
+                                    [
+                                        dbc.Label("Pace:"),
+                                        dbc.Label(id="calculated-pace"),
+                                    ],
+                                    gap=2,
+                                    direction="horizontal",
+                                ),
+                                dbc.Stack(
+                                    [
+                                        dbc.Label("Speed max:"),
+                                        dbc.Label(id="speed-max"),
+                                        dbc.Label("km/h"),
+                                    ],
+                                    gap=2,
+                                    direction="horizontal",
+                                ),
+                                dbc.Stack(
+                                    children=[
+                                        dbc.Label("Max HR:"),
+                                        dbc.Label(id="max-bpm"),
+                                        dbc.Label("bpm"),
+                                    ],
+                                    gap=2,
+                                    direction="horizontal",
+                                ),
+                            ],
+                        ),
+                        dbc.Stack(
+                            children=[
+                                html.Label("Target time:"),
+                                dcc.Dropdown(
+                                    id="hours-dropdown",
+                                    options=hours_options,
+                                    value=0,
+                                    placeholder="Hours",
+                                ),
+                                html.Label("h"),
+                                dcc.Dropdown(
+                                    id="minutes-dropdown",
+                                    options=minutes_seconds_options,
+                                    value=0,
+                                    placeholder="Minutes",
+                                ),
+                                html.Label("min"),
+                                dcc.Dropdown(
+                                    id="seconds-dropdown",
+                                    options=minutes_seconds_options,
+                                    value=0,
+                                    placeholder="Seconds",
+                                ),
+                                html.Label("sec"),
+                            ],
+                            gap=2,
+                            direction="horizontal",
+                            className="mb-3",
                         ),
                         html.Div(
                             children=[
-                                html.Div(
-                                    children=[
-                                        html.Label("Target time:"),
-                                        dcc.Dropdown(
-                                            id='hours-dropdown',
-                                            options=hours_options,
-                                            placeholder="Hours",
-                                            className="time-goal-dropdown"
-                                        ),
-                                        dcc.Dropdown(
-                                            id='minutes-dropdown',
-                                            options=minutes_seconds_options,
-                                            placeholder="Minutes",
-                                            className="time-goal-dropdown"
-                                        ),
-                                        dcc.Dropdown(
-                                            id='seconds-dropdown',
-                                            options=minutes_seconds_options,
-                                            placeholder="Seconds",
-                                            className="time-goal-dropdown"
-                                        )
-                                    ],
-                                    className='time-dropdowns'
+                                dbc.Button(
+                                    "10 kilometers",
+                                    id="ten-k-button",
+                                    color="secondary",
+                                    className="mr-2",
                                 ),
-                                html.Div(
-                                    children=[
-                                        html.P("Pace:"),
-                                        html.P(id="calculated-pace"),
-                                        html.P("Speed max"),
-                                        html.P(id="speed-max"),
-                                    ],
-                                    className='calculated-pace'
+                                dbc.Button(
+                                    "Half-marathon",
+                                    id="semi-button",
+                                    color="secondary",
+                                    className="mr-2",
                                 ),
-                                html.Div(
-                                    children=[
-                                        html.P("Max BPM:"),
-                                        html.P(
-                                            id="max-bpm"
-                                        )
-                                    ],
-                                    className='max-bpm'
-                                )
+                                dbc.Button(
+                                    "Marathon", id="full-button", color="secondary"
+                                ),
                             ],
-                            id="styled-numeric-input"
-                        )
-                    ]
+                        ),
+                    ],
                 )
-            ]
-        )
-    )
-
-    tabs = dbc.Tabs(
-        [
-            dbc.Tab(settings_tab, label="Settings", label_style=card_style),
-            dbc.Tab(profile_tab, label="Profile",label_style=card_style),
+            ),
         ]
     )
-    return tabs
 
 
 def layout():
@@ -137,22 +110,10 @@ def layout():
     body = get_settings()
     footer = get_footer()
 
-    basic_components = [
-        header,
-        html.Div(
-            children=body,
-            style={
-                "flex": "1",
-                "padding": "20px"
-            }
-        ),
-        footer,
-    ]
-
     return html.Div(
-        style={
-            'display': 'flex',
-            'flexDirection': 'column',
-            'minHeight': '100vh'
-        },
-        children=basic_components)
+        children=[
+            header,
+            html.Div(children=body, style={"flex": "1", "padding": "20px"}),
+            footer,
+        ],
+    )
