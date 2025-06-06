@@ -162,7 +162,7 @@ def get_monthly_calendar(year: int, month: str) -> List[html.Div]:
                     activity_div.append(
                         html.Div(
                             id={"type": "select-activity-btn", "index": activity.id},
-                            className="event bg-[#99CC66] text-white rounded p-1 text-sm mb-1 hover:bg-[#F39C12]",
+                            className="event bg-[#AB886D] text-white rounded p-1 text-sm mb-1 hover:bg-[#493628]",
                             children=[
                                 html.Span(
                                     className="event-name",

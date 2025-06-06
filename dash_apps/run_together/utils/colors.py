@@ -1,4 +1,4 @@
 class Colors:
-    green = "#99CC66"
-    orange = "#F39C12"
+    green = "#3F51B5"
+    orange = "#FFD600"
     gray = "#BDC3C7"

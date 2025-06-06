@@ -10,7 +10,7 @@
 
 /* Style for the navigation buttons */
 .calendar-selector button {
-    background-color: #99CC66; /* Set background color */
+    background-color: #D6C0B3; /* Set background color */
     color: white; /* Set text color */
     border: none; /* Remove border */
     padding: 10px 15px; /* Set padding for the button */
@@ -23,7 +23,7 @@
 
 /* Add hover effect for the buttons */
 .calendar-selector button:hover {
-    background-color: #F39C12; /* Change background color on hover */
+    background-color: #AB886D; /* Change background color on hover */
 }
 
 /* Yearly calendar row styles */
@@ -50,11 +50,11 @@
 /* Change background color on hover for yearly calendar squares */
 .yearly-calendar-square:hover {
     color: #FFFFFF; /* Change text color on hover */
-    background-color: #F39C12; /* Change background color on hover */
+    background-color: #AB886D; /* Change background color on hover */
 }
 
 /* Change background color on hover for yearly calendar squares */
-.yearly-calendar-square:hover .yearly-calendar-circle{
+.yearly-calendar-square:hover .yearly-calendar-circle {
     color: #000000; /* Change text color on hover */
 }
 
@@ -80,7 +80,7 @@
     bottom: 2px; /* Positioned 2px from the bottom */
     transform: translateX(-50%); /* Centered horizontally */
     width: 70px; /* Set width of the circle */
-    background-color: #99CC66; /* Circle color */
+    background-color: #D6C0B3; /* Circle color */
     border-radius: 50%; /* Create a circular shape */
     display: flex; /* Use flexbox layout for circle content */
     font-weight: bold; /* Set font weight to bold */

@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 from dash import html, register_page, dcc
+from flask import session
 
 from dash_apps.run_together.layout.footer import get_footer
 from dash_apps.run_together.layout.header import get_header
@@ -19,7 +20,23 @@ def get_settings():
                 dbc.CardBody(
                     [
                         dbc.Label("User Information", className="h2"),
-                        html.Div(id="display-div"),
+                        dbc.Row(
+                            dbc.Label(
+                                f"Name: {session.get("run_together_user", {}).get('name')}"
+                            )
+                        ),
+                        dbc.Row(
+                            dbc.Label(
+                                f"Email: {session.get("run_together_user", {}).get('email')}"
+                            )
+                        ),
+                        dbc.Row(
+                            dbc.Label(
+                                f"Birthday: {session.get("run_together_user", {}).get('birthday')}"
+                            ),
+                            className="mb-3",
+                        ),
+                        dbc.Label("Race pace setting", className="h2"),
                         html.Div(
                             children=[
                                 dbc.Stack(
@@ -32,7 +49,12 @@ def get_settings():
                                 ),
                                 dbc.Stack(
                                     [
-                                        dbc.Label("Speed max:"),
+                                        dbc.Label(
+                                            html.A(
+                                                "Maximum aerobic speed:",
+                                                href="https://medium.com/@matthieu.ru/simplifying-training-performance-with-race-pace-heart-rate-zones-9c0ceea5a1d6",
+                                            )
+                                        ),
                                         dbc.Label(id="speed-max"),
                                         dbc.Label("km/h"),
                                     ],

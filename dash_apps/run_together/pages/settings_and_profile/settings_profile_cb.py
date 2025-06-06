@@ -1,5 +1,4 @@
 import dash
-import dash_bootstrap_components as dbc
 from dash import Output, Input, State, no_update
 from dash_extensions.enrich import DashProxy
 from flask import session
@@ -16,25 +15,6 @@ from dash_apps.run_together.utils.conversion import (
 
 
 def settings_profile_cb(dash_app: DashProxy):
-    @dash_app.callback(
-        Output("display-div", "children"),
-        Input("url", "pathname"),
-    )
-    def toggle_form(url_path):
-        user_values = session.get("run_together_user", {})
-        if url_path == "/settings":
-            display = dbc.Stack(
-                [
-                    dbc.Label(f"Name: {user_values['name']}"),
-                    dbc.Label(f"Email: {user_values['email']}"),
-                    dbc.Label(f"Birthday: {user_values['birthday']}"),
-                ],
-                gap=2,
-                direction="horizontal",
-            )
-            return display
-        return no_update
-
     @dash_app.callback(
         Output("max-bpm", "children"),
         Output("calculated-pace", "children"),
