@@ -1,20 +1,18 @@
 from os import environ as env
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import DashProxy, MultiplexerTransform
+from dash import Dash
 from flask import Flask, session
 
-from blueprints.login.aad import authorisation
+from blueprints.login.auth import authorisation
 from blueprints.login.login import login_blueprint
-from dash_apps.run_together.pages.first_login_page.first_login_page_cb import (
-    first_login_cb,
+from dash_apps.app.app_callbacks import app_callbacks
+from dash_apps.app.pages.first_login_page.login_callbacks import (
+    login_callbacks,
 )
-from dash_apps.run_together.pages.settings_and_profile.settings_profile_cb import (
-    settings_profile_cb,
+from dash_apps.app.pages.settings_and_profile.settings_callbacks import (
+    settings_callbacks,
 )
-from dash_apps.run_together.run_together_app import run_together_app
-
-# python -m run_together.app
 
 # Create the Flask App
 app = Flask(__name__)
@@ -25,7 +23,6 @@ app.register_blueprint(login_blueprint)
 # Define external stylesheets, including Font Awesome and a local CSS file
 external_stylesheets = [
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css",
-    "./static/css/style.css",
     dbc.themes.BOOTSTRAP,  # Add the path to style.css
 ]
 
@@ -34,14 +31,11 @@ external_stylesheets = [
 external_script = ["https://tailwindcss.com/", {"src": "https://cdn.tailwindcss.com"}]
 
 # Configure DashProxy instance for the Dash application
-dash_app = DashProxy(
+dash_app = Dash(
     __name__,  # Set the name of the Dash application
     server=app,  # Connect the Dash application to the Flask app
     title="Strava insights",  # Set the title of the Dash application
-    transforms=[
-        MultiplexerTransform()
-    ],  # Apply the MultiplexerTransform for performance optimization
-    pages_folder="./dash_apps/run_together/pages/",  # Specify the folder containing Dash page
+    pages_folder="./dash_apps/app/pages/",  # Specify the folder containing Dash page
     use_pages=True,  # Enable the use of pages for organizing Dash layouts
     assets_folder="./static",  # Specify the folder for static assets (e.g., CSS, images)
     external_stylesheets=external_stylesheets,  # Add external stylesheets to the Dash application
@@ -52,13 +46,10 @@ dash_app = DashProxy(
 excluded = ["login.landing", "login.strava_callback", "static"]
 app = authorisation(app, session, excluded)
 
-# For the deployement of the heroku application
-server = dash_app.server
-
-# Initialize the Dash application using the configured DashProxy instance
-run_together_app(dash_app=dash_app, app_path="/home")
-first_login_cb(dash_app=dash_app)
-settings_profile_cb(dash_app=dash_app)
+# Initialize the Dash application using the configured Dash instance
+app_callbacks(dash_app=dash_app, app_path="/home")
+login_callbacks(dash_app=dash_app)
+settings_callbacks(dash_app=dash_app)
 
 # For the deployment of the application locally
 if __name__ == "__main__":

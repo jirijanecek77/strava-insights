@@ -2,9 +2,9 @@ from typing import List
 
 from dash import html
 
-from dash_apps.run_together.model.extended_activity import ExtendedActivity
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
-from dash_apps.run_together.utils.conversion import speed_to_pace
+from dash_apps.app.model.extended_activity import ExtendedActivity
+from dash_apps.app.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.utils.conversion import speed_to_pace
 
 
 def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:

@@ -1,12 +1,13 @@
+from typing import Callable, List
+
 from flask import Flask, url_for
 from flask.sessions import SessionMixin
-from typing import Callable, List
 
 no_logged_message = "You are not logged in. Redirecting in 3 seconds."
 
 
 def authorisation(app: Flask, session: SessionMixin, excluded: List[str]):
-    """Creat the authorisation for all the view"""
+    """Create the authorisation for all the view"""
     for view_func in app.view_functions:
         if view_func not in excluded:
             print(view_func)

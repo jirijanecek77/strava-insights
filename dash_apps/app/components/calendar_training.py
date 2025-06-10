@@ -5,7 +5,7 @@ from typing import List
 import pandas as pd
 from dash import html
 
-from dash_apps.run_together.model.strava_manager import StravaManager
+from dash_apps.app.model.strava_manager import StravaManager
 
 
 def get_month_list() -> List[str]:

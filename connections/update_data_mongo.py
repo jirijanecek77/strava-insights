@@ -1,5 +1,6 @@
-from typing import Dict
 import logging
+from typing import Dict
+
 from connections.mongodb import MongoConnection
 
 
@@ -8,8 +9,7 @@ def update_user_record(session, data_to_update: Dict):
     collection = mongo_connection.collection_con("mycollection")
 
     result = collection.update_one(
-        {"strava_id": session["athlete"]["id"]},
-        {"$set": data_to_update}
+        {"strava_id": session["athlete"]["id"]}, {"$set": data_to_update}
     )
 
     if result.matched_count > 0:

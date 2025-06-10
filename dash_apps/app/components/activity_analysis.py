@@ -1,8 +1,10 @@
-from dash_apps.run_together.utils.interval import get_kpi_interval
-from dash_apps.run_together.model.extended_activity import ExtendedActivity
 import logging
-from dash import html
+
 import dash_bootstrap_components as dbc
+from dash import html
+
+from dash_apps.app.model.extended_activity import ExtendedActivity
+from dash_apps.app.utils.interval import get_kpi_interval
 
 
 def get_activity_analysis(extended_activity: ExtendedActivity):

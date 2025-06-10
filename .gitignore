@@ -192,5 +192,5 @@ whls
 tests/resources
 tests/data/device.parquet
 k8s/secrets.yml
-/dash_apps/run_together/body2.py
-/dash_apps/run_together/body3.py
+/dash_apps/app/body2.py
+/dash_apps/app/body3.py

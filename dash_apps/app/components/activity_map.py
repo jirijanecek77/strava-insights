@@ -1,7 +1,7 @@
 import dash_leaflet as dl
 
 from blueprints.login.login import mapy_cz_api_key
-from dash_apps.run_together.model.extended_activity import ExtendedActivity
+from dash_apps.app.model.extended_activity import ExtendedActivity
 
 
 def get_activity_map(extended_activity: ExtendedActivity) -> dl.Map:

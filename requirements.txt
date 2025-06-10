@@ -10,7 +10,6 @@ pandas==2.2.3
 plotly==5.13.0
 python-dotenv==0.19.1
 requests==2.32.3
-dash-extensions==2.0.4
 dash-iconify==0.1.2
 gunicorn==23.0.0
 werkzeug==3.0.6

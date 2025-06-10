@@ -3,7 +3,7 @@ from typing import List
 
 import plotly.graph_objects as go
 
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.utils.conversion import convert_min_to_min_sec
 
 
 def add_interval_figure(figure: go.Figure, intervals: List[dict]):

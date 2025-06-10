@@ -9,7 +9,7 @@ from flask import request, redirect, session
 from stravalib import client
 
 from connections.fetch_data_mongo import find_user_by_strava_id
-from dash_apps.run_together.model.strava_manager import StravaManager
+from dash_apps.app.model.strava_manager import StravaManager
 
 # Create the Blueprint Login
 login_blueprint = Blueprint(

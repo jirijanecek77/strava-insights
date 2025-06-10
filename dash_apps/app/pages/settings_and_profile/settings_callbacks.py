@@ -1,25 +1,25 @@
 import dash
-from dash import Output, Input, State, no_update
-from dash_extensions.enrich import DashProxy
+from dash import Output, Input, State, no_update, Dash
 from flask import session
 
 from connections.update_data_mongo import update_user_record
-from dash_apps.run_together.pages.settings_and_profile.settings_profile_helper_method import (
+from dash_apps.app.pages.settings_and_profile.settings_profile_helper_method import (
     which_race_button,
     which_race_distance,
 )
-from dash_apps.run_together.utils.conversion import (
+from dash_apps.app.utils.conversion import (
     marathon_pace,
     calculate_speed_max,
 )
 
 
-def settings_profile_cb(dash_app: DashProxy):
+def settings_callbacks(dash_app: Dash):
     @dash_app.callback(
-        Output("max-bpm", "children"),
-        Output("calculated-pace", "children"),
-        Output("speed-max", "children"),
+        Output("max-bpm", "children", allow_duplicate=True),
+        Output("calculated-pace", "children", allow_duplicate=True),
+        Output("speed-max", "children", allow_duplicate=True),
         Input("url", "pathname"),
+        prevent_initial_call=True,
     )
     def calculate_max_bpm(url: str):
         if url == "/settings":

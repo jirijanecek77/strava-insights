@@ -4,9 +4,9 @@ from dash import dcc
 from dash import html
 from dash.html import Div
 
-from dash_apps.run_together.model.extended_activity import ExtendedActivity
-from dash_apps.run_together.utils.colors import Colors
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.model.extended_activity import ExtendedActivity
+from dash_apps.app.utils.colors import Colors
+from dash_apps.app.utils.conversion import convert_min_to_min_sec
 
 
 def get_reference_race():

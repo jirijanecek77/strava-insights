@@ -2,13 +2,13 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 from dash.html import Div
 
-from dash_apps.run_together.components.activity_analysis import get_activity_analysis
-from dash_apps.run_together.components.activity_graph import get_activity_graph
-from dash_apps.run_together.components.activity_kpi import get_activity_kpi
-from dash_apps.run_together.components.activity_map import get_activity_map
-from dash_apps.run_together.model.extended_activity import ExtendedActivity
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
-from dash_apps.run_together.utils.conversion import speed_to_pace
+from dash_apps.app.components.activity_analysis import get_activity_analysis
+from dash_apps.app.components.activity_graph import get_activity_graph
+from dash_apps.app.components.activity_kpi import get_activity_kpi
+from dash_apps.app.components.activity_map import get_activity_map
+from dash_apps.app.model.extended_activity import ExtendedActivity
+from dash_apps.app.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.utils.conversion import speed_to_pace
 
 
 def get_activity_details(activity_id: int) -> Div:

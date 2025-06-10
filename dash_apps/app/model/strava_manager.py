@@ -12,7 +12,7 @@ from stravalib.client import BatchedResultsIterator
 from stravalib.client import Client
 from stravalib.model import DetailedAthlete, DetailedActivity
 
-from dash_apps.run_together.model.mock import (
+from dash_apps.app.model.mock import (
     ACTIVITIES_MOCK,
     ATHLETE_MOCK,
     ATHLETE_DICT_MOCK,

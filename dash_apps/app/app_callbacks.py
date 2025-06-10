@@ -3,24 +3,23 @@ from datetime import datetime, date
 
 import dash
 import dash_leaflet as dl
-from dash import Input, Output, ctx, ALL, no_update
-from dash_extensions.enrich import DashProxy
+from dash import Input, Output, ctx, ALL, no_update, Dash
 from flask import session
 
-from dash_apps.run_together.components.activity_details import get_activity_details
-from dash_apps.run_together.components.calendar_training import get_monthly_calendar
-from dash_apps.run_together.components.calendar_training import get_yearly_calendar
-from dash_apps.run_together.pages.home import get_home_layout
+from dash_apps.app.components.activity_details import get_activity_details
+from dash_apps.app.components.calendar_training import get_monthly_calendar
+from dash_apps.app.components.calendar_training import get_yearly_calendar
+from dash_apps.app.pages.home import get_home_layout
 
 
-def run_together_app(
-    dash_app: DashProxy,
+def app_callbacks(
+    dash_app: Dash,
     app_path: str,
 ) -> object:
     dash.register_page(__name__, layout=get_home_layout, path=app_path)
 
     @dash_app.callback(
-        Output("url", "href"),
+        Output("url", "href", allow_duplicate=True),
         Input("profile-picture", "n_clicks"),
         prevent_initial_call=True,
     )
@@ -42,7 +41,7 @@ def run_together_app(
         return [dl.Marker(position=position)]
 
     @dash_app.callback(
-        Output("modal", "hidden"),
+        Output("modal", "hidden", allow_duplicate=True),
         Output("modal-body", "children"),
         Input({"type": "select-activity-btn", "index": ALL}, "n_clicks"),
         prevent_initial_call=True,
@@ -71,7 +70,7 @@ def run_together_app(
         return False, activity_details_modal_content
 
     @dash_app.callback(
-        Output("modal", "hidden"),
+        Output("modal", "hidden", allow_duplicate=True),
         Input("close-modal-btn", "n_clicks"),
         prevent_initial_call=True,
     )

@@ -1,22 +1,22 @@
 # Introduction
-Front-end UI For run_together app.
 
+Front-end UI For Strava Insights app.
 
 ## Goal
 
-Develop an application for runner who want to track progress in their running program for a specific race. 
+Develop an application for runners who want to track progress in their running program for a specific race.
 The aim was to develop this API to play with Flask, Dash, and the Strava API.
-
-The repository is the output of an article: [Create a Running Dash App with Strava Authentication](https://medium.com/@matthieu.ru/create-a-running-dash-app-with-strava-authentication-bfdd424f5ca6)
 
 ## Usage
 
 ### Installation
 
-Preferably, create a new python environment with `python=3.9`
+Preferably, create a new python environment with `python=3.13`
 
 ```python
-pip install -r requirements.txt
+pip
+install - r
+requirements.txt
 ```
 
 #### Environment variables
@@ -26,6 +26,6 @@ Copy `.env.example` to `.env` and set the values to the variables.
 #### Run the application:
 
 ```
-python -m run_together.app
+python -m strava-insights.app
 ```
 

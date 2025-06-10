@@ -1,5 +1,6 @@
-from pymongo import MongoClient, errors
 import logging
+
+from pymongo import MongoClient, errors
 
 
 class MongoConnection:

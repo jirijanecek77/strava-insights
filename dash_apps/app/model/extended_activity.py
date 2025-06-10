@@ -1,9 +1,9 @@
-from dash_apps.run_together.model.strava_manager import StravaManager
-from dash_apps.run_together.model.user import User
-from dash_apps.run_together.utils.conversion import calculate_pace, moving_average
-from dash_apps.run_together.utils.conversion import convert_min_to_min_sec
-from dash_apps.run_together.utils.conversion import normalize_value
-from dash_apps.run_together.utils.interval import get_bpm_pace_zone_intervals
+from dash_apps.app.model.strava_manager import StravaManager
+from dash_apps.app.model.user import User
+from dash_apps.app.utils.conversion import calculate_pace, moving_average
+from dash_apps.app.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.utils.conversion import normalize_value
+from dash_apps.app.utils.interval import get_bpm_pace_zone_intervals
 
 
 class ExtendedActivity:

@@ -2,8 +2,8 @@ import dash_bootstrap_components as dbc
 from dash import html, register_page, dcc
 from flask import session
 
-from dash_apps.run_together.layout.footer import get_footer
-from dash_apps.run_together.layout.header import get_header
+from dash_apps.app.layout.footer import get_footer
+from dash_apps.app.layout.header import get_header
 
 register_page(__name__, name="Settings", top_nav=True, path="/settings")
 

@@ -1,9 +1,10 @@
-import dash_ag_grid as dag
-from dash import html
-import pandas as pd
 import logging
 
-from dash_apps.run_together.components.calendar_training import get_monthly_calendar
+import dash_ag_grid as dag
+import pandas as pd
+from dash import html
+
+from dash_apps.app.components.calendar_training import get_monthly_calendar
 
 
 def generate_central_column_bis(activities_df: pd.DataFrame):
@@ -39,21 +40,17 @@ def get_body(year: int, month: str):
 
     logging.info(f"""Initialisation of the Body for year: {year} & month: {month} """)
     grid = html.Div(
-            className="calendar-container",
-            children=[
-                html.Div(
-                    style={"font-size": "24px", "font-weight": "bold"},
-                    children="Training Calendar",
-                ),
-                html.Div(
-                    children=get_monthly_calendar(year=year, month=month),
-                    id="calendar-training-container",
-                ),
-            ],
+        className="calendar-container",
+        children=[
+            html.Div(
+                style={"font-size": "24px", "font-weight": "bold"},
+                children="Training Calendar",
+            ),
+            html.Div(
+                children=get_monthly_calendar(year=year, month=month),
+                id="calendar-training-container",
+            ),
+        ],
     )
 
-    return html.Div(
-        children=[
-            grid
-        ]
-    )
+    return html.Div(children=[grid])
