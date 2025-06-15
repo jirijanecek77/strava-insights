@@ -3,7 +3,10 @@ from typing import List
 from dash import html
 
 from dash_apps.app.model.extended_activity import ExtendedActivity
-from dash_apps.app.utils.conversion import convert_min_to_min_sec
+from dash_apps.app.utils.conversion import (
+    convert_min_to_min_sec,
+    convert_min_to_hr_min_sec,
+)
 from dash_apps.app.utils.conversion import speed_to_pace
 
 
@@ -30,13 +33,23 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 className="kpi-icons",
             ),
             html.Div(
-                children=[
-                    html.I(className="fas fa-clock"),
-                    html.Div(
-                        f"{convert_min_to_min_sec(extended_activity.activity['moving_time']/60)}"
-                    ),
-                    f"min",
-                ],
+                children=(
+                    [
+                        html.I(className="fas fa-clock"),
+                        html.Div(
+                            f"{convert_min_to_hr_min_sec(extended_activity.activity['moving_time']/60)}"
+                        ),
+                        "hr",
+                    ]
+                    if extended_activity.activity["moving_time"] > 3600
+                    else [
+                        html.I(className="fas fa-clock"),
+                        html.Div(
+                            f"{convert_min_to_min_sec(extended_activity.activity['moving_time']/60)}"
+                        ),
+                        "min",
+                    ]
+                ),
                 className="kpi-icons",
             ),
             html.Div(

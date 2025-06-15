@@ -37,7 +37,7 @@ def get_activity_map(extended_activity: ExtendedActivity) -> dl.Map:
 
     activity_map = dl.Map(
         id={"type": "activity-map", "index": extended_activity.activity_id},
-        style={"height": "40vh"},
+        style={"height": "calc(100vh - 400px)"},
         bounds=bounds_points,
         children=[
             dl.TileLayer(

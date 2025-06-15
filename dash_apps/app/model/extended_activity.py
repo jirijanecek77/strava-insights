@@ -19,6 +19,7 @@ class ExtendedActivity:
         self.activity_id = activity_id
         self.strava_manager = StravaManager()
         self.activity = self.strava_manager.get_activity(activity_id=activity_id)
+        self.is_run_activity = self.activity["type"] == "Run"
         self.user = User()
         # Extend the stream to have distance in km
         self.extended_stream = self.get_extended_stream()

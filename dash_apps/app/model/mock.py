@@ -306,7 +306,7 @@ ACTIVITIES_MOCK = [
     ],
 ]
 
-ACTIVITY_MOCK = {
+RUN_ACTIVITY_MOCK = {
     "achievement_count": 0,
     "athlete": {"id": 102168741, "resource_state": 1},
     "athlete_count": 1,
@@ -953,7 +953,7 @@ ACTIVITY_MOCK = {
     "workout_type": None,
 }
 
-ACTIVITY_STREAM_MOCK = {
+RUN_ACTIVITY_STREAM_MOCK = {
     "altitude": {
         "data": [
             182.2,

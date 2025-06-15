@@ -93,6 +93,13 @@ def convert_min_to_min_sec(minutes: float):
     return f"{int_minutes}:{int(secs):02d}"
 
 
+def convert_min_to_hr_min_sec(minutes: float):
+    if minutes == float("inf"):
+        return "0:00"  # Handle infinite pace case
+    int_hr = int(minutes // 60)
+    return f"{int_hr}:{convert_min_to_min_sec(minutes - int_hr * 60)}"
+
+
 def convert_min_sec_to_min(time_str: str) -> float:
     """
     Convert a string in "M:S" format with minutes and seconds to a float value in minutes.

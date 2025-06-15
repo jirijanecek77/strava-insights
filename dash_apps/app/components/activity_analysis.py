@@ -8,6 +8,9 @@ from dash_apps.app.utils.interval import get_kpi_interval
 
 
 def get_activity_analysis(extended_activity: ExtendedActivity):
+    if not extended_activity.is_run_activity:
+        return html.Div()
+
     """""
     test = {
         'Marathon': {
