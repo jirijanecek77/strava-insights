@@ -79,14 +79,15 @@
     left: 50%; /* Center horizontally */
     bottom: 2px; /* Positioned 2px from the bottom */
     transform: translateX(-50%); /* Centered horizontally */
-    width: 70px; /* Set width of the circle */
+    width: 80px; /* Set width of the circle */
     background-color: #D6C0B3; /* Circle color */
     border-radius: 50%; /* Create a circular shape */
     display: flex; /* Use flexbox layout for circle content */
+    flex-direction: column;
     font-weight: bold; /* Set font weight to bold */
     justify-content: center; /* Center content horizontally */
     align-items: center; /* Center content vertically */
-    font-size: 16px; /* Set font size */
+    font-size: 12px; /* Set font size */
     max-width: 100%; /* Ensure max-width is 100% of its container */
     aspect-ratio: 1 / 1; /* Set the aspect ratio to 1:1 (width equals height) */
 }
@@ -100,19 +101,27 @@
 
 /* Month hours styles */
 .month-hours {
-    font-size: 16px; /* Set font size */
+    font-size: 11px; /* Set font size */
     position: absolute;
     bottom: 10px;
     right: 10px;
     z-index: 1;
+    text-align: right;
 }
 
 
 /* Month nr runs styles */
 .month-count {
-    font-size: 16px; /* Set font size */
+    font-size: 11px; /* Set font size */
     position: absolute;
     bottom: 10px;
     left: 10px;
     z-index: 1;
+    text-align: left;
+}
+
+.year-stats {
+    font-size: 14px; /* Set font size */
+    text-align: left;
+    font-weight: normal;
 }

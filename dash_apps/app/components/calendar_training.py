@@ -3,6 +3,7 @@ from datetime import datetime, date
 from typing import List
 
 import pandas as pd
+from black.trans import defaultdict
 from dash import html
 
 from dash_apps.app.model.strava_manager import StravaManager
@@ -270,11 +271,12 @@ def get_yearly_calendar(year: int) -> html.Div:
     # Get the data for the selected year
     strava_manager = StravaManager()
     activities_df = strava_manager.get_activities_for_year(year)
+    activities_df.loc[activities_df["type"] == "EBikeRide", "type"] = "ERide"
 
     # Group the DataFrame by 'year' and 'month_of_year', then sum the 'distance_km' for each group
     monthly_totals = (
         activities_df[activities_df.year == year]
-        .groupby(["year", "month_of_year"])
+        .groupby(["year", "month_of_year", "type"])
         .agg(
             distance_km=("distance_km", "sum"),
             moving_time=("moving_time", "sum"),
@@ -284,29 +286,31 @@ def get_yearly_calendar(year: int) -> html.Div:
     )
 
     # Set up an empty dict which is going to be use if there are no activity for this year
-    activities_dict = {}
+    activities_dict = defaultdict(dict)
     max_value = 0
 
     # if there are at least one activity for the year
     if len(monthly_totals) > 0:
         max_value = int(monthly_totals["distance_km"].max())
-        # Create a dictionary with month abbreviations as keys and aggregated distances as values
-        activities_dict = {
-            pd.to_datetime(f"{year}-{month}-01")
-            .strftime("%B")
-            .upper(): {
-                "distance": int(distance),
-                "moving_time": int(divmod(moving_time, 3600)[0]),
-                "activity_count": int(activity_count),
-            }
-            for year, month, distance, moving_time, activity_count in zip(
-                monthly_totals["year"],
-                monthly_totals["month_of_year"],
-                monthly_totals["distance_km"],
-                monthly_totals["moving_time"],
-                monthly_totals["activity_count"],
+        # Iterate through the monthly totals
+        for _, row in monthly_totals.iterrows():
+            month_key = (
+                pd.to_datetime(f"{row['year']}-{row['month_of_year']}-01")
+                .strftime("%B")
+                .upper()
             )
-        }
+            activity_type = row["type"]
+
+            # Add each metric for this activity type to the month's dictionary
+            activities_dict[month_key][(activity_type, "distance")] = int(
+                row["distance_km"]
+            )
+            activities_dict[month_key][(activity_type, "moving_time")] = int(
+                divmod(row["moving_time"], 3600)[0]
+            )
+            activities_dict[month_key][(activity_type, "activity_count")] = int(
+                row["activity_count"]
+            )
 
     months = get_month_list()
 
@@ -324,19 +328,24 @@ def get_yearly_calendar(year: int) -> html.Div:
             # Check if there are activities for the current month
             if month_name in activities_dict.keys():
                 # Set up variables for distance and time run
-                distance_run = activities_dict[month_name]["distance"]
-                time_run = activities_dict[month_name]["moving_time"]
-                nr_runs = activities_dict[month_name]["activity_count"]
-
+                distance_run = activities_dict[month_name][("Run", "distance")]
                 # Normalize circle size based on distance run
                 circle_size = normalize(value=distance_run, max_value=max_value)
-                label_hours_run = f"{distance_run} km"
+
+                distances = format_value_for_activity_types(
+                    activities_dict[month_name], "distance", "km"
+                )
+                times = format_value_for_activity_types(
+                    activities_dict[month_name], "moving_time", "Hours"
+                )
+                counts = format_number_of_activity_types(activities_dict[month_name])
+
             else:
                 # Set defaults for months with no runs
-                label_hours_run = ""
+                distances = ""
+                times = ""
+                counts = ""
                 circle_size = 10
-                time_run = 0
-                nr_runs = 0
 
             # Create a calendar square with a button
             square = html.Button(
@@ -349,13 +358,13 @@ def get_yearly_calendar(year: int) -> html.Div:
                     html.Div(className="month-name", children=month_name),
                     html.Div(
                         className="yearly-calendar-circle",
-                        children=label_hours_run,
+                        children=distances,
                         style={
                             "width": f"{circle_size}px",
                         },
                     ),
-                    html.Div(className="month-hours", children=f"{time_run} Hours"),
-                    html.Div(className="month-count", children=f"{nr_runs} Runs"),
+                    html.Div(className="month-hours", children=times),
+                    html.Div(className="month-count", children=counts),
                 ],
             )
             row_children.append(square)
@@ -364,12 +373,31 @@ def get_yearly_calendar(year: int) -> html.Div:
         row = html.Div(className="yearly-calendar-row", children=row_children)
         rows.append(row)
 
+    year_totals = (
+        activities_df[activities_df.year == year]
+        .groupby("type")
+        .agg(
+            distance_km=("distance_km", "sum"),
+            moving_time=("moving_time", "sum"),
+            activity_count=("id", "count"),
+        )
+        .reset_index()
+    )
+
     # Create navigation buttons for changing the year
     year_selector = html.Div(
         className="calendar-selector",
         children=[
             html.Button("<", id={"type": "calendar-btn", "index": "prev-year"}),
+            html.Div(),
             html.Div(className="current-selection", children=f" {year} "),
+            html.Div(
+                className="year-stats",
+                children=", ".join(
+                    f"{row['type']}: {int(row['activity_count'])}x, {int(row['distance_km'])} km, {int(divmod(row['moving_time'], 3600)[0]) } hours"
+                    for _, row in year_totals.iterrows()
+                ),
+            ),
             html.Button(">", id={"type": "calendar-btn", "index": "next-year"}),
         ],
     )
@@ -384,3 +412,21 @@ def get_yearly_calendar(year: int) -> html.Div:
     )
 
     return calendar_container
+
+
+def format_value_for_activity_types(
+    activities: dict[tuple[str, str], int], target_key: str, suffix: str
+) -> list:
+    return [
+        html.Div([f"{activity_type}: {value} {suffix}"])
+        for (activity_type, key), value in activities.items()
+        if key == target_key
+    ]
+
+
+def format_number_of_activity_types(activities: dict[tuple[str, str], int]) -> list:
+    return [
+        html.Div([f"{value} {activity_type}s"])
+        for (activity_type, key), value in activities.items()
+        if key == "activity_count"
+    ]
