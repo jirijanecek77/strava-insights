@@ -28,6 +28,12 @@ class ExtendedActivity:
         self.moving_average_heartrate = moving_average(
             data=self.extended_stream["heartrate"]["data"], range_points=10
         )
+        self.moving_average_velocity = moving_average(
+            data=[
+                speed * 3.6 for speed in self.extended_stream["velocity_smooth"]["data"]
+            ],
+            range_points=10,
+        )
 
         # Get The pace since we have only the distance and time
         self.range_points_pace = 20

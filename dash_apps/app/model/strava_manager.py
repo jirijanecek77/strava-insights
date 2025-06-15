@@ -16,7 +16,6 @@ from dash_apps.app.model.mock import (
     ACTIVITIES_MOCK,
     ATHLETE_MOCK,
     ATHLETE_DICT_MOCK,
-    RUN_ACTIVITY_MOCK,
 )
 from dash_apps.app.model.mock_ride import RIDE_ACTIVITY_STREAM_MOCK, RIDE_ACTIVITY_MOCK
 
@@ -219,7 +218,7 @@ class StravaManager:
 
         url = (
             f"https://www.strava.com/api/v3/activities/{activity_id}/"
-            f"streams?keys=time,heartrate,latlng,altitude&key_by_type=true"
+            f"streams?keys=time,heartrate,latlng,altitude,velocity_smooth&key_by_type=true"
         )
 
         headers = {"Authorization": f"Bearer {self.strava_client.access_token}"}
@@ -330,7 +329,7 @@ def get_strava_activities_pandas(activities: List) -> pd.DataFrame:
     my_cols.insert(0, "id")
 
     df = pd.DataFrame(activities, columns=my_cols)
-    # df = df[df.type == "Run"]
+    df = df[df["type"].isin(["Run", "Ride", "EBikeRide"])]
 
     # Create a distance in km column
     df["distance_km"] = df["distance"] / 1e3

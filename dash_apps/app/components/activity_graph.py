@@ -51,6 +51,28 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
 
     zone = list(range(len(pace_bpm_mapping)))
 
+    # Add background color and labels for each pace zone
+    shapes = []
+
+    for i in range(len(pace_bpm_mapping)):
+
+        # if i  < len(pace_bpm_mapping):
+        shapes.append(
+            dict(
+                type="rect",
+                xref="paper",
+                yref="y",
+                x0=0,
+                y0=i - 0.5,
+                x1=1,
+                y1=i + 1 - 0.5,
+                fillcolor=colors[i],
+                opacity=0.5,
+                layer="below",
+                line_width=0,
+            )
+        )
+
     fig = go.Figure()
 
     # Add heart rate data as a scatter plot
@@ -63,7 +85,16 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             line=dict(color=Colors.green, width=2),
             hovertemplate="Pace: %{customdata} min/km<extra></extra>",  # Hover tooltip template with y / 60
             customdata=extended_activity.moving_average_pace["minute_second_per_km"],
-        ),
+        )
+        if extended_activity.is_run_activity
+        else go.Scatter(
+            x=extended_activity.extended_stream["distance_km"],
+            y=extended_activity.moving_average_velocity,
+            name="Speed km/h",
+            mode="lines",
+            hovertemplate="Speed: %{customdata} km/h<extra></extra>",  # Hover tooltip template with y / 60
+            customdata=[round(x, 2) for x in extended_activity.moving_average_velocity],
+        )
     )
 
     fig.add_trace(
@@ -94,42 +125,31 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
         )
     )
 
-    # Add background color and labels for each pace zone
-    shapes = []
-
-    for i in range(len(pace_bpm_mapping)):
-
-        # if i  < len(pace_bpm_mapping):
-        shapes.append(
-            dict(
-                type="rect",
-                xref="paper",
-                yref="y",
-                x0=0,
-                y0=i - 0.5,
-                x1=1,
-                y1=i + 1 - 0.5,
-                fillcolor=colors[i],
-                opacity=0.5,
-                layer="below",
-                line_width=0,
-            )
-        )
-
     # Update layout
     fig.update_layout(
         xaxis=dict(
             title="<b>Distance</b> (km)",
         ),
-        yaxis=dict(
-            title="<b>Pace</b> (min/km)",
-            showgrid=False,  # Optional: Hide grid lines for secondary y-axis
-            tickvals=zone,
-            ticktext=[
-                f"<b>{key}</b><br><i>{convert_min_to_min_sec(value['pace'])}</i>"
-                for key, value in pace_bpm_mapping.items()
-            ],
-            range=[max(zone), min(zone)],
+        yaxis=(
+            dict(
+                title="<b>Pace</b> (min/km)",
+                showgrid=False,  # Optional: Hide grid lines for secondary y-axis
+                tickvals=zone,
+                ticktext=[
+                    f"<b>{key}</b><br><i>{convert_min_to_min_sec(value['pace'])}</i>"
+                    for key, value in pace_bpm_mapping.items()
+                ],
+                range=[max(zone), min(zone)],
+            )
+            if extended_activity.is_run_activity
+            else dict(
+                title="<b>Speed</b> (km/h)",
+                showgrid=False,
+                range=[
+                    0,
+                    int(max(extended_activity.moving_average_velocity) / 10 + 1) * 10,
+                ],
+            )
         ),
         yaxis2=dict(
             title="<b>Heart Rate</b> (bpm)",

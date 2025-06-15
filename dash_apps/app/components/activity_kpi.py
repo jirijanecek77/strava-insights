@@ -53,13 +53,23 @@ def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
                 className="kpi-icons",
             ),
             html.Div(
-                children=[
-                    html.I(className="fas fa-tachometer-alt"),
-                    html.Div(
-                        f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}"
-                    ),
-                    f"min/km",
-                ],
+                children=(
+                    [
+                        html.I(className="fas fa-tachometer-alt"),
+                        html.Div(
+                            f"{convert_min_to_min_sec(speed_to_pace(extended_activity.activity['average_speed']))}"
+                        ),
+                        f"min/km",
+                    ]
+                    if extended_activity.is_run_activity
+                    else [
+                        html.I(className="fas fa-tachometer-alt"),
+                        html.Div(
+                            f"{extended_activity.activity['max_speed'] * 3.6:.2f}"
+                        ),
+                        f"km/h",
+                    ]
+                ),
                 className="kpi-icons",
             ),
             html.Div(
