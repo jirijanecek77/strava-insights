@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, date
+from functools import lru_cache
 from os import environ as env
 from typing import List
 
@@ -16,8 +17,9 @@ from dash_apps.app.model.mock import (
     ACTIVITIES_MOCK,
     ATHLETE_MOCK,
     ATHLETE_DICT_MOCK,
+    RUN_ACTIVITY_STREAM_MOCK,
 )
-from dash_apps.app.model.mock_ride import RIDE_ACTIVITY_STREAM_MOCK, RIDE_ACTIVITY_MOCK
+from dash_apps.app.model.mock_ride import RIDE_ACTIVITY_MOCK
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -173,6 +175,7 @@ class StravaManager:
         athlete = self.strava_client.get_athlete()
         return athlete
 
+    @lru_cache
     def get_activity(self, activity_id: int) -> DetailedActivity:
         """
             Get Activity from  STRAVA API:
@@ -202,6 +205,7 @@ class StravaManager:
 
         return activity
 
+    @lru_cache
     def get_activity_stream(self, activity_id: int) -> dict:
         """
             Get Activity Stream from STRAVA API:
@@ -213,8 +217,8 @@ class StravaManager:
         """
 
         if self.is_mock():
-            return RIDE_ACTIVITY_STREAM_MOCK
-            # return RUN_ACTIVITY_STREAM_MOCK
+            # return RIDE_ACTIVITY_STREAM_MOCK
+            return RUN_ACTIVITY_STREAM_MOCK
 
         url = (
             f"https://www.strava.com/api/v3/activities/{activity_id}/"
@@ -246,6 +250,7 @@ class StravaManager:
 
         return self.get_activities_between(start_date, end_date)
 
+    @lru_cache
     def get_activities_between(self, start_date: date, end_date: date) -> pd.DataFrame:
         if self.is_mock():
             return get_strava_activities_pandas(ACTIVITIES_MOCK)

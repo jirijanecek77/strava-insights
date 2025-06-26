@@ -51,7 +51,7 @@ def landing():
 @login_blueprint.route("/callback")
 def strava_callback():
     """Strava the code needed to get the user's data in Callback in the following ULR:
-    web_app_url/run-together/?state=&code={code}&scope=read,activity:read_all,profile:read_all,read_all
+    web_app_url/?state=&code={code}&scope=read,activity:read_all,profile:read_all,read_all
     This function get the code, put it in the Flash Session.
     Redirect to the Dash
         Add this URL as a parameter of my HTML file login.html as redirect of the login Button

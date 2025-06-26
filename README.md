@@ -1,6 +1,6 @@
 # Introduction
 
-Front-end UI For Strava Insights app.
+Enhanced UI For Strava Insights
 
 ## Goal
 
@@ -13,10 +13,22 @@ The aim was to develop this API to play with Flask, Dash, and the Strava API.
 
 Preferably, create a new python environment with `python=3.13`
 
+```bash
+cd path\to\your\project
+python -m venv .venv
+.venv\Scripts\activate
+```
+
 ```python
 pip
 install - r
 requirements.txt
+```
+
+#### Database
+
+```mongo db in docker
+docker run --name strava-mongo -d -p 27017:27017 mongo:latest
 ```
 
 #### Environment variables

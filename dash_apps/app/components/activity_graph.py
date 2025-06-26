@@ -8,6 +8,8 @@ from dash_apps.app.model.extended_activity import ExtendedActivity
 from dash_apps.app.utils.colors import Colors
 from dash_apps.app.utils.conversion import convert_min_to_min_sec
 
+MARKER_SIZE = 5
+
 
 def get_reference_race():
     """
@@ -46,64 +48,60 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
     # Get some parameter to display the zone on the graph
     pace_bpm_mapping = extended_activity.user.get_pace_bpm_mapping()
 
-    colors = [x["color"] for x in pace_bpm_mapping.values()]
     y_bpm_axis = [x["bpm"] for x in pace_bpm_mapping.values()]
-
     zone = list(range(len(pace_bpm_mapping)))
 
     # Add background color and labels for each pace zone
-    shapes = []
-
-    for i in range(len(pace_bpm_mapping)):
-
-        # if i  < len(pace_bpm_mapping):
-        shapes.append(
-            dict(
-                type="rect",
-                xref="paper",
-                yref="y",
-                x0=0,
-                y0=i - 0.5,
-                x1=1,
-                y1=i + 1 - 0.5,
-                fillcolor=colors[i],
-                opacity=0.5,
-                layer="below",
-                line_width=0,
-            )
+    shapes = (
+        _get_run_pace_levels(
+            [x["color"] for x in pace_bpm_mapping.values()], pace_bpm_mapping
         )
+        if extended_activity.is_run_activity
+        else []
+    )
 
     fig = go.Figure()
 
     # Add heart rate data as a scatter plot
-    fig.add_trace(
-        go.Scatter(
-            x=extended_activity.extended_stream["distance_km"],
-            y=extended_activity.normalized_moving_average_pace,
-            name="Pace min/km",
-            mode="lines",
-            line=dict(color=Colors.green, width=2),
-            hovertemplate="Pace: %{customdata} min/km<extra></extra>",  # Hover tooltip template with y / 60
-            customdata=extended_activity.moving_average_pace["minute_second_per_km"],
+    if extended_activity.is_run_activity:
+        fig.add_trace(
+            go.Scatter(
+                x=extended_activity.extended_stream["distance_km"],
+                y=extended_activity.normalized_moving_average_pace,
+                name="Pace min/km",
+                mode="lines+markers",
+                line=dict(color=Colors.blue, width=2),
+                marker=_get_max_value_marker(extended_activity.moving_average_velocity),
+                hovertemplate="Pace: %{customdata} min/km<extra></extra>",  # Hover tooltip template with y / 60
+                customdata=extended_activity.moving_average_pace[
+                    "minute_second_per_km"
+                ],
+            )
         )
-        if extended_activity.is_run_activity
-        else go.Scatter(
-            x=extended_activity.extended_stream["distance_km"],
-            y=extended_activity.moving_average_velocity,
-            name="Speed km/h",
-            mode="lines",
-            hovertemplate="Speed: %{customdata} km/h<extra></extra>",  # Hover tooltip template with y / 60
-            customdata=[round(x, 2) for x in extended_activity.moving_average_velocity],
+    else:
+        fig.add_trace(
+            go.Scatter(
+                x=extended_activity.extended_stream["distance_km"],
+                y=extended_activity.moving_average_velocity,
+                name="Speed km/h",
+                mode="lines+markers",
+                line=dict(color=Colors.blue, width=2),
+                marker=_get_max_value_marker(extended_activity.moving_average_velocity),
+                hovertemplate="Speed: %{customdata} km/h<extra></extra>",  # Hover tooltip template with y / 60
+                customdata=[
+                    round(x, 2) for x in extended_activity.moving_average_velocity
+                ],
+            )
         )
-    )
 
     fig.add_trace(
         go.Scatter(
             x=extended_activity.extended_stream["distance_km"],
             y=extended_activity.normalized_moving_average_heartrate,
             name="Heart Rate (bpm)",
-            mode="lines",
-            line=dict(color=Colors.orange, width=2),
+            mode="lines+markers",
+            line=dict(color=Colors.red, width=2),
+            marker=_get_max_value_marker(extended_activity.moving_average_heartrate),
             hovertemplate="HR: %{customdata}<extra></extra>",  # Hover tooltip template with y / 60
             customdata=[int(x) for x in extended_activity.moving_average_heartrate],
             yaxis="y2",  # Assign this trace to the secondary y-axis
@@ -115,13 +113,28 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             x=extended_activity.extended_stream["distance_km"],
             y=extended_activity.elevation_gain,
             name="Elevation (m)",
-            mode="lines",
+            mode="lines+markers",
             line=dict(color=Colors.gray, width=2),
+            marker=_get_max_value_marker(extended_activity.elevation_gain),
             hovertemplate="Elevation: %{customdata} m<extra></extra>",
             customdata=[int(x) for x in extended_activity.elevation_gain],
             fill="tozeroy",
             fillcolor="rgba(200,200,200,0.3)",  # Light gray with transparency
             yaxis="y3",
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=extended_activity.extended_stream["distance_km"],
+            y=extended_activity.slope,
+            name="Slope (%)",
+            mode="lines+markers",
+            line=dict(color=Colors.green, width=1),
+            marker=_get_max_value_marker(extended_activity.slope),
+            hovertemplate="Slope: %{customdata:.2f} %<extra></extra>",
+            customdata=extended_activity.slope,
+            yaxis="y4",
         )
     )
 
@@ -168,7 +181,16 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
             position=0,
             range=[
                 min(extended_activity.elevation_gain),
-                max(extended_activity.elevation_gain),
+                max(extended_activity.elevation_gain) + MARKER_SIZE,
+            ],
+        ),
+        yaxis4=dict(
+            showgrid=False,
+            overlaying="y",
+            anchor="free",
+            range=[
+                min(extended_activity.slope),
+                max(extended_activity.slope),
             ],
         ),
         hovermode="x unified",
@@ -196,3 +218,30 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
     )
 
     return html.Div(children=activity_graph)
+
+
+def _get_max_value_marker(data: list):
+    max_idx = data.index(max(data))
+    return dict(
+        size=[MARKER_SIZE if i == max_idx else 0 for i in range(len(data))],
+        color="red",
+    )
+
+
+def _get_run_pace_levels(colors, pace_bpm_mapping) -> list[dict]:
+    return [
+        dict(
+            type="rect",
+            xref="paper",
+            yref="y",
+            x0=0,
+            y0=i - 0.5,
+            x1=1,
+            y1=i + 1 - 0.5,
+            fillcolor=colors[i],
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+        for i in range(len(pace_bpm_mapping))
+    ]

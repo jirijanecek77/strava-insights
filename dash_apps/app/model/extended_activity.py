@@ -45,6 +45,7 @@ class ExtendedActivity:
         )
 
         self.elevation_gain = self.extended_stream["altitude"]["data"]
+        self.slope = self._calculate_slope(30)
 
         # Get The normalize value based on the user setting
         self.normalized_moving_average_heartrate = [
@@ -121,3 +122,20 @@ class ExtendedActivity:
             pace_bpm_mapping=self.user.get_pace_bpm_mapping(),
         )
         return bpm_pace_zone_intervals
+
+    def _calculate_slope(self, range_points: int):
+        slopes = []
+        distance_data = self.extended_stream["distance"]["data"]
+
+        for i in range(range_points, len(self.elevation_gain)):
+            elevation_change = (
+                self.elevation_gain[i] - self.elevation_gain[i - range_points]
+            )
+            horizontal_distance = distance_data[i] - distance_data[i - range_points]
+
+            slopes.append(
+                (elevation_change / horizontal_distance) * 100
+                if horizontal_distance > 0
+                else 0
+            )
+        return slopes

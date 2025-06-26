@@ -57,65 +57,6 @@ def get_kpi_interval(
     return average_heart_rate, average_pace, total_distance
 
 
-def extract_intervals(
-    distance_km: List[float],
-    pace: List[float],
-    heart_rate: List[int],
-    lower_bound: float,
-    upper_bound: float,
-) -> List[Dict[str, List[float]]]:
-    """
-    Extract intervals where the pace falls within a specified range.
-
-    This function identifies continuous intervals in the provided distance, pace, and heart_rate lists where the pace is consistently within a specified range (between `lower_bound` and `upper_bound`). It returns a list of intervals, each containing the distances, paces, and heart rate values for that interval.
-
-    Parameters:
-    - distance_km (List[float]): A list of distances in kilometers.
-    - pace (List[float]): A list of pace values corresponding to each distance point.
-    - heart_rate (List[int]): A list of heart_rate values corresponding to each distance point.
-    - lower_bound (float): The lower bound of the pace range to identify intervals.
-    - upper_bound (float): The upper bound of the pace range to identify intervals.
-
-    Returns:
-    - List[Dict[str, List[float]]]: A list of dictionaries where each dictionary represents an interval and contains:
-        - 'distance_km' (List[float]): The list of distances within the interval.
-        - 'pace' (List[float]): The list of paces within the interval.
-        - 'heart_rate' (List[int]): The list of heart_rate values within the interval.
-    """
-    intervals = []
-    interval = {}
-    start_interval = False
-
-    for i in range(len(pace)):
-
-        if lower_bound <= pace[i] < upper_bound:
-            # If interval didn't start, initiate it and change value for start
-            if not start_interval:
-                start_interval = True
-                interval = {
-                    "distance_km": [],
-                    "pace": [],
-                    "heart_rate": [],
-                }
-
-            # Add the value (if start was already True or not)
-            interval["distance_km"].append(distance_km[i])
-            interval["pace"].append(pace[i])
-            interval["heart_rate"].append(heart_rate[i])
-
-        # If condition is not met anymore, set start to False and add the interval
-        else:
-            if start_interval:
-                intervals.append(interval)
-                start_interval = False
-
-    # In case the interval was still open at the end
-    if start_interval:
-        intervals.append(interval)
-
-    return intervals
-
-
 def get_zone_pace_bpm(
     pace_bpm_mapping: Dict[str, Dict[str, Tuple[float, float]]],
     pace: float,
