@@ -41,8 +41,9 @@ def app_callbacks(
         return [dl.Marker(position=position)]
 
     @dash_app.callback(
-        Output("modal", "hidden", allow_duplicate=True),
-        Output("modal-body", "children"),
+        Output("modal", "is_open"),
+        Output("modal-header", "children"),
+        Output("modal-content", "children"),
         Input({"type": "select-activity-btn", "index": ALL}, "n_clicks"),
         prevent_initial_call=True,
     )
@@ -50,12 +51,12 @@ def app_callbacks(
         """
         Open the Modal box when user click on one activity
         :param n_clicks:  User Clicking on the activity
-        :return: Hidden = True for the model Component
+        :return: is_open = True for the model Component
         """
-        # When the Component is build it can trigger the callbakc to avoid it
+        # When the Component is build it can trigger the callback to avoid it
         # check that n_click is not None
         if all(x is None for x in n_clicks):
-            return no_update, no_update
+            return no_update, no_update, no_update
 
         session["displayed_activity_id"] = ctx.triggered_id["index"]
         logging.info(
@@ -63,26 +64,11 @@ def app_callbacks(
             f"id={session['displayed_activity_id']}"
         )
 
-        activity_details_modal_content = get_activity_details(
+        modal_header, modal_content = get_activity_details(
             activity_id=session["displayed_activity_id"]
         )
 
-        return False, activity_details_modal_content
-
-    @dash_app.callback(
-        Output("modal", "hidden", allow_duplicate=True),
-        Input("close-modal-btn", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def close_modal_box(n_clicks):
-        """
-        Clost the Modal box when user click on the cross
-        :param n_clicks:  User Clicking on the cross
-        :return: Hidden = True for the model Component
-        """
-
-        logging.info("User Action: close-modal-btn. Close Modal Box")
-        return True
+        return True, modal_header, modal_content
 
     @dash_app.callback(
         Output("calendar-training-container", "children"),

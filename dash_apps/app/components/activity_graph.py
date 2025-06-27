@@ -1,8 +1,6 @@
-import dash_mantine_components as dmc
 import plotly.graph_objects as go
 from dash import dcc
-from dash import html
-from dash.html import Div
+from dash.development.base_component import Component
 
 from dash_apps.app.model.extended_activity import ExtendedActivity
 from dash_apps.app.utils.colors import Colors
@@ -11,29 +9,7 @@ from dash_apps.app.utils.conversion import convert_min_to_min_sec
 MARKER_SIZE = 5
 
 
-def get_reference_race():
-    """
-
-    :return:
-    """
-    selection_reference_race = html.Div(
-        [
-            dmc.SegmentedControl(
-                id="segmented",
-                value="ng",
-                data=[
-                    {"value": "marathon", "label": "Marathon"},
-                    {"value": "half_marathon", "label": "Half Marathon"},
-                    {"value": "10km", "label": "10 km"},
-                ],
-                mb=10,
-            ),
-        ]
-    )
-    return selection_reference_race
-
-
-def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
+def get_activity_graph(extended_activity: ExtendedActivity) -> Component:
     """
     Generate an Activity Pace graph.
 
@@ -41,7 +17,7 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
     stream data,displaying heart rate values over distance.
     The graph is customized with specificstyling and hover interactions.
 
-    :param activity_stream: Dictionary containing activity stream data.
+    :param extended_activity:
     :return: dcc.Graph component representing the heart rate graph.
     """
 
@@ -206,18 +182,15 @@ def get_activity_graph(extended_activity: ExtendedActivity) -> Div:
         ),
     )
 
-    activity_graph = dcc.Graph(
+    return dcc.Graph(
         figure=fig,
         config={
             "displayLogo": False,
             "displayModeBar": False,
         },  # Disable display of logo and mode bar
-        id="activity-graph",  # Set component ID
-        className="activity-graph-container",
-        responsive=True,
+        id="activity-graph",
+        style={"height": "65vh"},
     )
-
-    return html.Div(children=activity_graph)
 
 
 def _get_max_value_marker(data: list):

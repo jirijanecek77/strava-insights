@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
-from dash import html, dcc
-from dash.html import Div
+from dash import dcc
+from dash.development.base_component import Component
 
 from dash_apps.app.components.activity_analysis import get_activity_analysis
 from dash_apps.app.components.activity_graph import get_activity_graph
@@ -11,7 +11,7 @@ from dash_apps.app.utils.conversion import convert_min_to_min_sec
 from dash_apps.app.utils.conversion import speed_to_pace
 
 
-def get_activity_details(activity_id: int) -> Div:
+def get_activity_details(activity_id: int) -> tuple[Component, Component]:
     """
     Retrieve activity details.
 
@@ -37,27 +37,23 @@ def get_activity_details(activity_id: int) -> Div:
     activity_analysis = get_activity_analysis(extended_activity=extended_activity)
 
     # Create the activity Details with two columns
-    return html.Div(
+    return extended_activity.activity["name"], dbc.Container(
         children=[
             dbc.Row(
                 [
                     dbc.Col(
                         [
                             dbc.Row(
-                                html.Div(extended_activity.activity["name"]),
-                                className="h2",
-                            ),
-                            dbc.Row(
                                 dbc.FormText(extended_activity.activity["description"])
                             ),
                             dbc.Row(activity_kpi),
                             dbc.Row(activity_map, className="mb-2"),
                         ],
-                        width=4,
+                        width=5,
                     ),
                     dbc.Col(activity_graph),
                 ],
-                className="mb-3",
+                className="mb-2",
             ),
             dbc.Row(activity_analysis),
             dcc.Store(

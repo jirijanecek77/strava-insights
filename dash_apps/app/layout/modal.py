@@ -1,35 +1,17 @@
-from dash import html
+import dash_bootstrap_components as dbc
+from dash.development.base_component import Component
 
 
-def get_modal_box() -> html.Div:
-    """
-    Returns a modal box for displaying content.
-
-    This function creates a modal box with a close button ("x") and an empty modal body.
-    The modal box is initially hidden.
-
-    Returns:
-    html.Div: A modal box for displaying content.
-    """
-
-    # Create the modal box containing modal content
-    modal_box = html.Div(
+def get_modal_box() -> Component:
+    return dbc.Modal(
         children=[
-            html.Div(
-                children=[
-                    # Close button for the modal box
-                    html.Span(children="x", className="close", id="close-modal-btn"),
-                    # Placeholder for modal body content
-                    html.Div(id="modal-body"),
-               ],
-                # Styling for the modal content
-                className="modal-content-style",
-                id="modal-content",
-            )
+            dbc.ModalHeader(id="modal-header"),
+            dbc.ModalBody(id="modal-content"),
         ],
-        # Styling for the modal box
-        className="modal-style",
         id="modal",
-        hidden=True,  # Initially hide the modal box
+        is_open=False,
+        size="xl",
+        fade=True,
+        centered=True,
+        className="mw-100 p-5",
     )
-    return modal_box

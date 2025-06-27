@@ -2,7 +2,6 @@ import dash_bootstrap_components as dbc
 from dash import html, register_page, dcc
 from flask import session
 
-from dash_apps.app.layout.footer import get_footer
 from dash_apps.app.layout.header import get_header
 
 register_page(__name__, name="Settings", top_nav=True, path="/settings")
@@ -124,12 +123,10 @@ def get_settings():
 def layout():
     header = get_header()
     body = get_settings()
-    footer = get_footer()
 
     return html.Div(
         children=[
             header,
             html.Div(children=body, style={"flex": "1", "padding": "20px"}),
-            footer,
         ],
     )

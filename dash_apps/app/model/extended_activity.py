@@ -134,7 +134,7 @@ class ExtendedActivity:
             horizontal_distance = distance_data[i] - distance_data[i - range_points]
 
             slopes.append(
-                (elevation_change / horizontal_distance) * 100
+                min(45, max(-45, (elevation_change / horizontal_distance) * 100))
                 if horizontal_distance > 0
                 else 0
             )

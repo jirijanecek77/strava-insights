@@ -131,6 +131,7 @@ class StravaManager:
             expires_at=token_response["expires_at"],
         )
 
+    @lru_cache
     def get_athlete_v2(self):
         """
         Get Athlete from  STRAVA API:
@@ -158,6 +159,7 @@ class StravaManager:
 
         return athlete
 
+    @lru_cache
     def get_athlete(self) -> DetailedAthlete:
         """
             Get Athlete from  STRAVA API:
@@ -250,7 +252,6 @@ class StravaManager:
 
         return self.get_activities_between(start_date, end_date)
 
-    @lru_cache
     def get_activities_between(self, start_date: date, end_date: date) -> pd.DataFrame:
         if self.is_mock():
             return get_strava_activities_pandas(ACTIVITIES_MOCK)
@@ -309,18 +310,6 @@ def seconds_to_hms(seconds: int) -> str:
         int(hours), int(minutes), int(seconds)
     )
     return formatted_time
-
-
-def seconds_to_h(seconds: int) -> str:
-    """
-        Convert a time in second into HH Hours format (keep only the hour element)
-    :param seconds: number of second
-    :return: formatted_time: string of time
-    """
-    # Calculate hours, minutes, and seconds
-    hours, remainder = divmod(seconds, 3600)
-
-    return int(hours)
 
 
 def get_strava_activities_pandas(activities: List) -> pd.DataFrame:

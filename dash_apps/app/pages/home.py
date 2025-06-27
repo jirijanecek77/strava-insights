@@ -6,7 +6,6 @@ from dash import html
 from flask import session
 
 from dash_apps.app.layout.body import get_body
-from dash_apps.app.layout.footer import get_footer
 from dash_apps.app.layout.header import get_header
 from dash_apps.app.layout.modal import get_modal_box
 from dash_apps.app.model.strava_manager import StravaManager
@@ -38,8 +37,6 @@ def get_home_layout() -> html:
     body = get_body(year=session["selected_year"], month=session["selected_month"])
     modal_box = get_modal_box()
 
-    footer = get_footer()
-
-    basic_components = [header, html.Br(), body, html.Br(), footer, modal_box]
+    basic_components = [header, html.Br(), body, html.Br(), modal_box]
     logging.info("Building home page")
     return html.Div(children=basic_components)
