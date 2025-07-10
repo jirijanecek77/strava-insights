@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, date
 from functools import lru_cache
 from os import environ as env
-from typing import List
+from typing import List, Optional, Any
 
 import pandas as pd
 import requests
@@ -111,11 +111,14 @@ class StravaManager:
             expires_at=session["expires_at"],
         )
 
-    def generate_token_response(self, strava_code: str) -> None:
+    def generate_token_response(self, strava_code: Optional[Any]) -> None:
         """
         Fill the Strava Client with the information about the token.
         This token need to be refreshed only if not valid.
         """
+        if not strava_code:
+            raise ValueError("Strava code was not provided.")
+
         token_response = self.strava_client.exchange_code_for_token(
             client_id=self.strava_client_id,
             client_secret=self.strava_client_secret,
@@ -277,15 +280,15 @@ def get_strava_activities_string(activities: BatchedResultsIterator) -> List:
     :param BatchedResultsIterator activities: Batch
     :return: data
     """
-    data = []
     try:
         logging.info(
             f"""Retrieve {len(list(activities))} activities from the BatchedResultsIterator"""
         )
     except (TypeError, stravalib.exc.Fault) as e:
         logging.info("Retrieve 0 activities from the BatchedResultsIterator")
-        return data
+        return []
 
+    data =[]
     for activity in activities:
         my_dict = activity.model_dump()
         data.append(

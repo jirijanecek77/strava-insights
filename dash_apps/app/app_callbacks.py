@@ -15,7 +15,7 @@ from dash_apps.app.pages.home import get_home_layout
 def app_callbacks(
     dash_app: Dash,
     app_path: str,
-) -> object:
+):
     dash.register_page(__name__, layout=get_home_layout, path=app_path)
 
     @dash_app.callback(

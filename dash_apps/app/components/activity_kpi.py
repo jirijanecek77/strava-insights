@@ -1,6 +1,5 @@
-from typing import List
-
 from dash import html
+from dash.development.base_component import Component
 
 from dash_apps.app.model.extended_activity import ExtendedActivity
 from dash_apps.app.utils.conversion import (
@@ -10,7 +9,7 @@ from dash_apps.app.utils.conversion import (
 from dash_apps.app.utils.conversion import speed_to_pace
 
 
-def get_activity_kpi(extended_activity: ExtendedActivity) -> List[html.Button]:
+def get_activity_kpi(extended_activity: ExtendedActivity) -> Component:
     """
         logic to generate the left column content goes from the body
         with the activities from the datafram as input

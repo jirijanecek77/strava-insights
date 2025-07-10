@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 
 from dash import html
+from dash.development.base_component import Component
 from flask import session
 
 from dash_apps.app.layout.body import get_body
@@ -11,7 +12,7 @@ from dash_apps.app.layout.modal import get_modal_box
 from dash_apps.app.model.strava_manager import StravaManager
 
 
-def get_home_layout() -> html:
+def get_home_layout() -> Component:
     strava_manager = StravaManager(session=False)
 
     # no token yet associate to the session

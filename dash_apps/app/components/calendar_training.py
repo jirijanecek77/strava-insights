@@ -1,9 +1,9 @@
 import calendar
+from collections import defaultdict
 from datetime import datetime, date
 from typing import List
 
 import pandas as pd
-from black.trans import defaultdict
 from dash import html
 
 from dash_apps.app.model.strava_manager import StravaManager
