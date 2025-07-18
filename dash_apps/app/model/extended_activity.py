@@ -124,7 +124,7 @@ class ExtendedActivity:
         return bpm_pace_zone_intervals
 
     def _calculate_slope(self, range_points: int):
-        slopes = [0] * range_points
+        slopes = [0] * (range_points // 2)
         distance_data = self.extended_stream["distance"]["data"]
 
         for i in range(range_points, len(self.elevation_gain)):
@@ -138,4 +138,4 @@ class ExtendedActivity:
                 if horizontal_distance > 0
                 else 0
             )
-        return slopes
+        return slopes + ([0] * (len(distance_data) - len(slopes)))
