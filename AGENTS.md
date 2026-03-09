@@ -49,8 +49,8 @@ make test
 As the new codebase is created, keep commands documented for:
 
 - frontend install, run, lint, and test
-- backend install, run, lint, type-check, and test
-- worker startup and scheduled job execution
+- backend install, run, lint, type-check, and test through Poetry
+- worker startup and scheduled job execution through Poetry
 - local end-to-end validation through Docker
 - full local lifecycle through `make` targets
 
@@ -84,6 +84,7 @@ Minimum expectations for significant changes:
 - changed behavior validated in the running stack
 - validation available through simple `make` targets
 - build validation completed successfully after the change
+- `docs/implementation_plan.md` updated to reflect completed work and newly discovered remaining work
 
 Do not treat a code change as complete if it has not been tested and validated locally.
 

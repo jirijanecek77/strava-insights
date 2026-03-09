@@ -1,0 +1,32 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    app_name: str = "Strava Insights API"
+    database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/strava_insights"
+    redis_url: str = "redis://redis:6379/0"
+    session_secret_key: str = "change-me"
+    session_cookie_name: str = "strava_insights_session"
+    session_max_age_seconds: int = 60 * 60 * 24 * 14
+    session_https_only: bool = False
+    backend_public_url: str = "http://localhost:8000"
+    frontend_public_url: str = "http://localhost:5173"
+    strava_client_id: str = ""
+    strava_client_secret: str = ""
+    strava_authorize_url: str = "https://www.strava.com/oauth/authorize"
+    strava_token_url: str = "https://www.strava.com/oauth/token"
+    strava_scope: str = "read,activity:read_all"
+    mapy_cz_api_key: str = ""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
+
+    @property
+    def strava_redirect_uri(self) -> str:
+        return f"{self.backend_public_url}/auth/strava/callback"
+
+
+settings = Settings()

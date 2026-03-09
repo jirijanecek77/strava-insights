@@ -26,7 +26,7 @@ UI from local storage and cache instead of live Strava requests.
 ## Technology Stack
 
 - Frontend: React, Tailwind CSS, Recharts, Mapy.cz
-- Backend: Python 3.13, FastAPI
+- Backend: Python 3.13, FastAPI, Poetry
 - Jobs: Celery
 - Database: PostgreSQL
 - Cache and broker: Redis
@@ -392,6 +392,7 @@ sequenceDiagram
 - Build, run, and test the full stack through simple `make`-style commands.
 - The command surface should stay short and predictable.
 - Every code change must be followed by a successful build validation.
+- Use Poetry as the Python dependency and virtual-environment manager for backend and worker services.
 
 Expected commands:
 
@@ -401,6 +402,8 @@ Expected commands:
 - `make down` stops the local stack
 
 Normal validation should happen through Docker, not by relying on partially manual host setup.
+
+When host-level Python commands are documented for backend or worker work, they should use Poetry rather than direct `pip` or ad hoc virtualenv commands.
 
 ## Data Model
 

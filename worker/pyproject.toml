@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "strava-insights-worker"
+version = "0.1.0"
+description = "Background worker for Strava Insights"
+authors = ["Strava Insights"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.13"
+celery = {version = "5.5.3", extras = ["redis"]}
+pydantic-settings = "2.10.1"
+sqlalchemy = "2.0.43"
+psycopg = {version = "3.2.9", extras = ["binary"]}
+cryptography = "45.0.7"
+httpx = "0.28.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.4.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"

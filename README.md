@@ -1,43 +1,46 @@
-# Introduction
+# Strava Insights
 
-Enhanced UI For Strava Insights
+This repository is being rebuilt from the legacy Flask/Dash application into a separated frontend, backend, and worker stack.
 
-## Goal
+## New Stack
 
-Develop an application for runners who want to track progress in their running program for a specific race.
-The aim was to develop this API to play with Flask, Dash, and the Strava API.
+- `frontend`: React + Vite + Tailwind
+- `backend`: FastAPI + Poetry
+- `worker`: Celery + Poetry
+- `postgres`: PostgreSQL
+- `redis`: Redis
 
-## Usage
+The default local workflow is Docker-based and driven through `make`.
 
-### Installation
-
-Preferably, create a new python environment with `python=3.13`
+## Commands
 
 ```bash
-cd path\to\your\project
-python -m venv .venv
-.venv\Scripts\activate
+make build
+make up
+make test
+make down
 ```
 
-```python
-pip
-install - r
-requirements.txt
+If `make` is not installed on Windows, use:
+
+```powershell
+.\make.ps1 build
+.\make.ps1 up
+.\make.ps1 test
+.\make.ps1 down
 ```
 
-#### Database
+## Environment
 
-```mongo db in docker
-docker run --name strava-mongo -d -p 27017:27017 mongo:latest
-```
+Copy `.env.example` to `.env` and fill in the required values.
 
-#### Environment variables
+## Python Tooling
 
-Copy `.env.example` to `.env` and set the values to the variables.
+Python package and environment management for the new backend and worker should use Poetry.
 
-#### Run the application:
+## Notes
 
-```
-python -m strava-insights.app
-```
+- The legacy Flask/Dash code remains in the repository during the migration.
+- The new implementation lives in `frontend`, `backend`, and `worker`.
+- Product and architecture rules are documented in `docs/specification.md` and `docs/implementation_plan.md`.
 

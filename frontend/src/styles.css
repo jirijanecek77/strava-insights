@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #f4efe7;
+  background:
+    radial-gradient(circle at top, rgba(255, 153, 51, 0.22), transparent 32%),
+    linear-gradient(180deg, #17212b 0%, #0c1117 100%);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.hero-card {
+  max-width: 720px;
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: rgba(13, 18, 24, 0.85);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #ff9f43;
+  font-size: 12px;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.copy,
+.endpoint {
+  margin: 0;
+  color: rgba(244, 239, 231, 0.82);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.endpoint {
+  margin-top: 16px;
+}

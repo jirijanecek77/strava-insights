@@ -2,7 +2,7 @@
 
 ## Summary
 
-This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\specification.md) into a trackable delivery sequence. The new application will be built greenfield alongside the current Flask/Dash app using `Vite + React`, `FastAPI`, `Celery`, `PostgreSQL`, `Redis`, Docker, and simple `make` commands.
+This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\specification.md) into a trackable delivery sequence. The new application will be built greenfield alongside the current Flask/Dash app using `Vite + React`, `FastAPI`, `Celery`, `PostgreSQL`, `Redis`, Docker, Poetry for Python package management, and simple `make` commands.
 
 ## Progress Rules
 
@@ -12,95 +12,96 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 
 ## Phase 1: Foundation
 
-- [ ] Create top-level structure for `frontend`, `backend`, `worker`, and Docker/infrastructure files.
-- [ ] Add `Makefile` with `make build`, `make up`, `make test`, and `make down`.
-- [ ] Add Docker Compose stack for frontend, backend, worker, PostgreSQL, and Redis.
-- [ ] Initialize React frontend with Vite and Tailwind.
-- [ ] Initialize FastAPI backend with clean architecture folder layout.
-- [ ] Initialize Celery worker and shared configuration.
-- [ ] Add environment configuration templates for Strava, Mapy.cz, PostgreSQL, and Redis.
-- [ ] Verify the stack builds successfully with `make build`.
-- [ ] Verify the stack starts successfully with `make up`.
+- [x] Create top-level structure for `frontend`, `backend`, `worker`, and Docker/infrastructure files.
+- [x] Add `Makefile` with `make build`, `make up`, `make test`, and `make down`.
+- [x] Add Docker Compose stack for frontend, backend, worker, PostgreSQL, and Redis.
+- [x] Initialize React frontend with Vite and Tailwind.
+- [x] Initialize FastAPI backend with clean architecture folder layout.
+- [x] Initialize Celery worker and shared configuration.
+- [x] Add Poetry configuration for backend and worker dependency management.
+- [x] Add environment configuration templates for Strava, Mapy.cz, PostgreSQL, and Redis.
+- [x] Verify the stack builds successfully with `make build`.
+- [x] Verify the stack starts successfully with `make up`.
 
 ## Phase 2: Backend Core
 
-- [ ] Add SQLAlchemy models and Alembic migrations for:
-- [ ] `users`
-- [ ] `oauth_tokens`
-- [ ] `activities`
-- [ ] `activity_streams`
-- [ ] `period_summaries`
-- [ ] `best_efforts`
-- [ ] `activity_best_efforts`
-- [ ] `sync_jobs`
-- [ ] `sync_checkpoints`
-- [ ] Add required indexes from `specification.md`.
-- [ ] Model imported activity fields required by the spec:
-- [ ] `name`, `description`, `start_date_local`, `type`
-- [ ] `distance`, `moving_time`, `elapsed_time`
-- [ ] `total_elevation_gain`, `elev_high`, `elev_low`
-- [ ] `average_speed`, `max_speed`
-- [ ] `average_heartrate`, `max_heartrate`
-- [ ] `average_cadence`, `start_latlng`
-- [ ] Model activity streams required for local detail rendering:
-- [ ] `time`
-- [ ] `distance`
-- [ ] `latlng`
-- [ ] `altitude`
-- [ ] `velocity_smooth`
-- [ ] `heartrate`
-- [ ] Implement Strava OAuth backend flow.
-- [ ] Implement secure token persistence.
-- [ ] Implement server-side session auth with secure cookie-based session management.
-- [ ] Implement current-user/profile endpoint.
-- [ ] Implement sync-status endpoint.
-- [ ] Add Redis-backed caching utilities.
+- [x] Add SQLAlchemy models and Alembic migrations for:
+- [x] `users`
+- [x] `oauth_tokens`
+- [x] `activities`
+- [x] `activity_streams`
+- [x] `period_summaries`
+- [x] `best_efforts`
+- [x] `activity_best_efforts`
+- [x] `sync_jobs`
+- [x] `sync_checkpoints`
+- [x] Add required indexes from `specification.md`.
+- [x] Model imported activity fields required by the spec:
+- [x] `name`, `description`, `start_date_local`, `type`
+- [x] `distance`, `moving_time`, `elapsed_time`
+- [x] `total_elevation_gain`, `elev_high`, `elev_low`
+- [x] `average_speed`, `max_speed`
+- [x] `average_heartrate`, `max_heartrate`
+- [x] `average_cadence`, `start_latlng`
+- [x] Model activity streams required for local detail rendering:
+- [x] `time`
+- [x] `distance`
+- [x] `latlng`
+- [x] `altitude`
+- [x] `velocity_smooth`
+- [x] `heartrate`
+- [x] Implement Strava OAuth backend flow.
+- [x] Implement secure token persistence.
+- [x] Implement server-side session auth with secure cookie-based session management.
+- [x] Implement current-user/profile endpoint.
+- [x] Implement sync-status endpoint.
+- [x] Add Redis-backed caching utilities.
 - [ ] Add backend DTOs for raw activity data, derived activity KPIs, and activity-detail analytics payloads.
-- [ ] Add backend unit and integration test scaffolding.
+- [x] Add backend unit and integration test scaffolding.
 
 ## Phase 3: Sync and Import Pipeline
 
-- [ ] Implement first-login full historical import job.
-- [ ] Implement daily incremental sync job.
-- [ ] Implement sync checkpoint logic to fetch only new activities after initial import.
-- [ ] Persist normalized activity metadata.
-- [ ] Persist activity streams required for detail views.
-- [ ] Persist or derive normalized activity fields used across reads:
-- [ ] `distance_km`
-- [ ] formatted moving time
-- [ ] sport-specific display pace or speed fields
-- [ ] difficulty inputs needed for activity list and calendar read models
-- [ ] Persist sync job status and progress.
-- [ ] Invalidate or refresh affected cache entries after sync.
-- [ ] Ensure standard read endpoints do not call Strava synchronously.
-- [ ] Add tests for first import and incremental sync behavior.
+- [x] Implement first-login full historical import job.
+- [x] Implement daily incremental sync job.
+- [x] Implement sync checkpoint logic to fetch only new activities after initial import.
+- [x] Persist normalized activity metadata.
+- [x] Persist activity streams required for detail views.
+- [x] Persist or derive normalized activity fields used across reads:
+- [x] `distance_km`
+- [x] formatted moving time
+- [x] sport-specific display pace or speed fields
+- [x] difficulty inputs needed for activity list and calendar read models
+- [x] Persist sync job status and progress.
+- [x] Invalidate or refresh affected cache entries after sync.
+- [x] Ensure standard read endpoints do not call Strava synchronously.
+- [x] Add tests for first import and incremental sync behavior.
 
 ## Phase 4: Analytics Port
 
 - [ ] Port activity detail derivations from the current app as explicit backend analytics services:
-- [ ] moving-average heart rate with `range_points = 10`
-- [ ] moving-average speed from `velocity_smooth * 3.6` with `range_points = 10`
-- [ ] derived running pace from stream `time` and `distance` with `range_points = 20`
-- [ ] formatted running pace output in both numeric and `MM:SS` forms
-- [ ] slope calculation over a 30-point window with clamp to `[-45, 45]`
-- [ ] running interval and pace-zone analysis
-- [ ] running compliance score and explanatory summary for dominant pace zone
+- [x] moving-average heart rate with `range_points = 10`
+- [x] moving-average speed from `velocity_smooth * 3.6` with `range_points = 10`
+- [x] derived running pace from stream `time` and `distance` with `range_points = 20`
+- [x] formatted running pace output in both numeric and `MM:SS` forms
+- [x] slope calculation over a 30-point window with clamp to `[-45, 45]`
+- [x] running interval and pace-zone analysis
+- [x] running compliance score and explanatory summary for dominant pace zone
 - [ ] Port the user-relative running pace / heart-rate zone model:
-- [ ] `bpm_max = 220 - 0.7 * age`
-- [ ] pace and bpm anchors for `100m`, `5km`, `10km`, `Half-Marathon`, `Marathon`, `Active Jogging`, `Slow Jogging`, `Walk`
-- [ ] midpoint-based pace and bpm zone boundaries
-- [ ] Implement the derived activity difficulty heuristic from the current app as a reusable analytics function.
-- [ ] Implement summary aggregation for dashboard KPIs.
+- [x] `bpm_max = 220 - 0.7 * age`
+- [x] pace and bpm anchors for `100m`, `5km`, `10km`, `Half-Marathon`, `Marathon`, `Active Jogging`, `Slow Jogging`, `Walk`
+- [x] midpoint-based pace and bpm zone boundaries
+- [x] Implement the derived activity difficulty heuristic from the current app as a reusable analytics function.
+- [x] Implement summary aggregation for dashboard KPIs.
 - [ ] Implement monthly, yearly, and rolling-period comparisons.
-- [ ] Implement best-effort calculations.
-- [ ] Store or precompute period summaries needed for fast reads.
-- [ ] Add tests for analytics calculations and aggregations.
+- [x] Implement best-effort calculations.
+- [x] Store or precompute period summaries needed for fast reads.
+- [x] Add tests for analytics calculations and aggregations.
 
 ## Phase 5: API Surface
 
-- [ ] Implement `/auth/*` endpoints.
-- [ ] Implement `/me` endpoint.
-- [ ] Implement `/sync/status` endpoint.
+- [x] Implement `/auth/*` endpoints.
+- [x] Implement `/me` endpoint.
+- [x] Implement `/sync/status` endpoint.
 - [ ] Implement `/dashboard` endpoint.
 - [ ] Implement `/trends` and `/comparisons` endpoints.
 - [ ] Implement `/activities` list endpoint with sport and date filters.
