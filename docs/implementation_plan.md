@@ -35,11 +35,27 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] `sync_jobs`
 - [ ] `sync_checkpoints`
 - [ ] Add required indexes from `specification.md`.
+- [ ] Model imported activity fields required by the spec:
+- [ ] `name`, `description`, `start_date_local`, `type`
+- [ ] `distance`, `moving_time`, `elapsed_time`
+- [ ] `total_elevation_gain`, `elev_high`, `elev_low`
+- [ ] `average_speed`, `max_speed`
+- [ ] `average_heartrate`, `max_heartrate`
+- [ ] `average_cadence`, `start_latlng`
+- [ ] Model activity streams required for local detail rendering:
+- [ ] `time`
+- [ ] `distance`
+- [ ] `latlng`
+- [ ] `altitude`
+- [ ] `velocity_smooth`
+- [ ] `heartrate`
 - [ ] Implement Strava OAuth backend flow.
 - [ ] Implement secure token persistence.
+- [ ] Implement server-side session auth with secure cookie-based session management.
 - [ ] Implement current-user/profile endpoint.
 - [ ] Implement sync-status endpoint.
 - [ ] Add Redis-backed caching utilities.
+- [ ] Add backend DTOs for raw activity data, derived activity KPIs, and activity-detail analytics payloads.
 - [ ] Add backend unit and integration test scaffolding.
 
 ## Phase 3: Sync and Import Pipeline
@@ -49,6 +65,11 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Implement sync checkpoint logic to fetch only new activities after initial import.
 - [ ] Persist normalized activity metadata.
 - [ ] Persist activity streams required for detail views.
+- [ ] Persist or derive normalized activity fields used across reads:
+- [ ] `distance_km`
+- [ ] formatted moving time
+- [ ] sport-specific display pace or speed fields
+- [ ] difficulty inputs needed for activity list and calendar read models
 - [ ] Persist sync job status and progress.
 - [ ] Invalidate or refresh affected cache entries after sync.
 - [ ] Ensure standard read endpoints do not call Strava synchronously.
@@ -56,13 +77,19 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 
 ## Phase 4: Analytics Port
 
-- [ ] Port activity detail derivations from the current app:
-- [ ] moving-average heart rate
-- [ ] moving-average speed
-- [ ] derived running pace
-- [ ] smoothed running pace
-- [ ] slope calculation
+- [ ] Port activity detail derivations from the current app as explicit backend analytics services:
+- [ ] moving-average heart rate with `range_points = 10`
+- [ ] moving-average speed from `velocity_smooth * 3.6` with `range_points = 10`
+- [ ] derived running pace from stream `time` and `distance` with `range_points = 20`
+- [ ] formatted running pace output in both numeric and `MM:SS` forms
+- [ ] slope calculation over a 30-point window with clamp to `[-45, 45]`
 - [ ] running interval and pace-zone analysis
+- [ ] running compliance score and explanatory summary for dominant pace zone
+- [ ] Port the user-relative running pace / heart-rate zone model:
+- [ ] `bpm_max = 220 - 0.7 * age`
+- [ ] pace and bpm anchors for `100m`, `5km`, `10km`, `Half-Marathon`, `Marathon`, `Active Jogging`, `Slow Jogging`, `Walk`
+- [ ] midpoint-based pace and bpm zone boundaries
+- [ ] Implement the derived activity difficulty heuristic from the current app as a reusable analytics function.
 - [ ] Implement summary aggregation for dashboard KPIs.
 - [ ] Implement monthly, yearly, and rolling-period comparisons.
 - [ ] Implement best-effort calculations.
@@ -79,6 +106,12 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Implement `/activities` list endpoint with sport and date filters.
 - [ ] Implement `/activities/{id}` detail endpoint.
 - [ ] Implement `/best-efforts` endpoint.
+- [ ] Define stable response contracts for:
+- [ ] activity summary cards
+- [ ] activity list rows
+- [ ] activity-detail metadata and KPI header
+- [ ] activity-detail graph series
+- [ ] running interval-analysis payloads
 - [ ] Ensure activity detail payload includes:
 - [ ] metadata and KPI values
 - [ ] map bounds and route polyline
@@ -103,6 +136,13 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Integrate Mapy.cz on the activity detail page.
 - [ ] Render the activity detail graph with pace/speed, heart rate, elevation, and slope.
 - [ ] Add hover-linked map marker behavior.
+- [ ] Render the canonical activity KPI header:
+- [ ] distance
+- [ ] moving time
+- [ ] average running pace or cycling speed
+- [ ] total elevation gain
+- [ ] average heart rate when available
+- [ ] Render running-only activity analysis using backend interval and compliance outputs.
 - [ ] Align activity detail UX with [activity_detail_mockup.svg](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\activity_detail_mockup.svg).
 - [ ] Add frontend/component tests for the main flows.
 
@@ -112,6 +152,8 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Verify the full stack runs with `make up`.
 - [ ] Verify the automated suite passes with `make test`.
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
+- [ ] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
+- [ ] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.
 - [ ] Validate that cached/database-backed reads meet the expected latency target under normal use.
 - [ ] Confirm no normal UI reads depend on live Strava calls.
 - [ ] Review code structure against clean architecture requirements in [AGENTS.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\AGENTS.md).

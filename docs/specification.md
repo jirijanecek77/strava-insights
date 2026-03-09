@@ -82,6 +82,34 @@ Filters required in v1:
 - sport type
 - date range
 
+### Dashboard and Comparison Metrics
+
+The dashboard and comparison views in v1 should focus on simple period-over-period comparisons over imported local data.
+
+Required comparison windows:
+
+- current month versus previous month
+- current year versus previous year
+
+Required comparison metrics:
+
+- total distance
+- total moving time
+- activity count
+- average running pace for running activities
+- average cycling speed for cycling activities
+
+Comparison metrics must be computed separately per sport type when a sport filter is applied.
+
+For period-level pace and speed comparisons:
+
+- do not compute a naive average of per-activity averages
+- instead derive the period metric from aggregated totals
+- running pace should be computed from `total_moving_time / total_distance`
+- cycling speed should be computed from `total_distance / total_moving_time`
+
+This is a requirement for correctness because direct averaging of per-activity values would bias the result toward shorter sessions.
+
 ## Activity Metrics and KPI Definitions
 
 The system should distinguish clearly between three categories of activity data:
@@ -167,6 +195,33 @@ Where:
 - `user.speed_max` is taken from the user profile
 
 This difficulty score is not a training-science metric. It is a local heuristic used to rank or visually mark sessions by effort level. The new architecture should keep it isolated as a reusable analytics function so it can be revised later without changing raw imports.
+
+### Best Efforts
+
+Best efforts in v1 should be intentionally narrow and easy to understand.
+
+Scope for v1:
+
+- running only
+- best time for `1 km`
+- best time for `5 km`
+- best time for `10 km`
+- best time for `Half-Marathon`
+
+Each best-effort record should retain at least:
+
+- user id
+- effort code or canonical distance label
+- best time
+- source activity id
+- source activity date
+
+Implementation rule:
+
+- use imported Strava best-effort or split-style data when it is available and reliable
+- otherwise derive the best effort locally from stored activity and stream data
+
+The backend should expose the best mark per user and distance for the selected sport and should be designed so additional distances can be added later without schema rework.
 
 ## Activity Detail Requirements
 
@@ -286,12 +341,32 @@ The current app also derives a simple textual running analysis:
 
 This score is currently used as explanatory activity feedback, not as a scientific training prescription. The new backend should preserve it as explicit derived output so the frontend and future insight features can reuse it.
 
+### Missing Data Behavior
+
+The activity detail page must degrade gracefully when some imported streams are missing.
+
+V1 rules:
+
+- the activity detail page should still load when core activity metadata exists
+- missing heart-rate data must hide heart-rate KPIs and heart-rate graph content without failing the page
+- missing GPS data must hide the route map and hover-linked marker behavior
+- missing altitude data must hide elevation and slope visualizations
+- slope must only be computed when both altitude and distance stream data are available
+- if an activity is only partially imported, existing valid local data must remain readable
+
+The UI should prefer omission of unavailable widgets over placeholder errors.
+
 ## Sync Model
 
 - First login enqueues a full historical import.
 - Users can enter the app while import is running and see sync progress.
 - Daily refresh imports only new activities.
 - New data invalidates affected cache entries and recomputes summaries.
+- Duplicate activities must be upserted by Strava activity id rather than duplicated locally.
+- Token expiry during sync should trigger token refresh and retry.
+- Temporary Strava API failures should retry with backoff before the sync job is marked failed.
+- Partial import failure for one activity must not corrupt already persisted valid activity data.
+- Deletions and later historical edits in Strava remain out of scope for v1 and do not need to be reconciled locally.
 
 ```mermaid
 sequenceDiagram
@@ -340,6 +415,7 @@ Core entities:
 - `activity_best_efforts`
 - `sync_jobs`
 - `sync_checkpoints`
+- `user_profiles`
 
 Activity-related persistence should support both raw imported data and locally derived analytics. At minimum, the new schema should be able to store:
 
@@ -348,6 +424,13 @@ Activity-related persistence should support both raw imported data and locally d
 - activity-level derived KPI values such as normalized distance and difficulty inputs
 - derived activity-detail series when precomputation is beneficial
 - running interval-analysis results when precomputation is beneficial
+
+User-related persistence should support the analytics model and future overrides. At minimum, the system should be able to store:
+
+- Strava athlete identity
+- birthday or age input needed for age-based calculations
+- `speed_max`
+- optional future override fields such as user-defined max heart rate
 
 ```mermaid
 erDiagram
