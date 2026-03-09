@@ -2,50 +2,119 @@
 
 ## Project Structure & Module Organization
 
-`app.py` is the main Flask entrypoint and wires the Dash application into the Flask server. UI pages, components,
-layouts, models, and utility code live under `dash_apps/app/`. Login and Strava auth routes are isolated in
-`blueprints/login/`. MongoDB access helpers live in `connections/`. Static assets are in `static/css/` and
-`static/img/`. The current automated tests are in `dash_apps/tests/utils/`.
+This project is being rebuilt as a separate frontend and backend application.
+
+- Frontend: React application for the web UI.
+- Backend: FastAPI application for auth, read APIs, and sync orchestration.
+- Worker: Celery worker for first import and scheduled synchronization.
+- Database: PostgreSQL for persisted application data.
+- Cache/Broker: Redis for caching and Celery broker/backend support.
+
+The implementation should follow clean architecture principles:
+
+- keep framework code at the edges
+- keep business logic in testable domain/application layers
+- isolate infrastructure concerns such as Strava API access, database access, cache, and background jobs
+- avoid coupling UI, HTTP handlers, and persistence logic directly
+
+Until the new structure is fully created, treat the specification document as the source of truth for the target layout and responsibilities:
+
+- [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\specification.md)
 
 ## Build, Test, and Development Commands
 
-Create a virtual environment and install dependencies:
+The target local development workflow should use Docker for repeatable validation.
+Build, deploy, and test workflows should be exposed through simple `make` commands.
+
+Windows is the primary local environment, so command design must keep Windows compatibility in mind.
+
+- Provide a `Makefile` as the main task entrypoint.
+- Prefer short, predictable commands such as `make build`, `make up`, `make test`, and `make down`.
+- If a Windows-specific wrapper is needed later, keep command names aligned with the `make` targets.
+- Avoid requiring long manual command sequences for normal development tasks.
+
+- Every meaningful iteration should be validated locally.
+- Every meaningful change should be exercised through local Docker deployment before being considered complete.
+- Every code change must include a successful build validation.
+- Prefer Docker Compose or an equivalent local orchestration setup for frontend, backend, worker, PostgreSQL, and Redis.
+
+Expected local validation flow:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+make build
+make up
+make test
 ```
 
-Run MongoDB locally when working on persistence:
+As the new codebase is created, keep commands documented for:
 
-```bash
-docker run --name strava-mongo -d -p 27017:27017 mongo:latest
-```
-
-Copy `.env.example` to `.env`, fill in Strava and app secrets, then start the app with `python app.py`. For
-production-style startup, `gunicorn app:server` is defined in `Procfile`. Format code with `black .` and run static type
-checks with `mypy .`.
+- frontend install, run, lint, and test
+- backend install, run, lint, type-check, and test
+- worker startup and scheduled job execution
+- local end-to-end validation through Docker
+- full local lifecycle through `make` targets
 
 ## Coding Style & Naming Conventions
 
-Follow Black formatting defaults: 4-space indentation, trailing commas where useful, and one import per line when
-clarity improves. Use `snake_case` for modules, functions, and variables, and `PascalCase` for classes such as models.
-Keep Dash page code in `dash_apps/app/pages/`, reusable UI in `components/`, and pure helpers in `utils/`.
+Use clean, explicit, maintainable code.
 
-## Testing Guidelines
+- Prefer small, composable units with clear responsibilities.
+- Keep domain logic deterministic and easy to test.
+- Avoid hidden side effects and framework-driven business logic.
+- Use `snake_case` for Python modules, functions, and variables.
+- Use `PascalCase` for Python classes and React components.
+- Follow Black-compatible Python formatting.
+- Keep public interfaces narrow and well defined.
 
-Tests use `pytest`-style naming with files such as `test_zone_bpm_pace_intervals.py` and functions named `test_*`. Run
-the current suite from the repository root with `pytest dash_apps/tests`. Add focused tests next to the relevant area,
-especially for interval logic, callback helpers, and data conversion utilities.
+## Testing & Validation Guidelines
+
+Testing is a core project requirement.
+
+- All important business logic must be covered by automated tests.
+- Add unit tests for domain logic, transformations, and analytics calculations.
+- Add integration tests for API, persistence, sync, and background job behavior.
+- Add UI/component or end-to-end coverage for the main user flows.
+- Validate performance-sensitive paths, especially dashboard and activity-detail reads.
+
+Minimum expectations for significant changes:
+
+- relevant unit tests added or updated
+- relevant integration tests added or updated
+- local Docker deployment started successfully
+- changed behavior validated in the running stack
+- validation available through simple `make` targets
+- build validation completed successfully after the change
+
+Do not treat a code change as complete if it has not been tested and validated locally.
+
+## Architecture Constraints
+
+- Do not place live Strava API calls on the normal UI request path.
+- Persist imported Strava data locally and serve the UI from database/cache-backed read models.
+- Keep first import and later sync work in background jobs.
+- Preserve the analytical intent of the current application, especially on the activity detail page.
+- Maintain clear separation between auth, sync, analytics, and read APIs.
 
 ## Commit & Pull Request Guidelines
 
-Keep commit subjects short, imperative, and lowercase, matching recent history: `fix slope performance issue`,
-`improve modal layout`. Group related changes into one commit. Pull requests should describe the user-visible change,
-note any config or data-model impact, link the related issue, and include screenshots for UI updates.
+Keep commit subjects short, imperative, and lowercase. Group related changes into one commit. Pull requests should describe:
+
+- the user-visible change
+- architecture or data-model impact
+- testing performed
+- Docker validation performed
+
+Include screenshots for UI changes where useful.
 
 ## Configuration Tips
 
-Required local settings are documented in `.env.example`: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `WEB_APP_URL`,
-`SECRET_KEY`, and `MAPY_CZ_API_KEY`. Never commit filled `.env` files or live API credentials.
+Do not commit filled `.env` files or live credentials.
+
+Expected runtime configuration will include at least:
+
+- `STRAVA_CLIENT_ID`
+- `STRAVA_CLIENT_SECRET`
+- `MAPY_CZ_API_KEY`
+- database connection settings
+- Redis connection settings
+- frontend/backend application URLs as needed
