@@ -12,6 +12,7 @@ def run_full_import(*, sync_job_id: int, user_id: int) -> None:
     try:
         FullImportService(session).run(sync_job_id=sync_job_id, user_id=user_id)
     except Exception as exc:
+        session.rollback()
         sync_job = sync_jobs.get(sync_job_id, user_id)
         if sync_job is not None:
             sync_jobs.fail(sync_job, error_message=str(exc))
@@ -28,6 +29,7 @@ def run_incremental_sync(*, sync_job_id: int, user_id: int) -> None:
     try:
         IncrementalSyncService(session).run(sync_job_id=sync_job_id, user_id=user_id)
     except Exception as exc:
+        session.rollback()
         sync_job = sync_jobs.get(sync_job_id, user_id)
         if sync_job is not None:
             sync_jobs.fail(sync_job, error_message=str(exc))

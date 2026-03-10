@@ -154,6 +154,13 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Verify all services build successfully with `make build`.
 - [x] Verify the full stack runs with `make up`.
 - [x] Verify the automated suite passes with `make test`.
+- [x] Fix default local Docker/browser connectivity by pointing the frontend to the published backend URL and allowing credentialed CORS from the frontend origin.
+- [x] Fix session-secret handling in Docker Compose so `.env` values are not overridden by a known constant.
+- [x] Fix calendar day grouping to compare activity dates in local time instead of UTC.
+- [x] Fix Strava activity import for modern large Strava activity ids by migrating `activities.strava_activity_id` to `BIGINT` and rolling back failed worker sessions before marking sync jobs failed.
+- [x] Fix migration bootstrap so pre-Alembic scaffold databases are stamped at revision `20260309_0002` and still run later corrective migrations on startup.
+- [x] Replace the discontinued Mapy.cz JavaScript SDK integration with a supported Mapy REST tiles + Leaflet frontend implementation, while keeping the local route-preview fallback.
+- [x] Align the React Mapy.cz tile URL with the working Dash Leaflet implementation and make the frontend dev container refresh dependencies on startup so new packages are available in the mounted workspace.
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
 - [x] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
 - [x] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.

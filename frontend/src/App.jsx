@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import "leaflet/dist/leaflet.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
@@ -465,7 +466,10 @@ function CalendarView({ activities, calendarMonth, onChangeMonth, onSelectActivi
           </div>
         ))}
         {days.map((day) => (
-          <div key={day.date.toISOString()} className={day.isCurrentMonth ? "calendar-cell" : "calendar-cell muted"}>
+          <div
+            key={formatLocalDateKey(day.date)}
+            className={day.isCurrentMonth ? "calendar-cell" : "calendar-cell muted"}
+          >
             <div className="calendar-date">{day.date.getDate()}</div>
             <div className="calendar-events">
               {day.summary ? (
@@ -861,13 +865,21 @@ function MapPanel({ activeIndex, polyline }) {
         {mapState === "ready"
           ? "Mapy.cz map active."
           : mapyApiKey
-            ? "Mapy.cz unavailable, route preview fallback active."
+            ? "Mapy.cz tiles unavailable, route preview fallback active."
             : "Route preview fallback active."}
       </div>
-      <div className={mapState === "ready" ? "mapycz-canvas" : "mapycz-canvas hidden"} ref={mapContainerRef} />
+      <div
+        className={mapState === "fallback" || !mapyApiKey ? "mapycz-canvas hidden" : "mapycz-canvas"}
+        ref={mapContainerRef}
+      />
       {mapState !== "ready" ? (
         <>
-          {mapyApiKey ? <div className="map-loading-note">Map loading did not complete, using local preview.</div> : null}
+          {mapyApiKey ? (
+            <div className="map-loading-note">
+              Mapy.cz background tiles could not be loaded. Check that the API key is valid, has Map Tiles access, and
+              allows `http://localhost:5173`.
+            </div>
+          ) : null}
           <RoutePreview activeIndex={activeIndex} polyline={polyline} />
         </>
       ) : null}
@@ -896,127 +908,82 @@ function RoutePreview({ activeIndex, polyline }) {
   );
 }
 
-let mapyCzApiPromise;
-
 async function loadMapyCzApi() {
-  if (typeof window === "undefined") {
+  const apiKey = import.meta.env.VITE_MAPYCZ_API_KEY;
+  if (!apiKey) {
     return null;
   }
 
-  if (window.SMap) {
-    return window;
-  }
-
-  if (!mapyCzApiPromise) {
-    mapyCzApiPromise = new Promise((resolve) => {
-      const existingScript = document.querySelector('script[data-mapycz-loader="true"]');
-      if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(initializeMapyLoader()));
-        existingScript.addEventListener("error", () => resolve(null));
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://api.mapy.cz/loader.js";
-      script.async = true;
-      script.dataset.mapyczLoader = "true";
-      script.onload = async () => resolve(await initializeMapyLoader());
-      script.onerror = () => resolve(null);
-      document.head.appendChild(script);
-    });
-  }
-
-  return mapyCzApiPromise;
-}
-
-async function initializeMapyLoader() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  if (window.SMap) {
-    return window;
-  }
-
-  if (window.Loader?.load) {
-    try {
-      await new Promise((resolve, reject) => {
-        const callback = () => resolve();
-        const result = window.Loader.load?.(null, null, callback);
-        if (result?.then) {
-          result.then(resolve).catch(reject);
-        } else if (!window.SMap && window.Loader.load.length < 3) {
-          resolve();
-        }
-      });
-    } catch {
-      return window.SMap ? window : null;
-    }
-  }
-
-  return window.SMap ? window : null;
+  const { default: L } = await import("leaflet");
+  return {
+    L,
+    tileConfig: {
+      attribution:
+        '&copy; <a href="https://api.mapy.com/copyright" target="_blank" rel="noreferrer">Mapy.com</a>',
+      maxZoom: 18,
+      minZoom: 0,
+      tileSize: 256,
+      urlTemplate: `https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=${apiKey}`,
+    },
+  };
 }
 
 function createMapyCzMap(mapApi, container, polyline) {
-  if (!mapApi?.SMap || !container || !polyline.length) {
+  if (!mapApi?.L || !mapApi?.tileConfig || !container || !polyline.length) {
     return null;
   }
 
   try {
-    const { SMap } = mapApi;
-    const coordinates = polyline.map(([lat, lng]) => SMap.Coords.fromWGS84(lng, lat));
-    const center = coordinates[Math.floor(coordinates.length / 2)];
-    const map = new SMap(container, center, 13);
-    map.addDefaultLayer(SMap.DEF_BASE).enable();
-    map.addDefaultControls();
+    const { L, tileConfig } = mapApi;
+    const coordinates = polyline.map(([lat, lng]) => [lat, lng]);
+    const map = L.map(container, {
+      attributionControl: false,
+      zoomControl: true,
+    });
 
-    const geometryLayer = new SMap.Layer.Geometry();
-    map.addLayer(geometryLayer);
-    geometryLayer.enable();
-    geometryLayer.addGeometry(
-      new SMap.Geometry(SMap.GEOMETRY_POLYLINE, null, coordinates, {
-        color: "#fc4c02",
-        width: 4,
-      }),
-    );
+    L.tileLayer(tileConfig.urlTemplate, {
+      minZoom: tileConfig.minZoom,
+      maxZoom: tileConfig.maxZoom,
+      tileSize: tileConfig.tileSize,
+      attribution: tileConfig.attribution,
+    }).addTo(map);
 
-    const markerLayer = new SMap.Layer.Marker();
-    map.addLayer(markerLayer);
-    markerLayer.enable();
+    const route = L.polyline(coordinates, {
+      color: "#fc4c02",
+      weight: 4,
+      opacity: 0.95,
+    }).addTo(map);
 
-    const activeMarker = new SMap.Marker(coordinates[0], "active-point");
-    markerLayer.addMarker(activeMarker);
+    const activeMarker = L.circleMarker(coordinates[0], {
+      color: "#1d7af3",
+      fillColor: "#1d7af3",
+      fillOpacity: 1,
+      radius: 6,
+      weight: 2,
+    }).addTo(map);
 
-    let zoom = 13;
-    if (coordinates.length > 1) {
-      const computedZoom = map.computeCenterZoom(coordinates);
-      if (Array.isArray(computedZoom)) {
-        map.setCenterZoom(computedZoom[0], computedZoom[1]);
-        zoom = computedZoom[1];
-      }
-    } else {
-      map.setCenterZoom(center, zoom);
-    }
+    map.fitBounds(route.getBounds(), { padding: [24, 24] });
+
+    const attribution = L.control.attribution({ prefix: false });
+    attribution.addAttribution(tileConfig.attribution);
+    attribution.addTo(map);
+
+    requestAnimationFrame(() => {
+      map.invalidateSize(false);
+    });
 
     return {
       destroy() {
-        if (markerLayer?.removeMarker) {
-          markerLayer.removeMarker(activeMarker);
-        }
-        if (container) {
-          container.innerHTML = "";
-        }
+        map.remove();
       },
       setActiveIndex(activeIndex) {
         if (activeIndex == null) {
-          activeMarker.setCoords(coordinates[0]);
+          activeMarker.setLatLng(coordinates[0]);
           return;
         }
         const nextPoint = coordinates[Math.min(activeIndex, coordinates.length - 1)];
-        activeMarker.setCoords(nextPoint);
-        if (map.setCenterZoom) {
-          map.setCenterZoom(nextPoint, zoom);
-        }
+        activeMarker.setLatLng(nextPoint);
+        map.panTo(nextPoint, { animate: false });
       },
     };
   } catch {
@@ -1183,6 +1150,13 @@ function shiftMonth(value, delta) {
   return new Date(value.getFullYear(), value.getMonth() + delta, 1);
 }
 
+function formatLocalDateKey(value) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function buildCalendarDays(calendarMonth, activities) {
   const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
   const firstGridDay = new Date(firstDay);
@@ -1196,8 +1170,10 @@ function buildCalendarDays(calendarMonth, activities) {
   return Array.from({ length: 42 }, (_, index) => {
     const date = new Date(firstGridDay);
     date.setDate(firstGridDay.getDate() + index);
-    const isoDay = date.toISOString().slice(0, 10);
-    const dayActivities = activities.filter((activity) => (activity.start_date_local ?? "").slice(0, 10) === isoDay);
+    const localDay = formatLocalDateKey(date);
+    const dayActivities = activities.filter(
+      (activity) => (activity.start_date_local ?? "").slice(0, 10) === localDay,
+    );
     return {
       date,
       isCurrentMonth: date.getMonth() === calendarMonth.getMonth(),

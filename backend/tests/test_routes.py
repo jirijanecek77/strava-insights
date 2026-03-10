@@ -317,3 +317,17 @@ def test_oauth_callback_sets_session_and_redirects(client) -> None:
 
     assert response.status_code == 302
     assert response.headers["location"] == "http://localhost:5173"
+
+
+def test_cors_allows_frontend_origin(client) -> None:
+    response = client.options(
+        "/auth/session",
+        headers={
+            "origin": "http://localhost:5173",
+            "access-control-request-method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert response.headers["access-control-allow-credentials"] == "true"
