@@ -56,7 +56,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Implement current-user/profile endpoint.
 - [x] Implement sync-status endpoint.
 - [x] Add Redis-backed caching utilities.
-- [ ] Add backend DTOs for raw activity data, derived activity KPIs, and activity-detail analytics payloads.
+- [x] Add backend DTOs for raw activity data, derived activity KPIs, and activity-detail analytics payloads.
 - [x] Add backend unit and integration test scaffolding.
 
 ## Phase 3: Sync and Import Pipeline
@@ -102,25 +102,25 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Implement `/auth/*` endpoints.
 - [x] Implement `/me` endpoint.
 - [x] Implement `/sync/status` endpoint.
-- [ ] Implement `/dashboard` endpoint.
-- [ ] Implement `/trends` and `/comparisons` endpoints.
-- [ ] Implement `/activities` list endpoint with sport and date filters.
-- [ ] Implement `/activities/{id}` detail endpoint.
-- [ ] Implement `/best-efforts` endpoint.
-- [ ] Define stable response contracts for:
-- [ ] activity summary cards
-- [ ] activity list rows
-- [ ] activity-detail metadata and KPI header
-- [ ] activity-detail graph series
-- [ ] running interval-analysis payloads
-- [ ] Ensure activity detail payload includes:
-- [ ] metadata and KPI values
-- [ ] map bounds and route polyline
-- [ ] pace or speed series
-- [ ] heart rate series
-- [ ] elevation series
-- [ ] slope series
-- [ ] running interval analysis when applicable
+- [x] Implement `/dashboard` endpoint.
+- [x] Implement `/trends` and `/comparisons` endpoints.
+- [x] Implement `/activities` list endpoint with sport and date filters.
+- [x] Implement `/activities/{id}` detail endpoint.
+- [x] Implement `/best-efforts` endpoint.
+- [x] Define stable response contracts for:
+- [x] activity summary cards
+- [x] activity list rows
+- [x] activity-detail metadata and KPI header
+- [x] activity-detail graph series
+- [x] running interval-analysis payloads
+- [x] Ensure activity detail payload includes:
+- [x] metadata and KPI values
+- [x] map bounds and route polyline
+- [x] pace or speed series
+- [x] heart rate series
+- [x] elevation series
+- [x] slope series
+- [x] running interval analysis when applicable
 - [ ] Add integration tests for all core read endpoints.
 
 ## Phase 6: Frontend Application

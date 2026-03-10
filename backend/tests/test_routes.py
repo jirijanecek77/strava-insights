@@ -2,9 +2,15 @@ from app.api.routes.auth import _build_state_serializer
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
 from app.application.auth.oauth import StravaOAuthService
+from app.application.read_models.activities import ActivityReadService
+from app.application.read_models.best_efforts import BestEffortReadService
+from app.application.read_models.dashboard import DashboardReadService
 from app.application.sync.dto import CreatedSyncJob
 from app.application.sync.orchestrator import SyncOrchestrator
 from app.application.sync.status import SyncStatusService
+from app.domain.schemas.activity import ActivityDetailResponse, ActivityKpis, ActivityListResponse, ActivityListRow, ActivityMap, ActivitySeries
+from app.domain.schemas.best_effort import BestEffortItem, BestEffortsResponse
+from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
 from app.domain.schemas.sync import SyncStatusResponse
 from app.domain.schemas.user import CurrentUserResponse
 from app.main import app
@@ -43,6 +49,74 @@ class OAuthServiceStub:
 class SyncOrchestratorStub:
     def enqueue_incremental_sync(self, _user_id: int) -> CreatedSyncJob:
         return CreatedSyncJob(id=42, user_id=1, sync_type="incremental_sync", status="queued")
+
+
+class DashboardReadServiceStub:
+    def get_dashboard(self, _user_id: int, *, today, sport_type=None) -> DashboardResponse:
+        period = PeriodSummarySchema(
+            sport_type="Run",
+            period_type="month",
+            period_start=today.replace(day=1),
+            activity_count=3,
+            total_distance_meters="30000",
+            total_moving_time_seconds=7200,
+            average_speed_mps=None,
+            average_pace_seconds_per_km="240.00",
+            total_elevation_gain_meters="300.00",
+            total_difficulty_score="4.0000",
+        )
+        comparison = PeriodComparisonSchema(current=period, previous=None)
+        return DashboardResponse(month=[comparison], year=[comparison])
+
+    def get_trends(self, _user_id: int, *, period_type: str, sport_type=None) -> TrendsResponse:
+        return TrendsResponse(items=[], period_type=period_type)
+
+    def get_comparisons(self, _user_id: int, *, period_type: str, today, sport_type=None) -> list[PeriodComparisonSchema]:
+        return []
+
+
+class ActivityReadServiceStub:
+    def list_activities(self, _user_id: int, **_kwargs) -> ActivityListResponse:
+        return ActivityListResponse(
+            items=[
+                ActivityListRow(
+                    id=5,
+                    sport_type="Run",
+                    name="Morning Run",
+                    distance_km="10.00",
+                    moving_time_display="45:00",
+                    summary_metric_display="4:30 /km",
+                )
+            ]
+        )
+
+    def get_activity_detail(self, _user_id: int, activity_id: int) -> ActivityDetailResponse | None:
+        if activity_id != 5:
+            return None
+        return ActivityDetailResponse(
+            id=5,
+            sport_type="Run",
+            name="Morning Run",
+            kpis=ActivityKpis(distance_km="10.00", moving_time_display="45:00"),
+            map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
+            series=ActivitySeries(
+                distance_km=[0.0, 1.0],
+                moving_average_heartrate=[140.0, 145.0],
+                moving_average_speed_kph=[12.0, 12.5],
+                pace_minutes_per_km=[5.0, 4.8],
+                pace_display=["5:00", "4:48"],
+                slope_percent=[0.0, 1.0],
+            ),
+            intervals=[],
+            zone_summary={},
+            compliance=None,
+            zones=[],
+        )
+
+
+class BestEffortReadServiceStub:
+    def list_best_efforts(self, _user_id: int, *, sport_type=None) -> BestEffortsResponse:
+        return BestEffortsResponse(items=[BestEffortItem(effort_code="5km", best_time_seconds=1400, distance_meters="5000")])
 
 
 def test_me_requires_authentication(client) -> None:
@@ -120,6 +194,76 @@ def test_sync_refresh_enqueues_incremental_job(client) -> None:
         "sync_type": "incremental_sync",
         "status": "queued",
     }
+
+
+def test_dashboard_returns_response_shape(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
+    try:
+        response = client.get("/dashboard")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["month"][0]["current"]["sport_type"] == "Run"
+
+
+def test_trends_returns_response_shape(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
+    try:
+        response = client.get("/trends?period_type=month")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["period_type"] == "month"
+
+
+def test_activities_list_returns_rows(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[ActivityReadService] = lambda: ActivityReadServiceStub()
+    try:
+        response = client.get("/activities")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["name"] == "Morning Run"
+
+
+def test_activity_detail_returns_payload(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[ActivityReadService] = lambda: ActivityReadServiceStub()
+    try:
+        response = client.get("/activities/5")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["series"]["pace_display"][0] == "5:00"
+
+
+def test_best_efforts_returns_items(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[BestEffortReadService] = lambda: BestEffortReadServiceStub()
+    try:
+        response = client.get("/best-efforts")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["effort_code"] == "5km"
 
 
 def test_oauth_login_returns_authorization_url(client) -> None:
