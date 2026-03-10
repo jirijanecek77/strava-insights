@@ -78,7 +78,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 
 ## Phase 4: Analytics Port
 
-- [ ] Port activity detail derivations from the current app as explicit backend analytics services:
+- [x] Port activity detail derivations from the current app as explicit backend analytics services:
 - [x] moving-average heart rate with `range_points = 10`
 - [x] moving-average speed from `velocity_smooth * 3.6` with `range_points = 10`
 - [x] derived running pace from stream `time` and `distance` with `range_points = 20`
@@ -86,13 +86,13 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] slope calculation over a 30-point window with clamp to `[-45, 45]`
 - [x] running interval and pace-zone analysis
 - [x] running compliance score and explanatory summary for dominant pace zone
-- [ ] Port the user-relative running pace / heart-rate zone model:
+- [x] Port the user-relative running pace / heart-rate zone model:
 - [x] `bpm_max = 220 - 0.7 * age`
 - [x] pace and bpm anchors for `100m`, `5km`, `10km`, `Half-Marathon`, `Marathon`, `Active Jogging`, `Slow Jogging`, `Walk`
 - [x] midpoint-based pace and bpm zone boundaries
 - [x] Implement the derived activity difficulty heuristic from the current app as a reusable analytics function.
 - [x] Implement summary aggregation for dashboard KPIs.
-- [ ] Implement monthly, yearly, and rolling-period comparisons.
+- [x] Implement monthly, yearly, and rolling-period comparisons.
 - [x] Implement best-effort calculations.
 - [x] Store or precompute period summaries needed for fast reads.
 - [x] Add tests for analytics calculations and aggregations.
@@ -121,43 +121,47 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] elevation series
 - [x] slope series
 - [x] running interval analysis when applicable
-- [ ] Add integration tests for all core read endpoints.
+- [x] Add integration tests for all core read endpoints.
 
 ## Phase 6: Frontend Application
 
-- [ ] Implement landing/login screen.
-- [ ] Implement sync/import status screen or state.
-- [ ] Implement dashboard screen.
-- [ ] Implement calendar screen.
-- [ ] Implement activity list screen.
-- [ ] Implement activity detail screen.
-- [ ] Implement best efforts screen.
-- [ ] Implement settings/profile screen.
-- [ ] Add shared sport-type and date-range filters.
-- [ ] Integrate Mapy.cz on the activity detail page.
-- [ ] Render the activity detail graph with pace/speed, heart rate, elevation, and slope.
-- [ ] Add hover-linked map marker behavior.
-- [ ] Render the canonical activity KPI header:
-- [ ] distance
-- [ ] moving time
-- [ ] average running pace or cycling speed
-- [ ] total elevation gain
-- [ ] average heart rate when available
-- [ ] Render running-only activity analysis using backend interval and compliance outputs.
-- [ ] Align activity detail UX with [activity_detail_mockup.svg](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\activity_detail_mockup.svg).
-- [ ] Add frontend/component tests for the main flows.
+- [x] Implement landing/login screen.
+- [x] Implement sync/import status screen or state.
+- [x] Implement dashboard screen.
+- [x] Implement calendar screen.
+- [x] Refine the calendar screen to use one aggregated daily circle marker with distance-scaled diameter.
+- [x] Apply calendar day colors: yellow for running, orange for cycling, based on summed daily distance.
+- [x] Implement activity list screen.
+- [x] Implement activity detail screen.
+- [x] Implement best efforts screen.
+- [x] Implement settings/profile screen.
+- [x] Add shared sport-type and date-range filters.
+- [x] Integrate Mapy.cz on the activity detail page.
+- [x] Restyle the frontend visual language to be closer to Strava web: light surfaces, restrained neutrals, orange emphasis, and data-first layouts.
+- [x] Render the activity detail graph with pace/speed, heart rate, elevation, and slope.
+- [x] Add hover-linked map marker behavior.
+- [x] Render the canonical activity KPI header:
+- [x] distance
+- [x] moving time
+- [x] average running pace or cycling speed
+- [x] total elevation gain
+- [x] average heart rate when available
+- [x] Render running-only activity analysis using backend interval and compliance outputs.
+- [x] Add frontend/component tests for the main flows.
 
 ## Phase 7: Validation and Hardening
 
-- [ ] Verify all services build successfully with `make build`.
-- [ ] Verify the full stack runs with `make up`.
-- [ ] Verify the automated suite passes with `make test`.
+- [x] Verify all services build successfully with `make build`.
+- [x] Verify the full stack runs with `make up`.
+- [x] Verify the automated suite passes with `make test`.
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
-- [ ] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
-- [ ] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.
+- [x] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
+- [x] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.
 - [ ] Validate that cached/database-backed reads meet the expected latency target under normal use.
-- [ ] Confirm no normal UI reads depend on live Strava calls.
+- [x] Confirm no normal UI reads depend on live Strava calls.
 - [ ] Review code structure against clean architecture requirements in [AGENTS.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\AGENTS.md).
+- [ ] Refactor the frontend out of the single-file `App.jsx` composition into separate screens, reusable hooks, API client utilities, and map/calendar components.
+- [ ] Make the Windows wrapper execution path resilient to default PowerShell execution-policy restrictions or document an execution-policy-safe invocation path.
 
 ## Future-Ready Constraints
 

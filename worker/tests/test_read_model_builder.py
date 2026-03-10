@@ -120,7 +120,7 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
     builder.rebuild_for_user(7)
 
     assert builder.period_summaries.user_id == 7
-    assert len(builder.period_summaries.summaries) == 4
+    assert len(builder.period_summaries.summaries) == 6
     assert builder.best_efforts.user_id == 7
     assert {effort.effort_code for effort in builder.best_efforts.efforts} == {"1km", "5km", "10km", "Half-Marathon"}
     assert builder.activity_best_efforts.activity_ids == [1, 2]

@@ -67,6 +67,29 @@ Required screens:
 - settings/profile
 - sync/import status
 
+## Frontend Visual Direction
+
+The frontend should follow a visual language that is clearly inspired by Strava web rather than a generic admin dashboard.
+
+Required styling direction for v1:
+
+- clean, bright, sport-product presentation with strong emphasis on activity metrics
+- white or very light primary surfaces
+- dark or charcoal text for primary numbers and labels
+- Strava-like orange as the main accent color for active controls, emphasis states, and cycling-related indicators
+- restrained neutral grays for borders, dividers, secondary text, and inactive controls
+- large, high-contrast KPI numbers with compact supporting labels
+- rounded cards and controls, but not overly soft consumer-app styling
+- simple, data-first layouts with generous whitespace and minimal decorative background effects
+
+The frontend should avoid:
+
+- dark immersive dashboard styling as the default product surface
+- neon gradients, glassmorphism-heavy treatments, or decorative effects that compete with the metrics
+- arbitrary color systems unrelated to activity meaning
+
+The goal is not to clone Strava exactly, but to make the application feel closer to Strava web than to a generic template.
+
 Required analytics:
 
 - progression over time
@@ -88,8 +111,17 @@ The dashboard and comparison views in v1 should focus on simple period-over-peri
 
 Required comparison windows:
 
+- current week versus previous week
 - current month versus previous month
 - current year versus previous year
+- rolling 30 days versus previous rolling 30 days
+
+The comparison UI should let the user switch among:
+
+- `week`
+- `month`
+- `year`
+- `rolling_30d`
 
 Required comparison metrics:
 
@@ -355,6 +387,44 @@ V1 rules:
 - if an activity is only partially imported, existing valid local data must remain readable
 
 The UI should prefer omission of unavailable widgets over placeholder errors.
+
+## Calendar Screen Requirements
+
+The calendar screen should use a compact visual language similar to the attached reference image: a clean monthly grid with one aggregate circular marker per day rather than a stacked event list as the primary encoding.
+
+Calendar v1 behavior:
+
+- render a month view with one visible cell per day
+- aggregate all activities in a day into one daily summary marker
+- compute the daily marker from the sum of all activities on that calendar day
+- allow clicking the day marker or cell to drill into the activities for that day
+
+Daily aggregation inputs:
+
+- total distance for the day as the sum of activity distances
+- activity count for the day
+- dominant sport color based on the day’s activity mix
+
+Daily marker encoding:
+
+- use a circular marker as the primary daily visual
+- marker diameter must scale with the total distance completed that day
+- larger total daily kilometers must produce a larger circle
+- days with no activities should show no marker or only a minimal empty placeholder state
+
+Daily sport colors:
+
+- running days use yellow
+- cycling days use orange
+- if a day mixes supported sport types, use the color of the sport with the greater distance share for that day
+
+Calendar distance sizing rule:
+
+- size is based on total daily distance in kilometers, not activity count
+- all same-day activities must be summed before sizing the marker
+- the exact size scale may be tuned in implementation, but it must remain monotonic and visually readable across low and high volume days
+
+The calendar should feel closer to a Strava-style training overview than to a traditional enterprise calendar widget.
 
 ## Sync Model
 

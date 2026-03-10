@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.models import ActivityBestEffort, BestEffort, PeriodSummary
@@ -74,14 +74,17 @@ class ReadModelBuilder:
         ]
 
         period_summaries: list[PeriodSummary] = []
-        for period_type in ("month", "year"):
+        for period_type in ("week", "month", "year"):
             period_summaries.extend(self._aggregate_period(user_id, aggregate_inputs, period_type))
         return period_summaries
 
     def _aggregate_period(self, user_id: int, activities: list[AggregateInput], period_type: str) -> list[PeriodSummary]:
         grouped: dict[tuple[str, date], list[AggregateInput]] = {}
         for activity in activities:
-            period_start = activity.start_date_local.replace(day=1)
+            if period_type == "week":
+                period_start = activity.start_date_local - timedelta(days=activity.start_date_local.weekday())
+            else:
+                period_start = activity.start_date_local.replace(day=1)
             if period_type == "year":
                 period_start = period_start.replace(month=1, day=1)
             grouped.setdefault((activity.sport_type, period_start), []).append(activity)

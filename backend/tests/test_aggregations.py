@@ -1,11 +1,7 @@
 from datetime import date, datetime, UTC
 from decimal import Decimal
 
-from app.application.analytics.aggregations import (
-    ActivityAggregateInput,
-    aggregate_period_summaries,
-    compare_periods,
-)
+from app.application.analytics.aggregations import ActivityAggregateInput, aggregate_period_summaries, compare_periods, summarize_window
 from app.application.analytics.best_efforts import derive_activity_best_efforts
 
 
@@ -39,6 +35,23 @@ def test_aggregate_period_summaries_uses_weighted_period_metrics() -> None:
     assert summary.total_difficulty_score == Decimal("1.7500")
 
 
+def test_aggregate_period_summaries_supports_week_period() -> None:
+    activities = [
+        ActivityAggregateInput(
+            sport_type="Run",
+            start_date_local=date(2026, 3, 10),
+            distance_meters=Decimal("10000"),
+            moving_time_seconds=2700,
+            total_elevation_gain_meters=Decimal("100"),
+            difficulty_score=Decimal("1.2500"),
+        )
+    ]
+
+    summaries = aggregate_period_summaries(activities, period_type="week")
+
+    assert summaries[0].period_start == date(2026, 3, 9)
+
+
 def test_compare_periods_returns_numeric_deltas() -> None:
     summaries = aggregate_period_summaries(
         [
@@ -65,3 +78,18 @@ def test_derive_activity_best_efforts_finds_shortest_segment_times() -> None:
     assert by_code["5km"].best_time_seconds == 1400
     assert by_code["10km"].best_time_seconds == 3000
     assert by_code["Half-Marathon"].best_time_seconds == 7000
+
+
+def test_summarize_window_builds_rolling_period_metrics() -> None:
+    summary = summarize_window(
+        [
+            ActivityAggregateInput("Run", date(2026, 3, 1), Decimal("10000"), 2700, Decimal("100"), Decimal("1.0")),
+            ActivityAggregateInput("Run", date(2026, 3, 2), Decimal("5000"), 1500, Decimal("50"), Decimal("0.5")),
+        ],
+        sport_type="Run",
+        window_type="rolling_30d",
+        window_start=date(2026, 2, 9),
+    )
+
+    assert summary is not None
+    assert summary.average_pace_seconds_per_km == Decimal("280.00")

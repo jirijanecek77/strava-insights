@@ -216,12 +216,25 @@ def test_trends_returns_response_shape(client) -> None:
     )
     app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
     try:
-        response = client.get("/trends?period_type=month")
+        response = client.get("/trends?period_type=week")
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()["period_type"] == "month"
+    assert response.json()["period_type"] == "week"
+
+
+def test_comparisons_accepts_rolling_window_parameter(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
+    try:
+        response = client.get("/comparisons?period_type=rolling_30d")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
 
 
 def test_activities_list_returns_rows(client) -> None:

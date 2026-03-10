@@ -31,7 +31,7 @@ def get_dashboard(
 @router.get("/trends", response_model=TrendsResponse)
 def get_trends(
     request: Request,
-    period_type: str = Query(..., pattern="^(month|year)$"),
+    period_type: str = Query(..., pattern="^(week|month|year)$"),
     sport_type: str | None = Query(None),
     current_user_service: CurrentUserService = Depends(CurrentUserService),
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
@@ -43,7 +43,7 @@ def get_trends(
 @router.get("/comparisons", response_model=list[PeriodComparisonSchema])
 def get_comparisons(
     request: Request,
-    period_type: str = Query(..., pattern="^(month|year)$"),
+    period_type: str = Query(..., pattern="^(rolling_30d|week|month|year)$"),
     sport_type: str | None = Query(None),
     current_user_service: CurrentUserService = Depends(CurrentUserService),
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
