@@ -571,6 +571,23 @@ button {
   fill: rgba(255, 255, 255, 0.95);
 }
 
+.mini-chart .chart-axis,
+.mini-chart .chart-tick {
+  stroke: rgba(31, 41, 55, 0.3);
+  stroke-width: 0.6;
+}
+
+.mini-chart .chart-axis-label,
+.mini-chart .chart-tick-label {
+  fill: var(--text-subtle);
+  font-size: 4px;
+}
+
+.mini-chart .chart-axis-label {
+  font-size: 4.4px;
+  font-weight: 700;
+}
+
 .best-effort-grid {
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
 }

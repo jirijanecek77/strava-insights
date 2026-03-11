@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     strava_authorize_url: str = "https://www.strava.com/oauth/authorize"
     strava_token_url: str = "https://www.strava.com/oauth/token"
     strava_scope: str = "read,activity:read_all"
-    mapy_cz_api_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

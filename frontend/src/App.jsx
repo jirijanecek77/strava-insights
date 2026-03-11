@@ -243,15 +243,15 @@ export default function App() {
             />
           ) : null}
           {selectedView === "activities" ? (
-            <ActivitiesView
-              activities={activities}
-              activeSeriesIndex={activeSeriesIndex}
-              activityDetail={activityDetail}
-              detailState={activityDetailState}
-              selectedActivityId={selectedActivityId}
-              onHoverIndex={setActiveSeriesIndex}
-              onSelectActivity={setSelectedActivityId}
-            />
+              <ActivitiesView
+                activities={activities}
+                activeSeriesIndex={activeSeriesIndex}
+                activityDetail={activityDetail}
+                detailState={activityDetailState}
+                selectedActivityId={selectedActivityId}
+                onSelectSeriesIndex={setActiveSeriesIndex}
+                onSelectActivity={setSelectedActivityId}
+              />
           ) : null}
           {selectedView === "best-efforts" ? <BestEffortsView items={bestEfforts} /> : null}
           {selectedView === "settings" ? (
@@ -507,7 +507,7 @@ function ActivitiesView({
   activityDetail,
   detailState,
   selectedActivityId,
-  onHoverIndex,
+  onSelectSeriesIndex,
   onSelectActivity,
 }) {
   return (
@@ -542,23 +542,24 @@ function ActivitiesView({
       </article>
       <article className="panel activity-detail-panel">
         {detailState === "idle" ? <EmptyState text="Select an activity to inspect the detail payload." /> : null}
-        {detailState === "loading" ? <EmptyState text="Loading activity detail..." /> : null}
-        {detailState === "error" ? <EmptyState text="Activity detail failed to load." /> : null}
-        {detailState === "ready" && activityDetail ? (
-          <ActivityDetail detail={activityDetail} activeSeriesIndex={activeSeriesIndex} onHoverIndex={onHoverIndex} />
-        ) : null}
-      </article>
-    </section>
-  );
-}
-
-function ActivityDetail({ detail, activeSeriesIndex, onHoverIndex }) {
-  const routePoints = detail.map?.polyline ?? [];
-  const paceOrSpeed = detail.series.pace_minutes_per_km.length
-    ? detail.series.pace_minutes_per_km
-    : detail.series.moving_average_speed_kph;
-
-  return (
+          {detailState === "loading" ? <EmptyState text="Loading activity detail..." /> : null}
+          {detailState === "error" ? <EmptyState text="Activity detail failed to load." /> : null}
+          {detailState === "ready" && activityDetail ? (
+           <ActivityDetail detail={activityDetail} activeSeriesIndex={activeSeriesIndex} onSelectSeriesIndex={onSelectSeriesIndex} />
+          ) : null}
+        </article>
+      </section>
+    );
+  }
+  
+ function ActivityDetail({ detail, activeSeriesIndex, onSelectSeriesIndex }) {
+    const routePoints = detail.map?.polyline ?? [];
+    const paceOrSpeed = detail.series.pace_minutes_per_km.length
+      ? detail.series.pace_minutes_per_km
+      : detail.series.moving_average_speed_kph;
+    const resolvedActiveIndex = Math.min(activeSeriesIndex ?? 0, Math.max(routePoints.length - 1, 0));
+  
+    return (
     <div className="activity-detail">
       <div className="panel-header">
         <div>
@@ -574,15 +575,36 @@ function ActivityDetail({ detail, activeSeriesIndex, onHoverIndex }) {
         <MetricTile label="Elevation" value={detail.kpis.total_elevation_gain_meters != null ? `${detail.kpis.total_elevation_gain_meters} m` : "n/a"} />
         <MetricTile label="Average HR" value={detail.kpis.average_heartrate_bpm != null ? `${detail.kpis.average_heartrate_bpm} bpm` : "n/a"} />
       </div>
-      <div className="detail-grid">
-        <div className="detail-card detail-card-wide">
-          <p className="eyebrow">Route</p>
-          <MapPanel activeIndex={activeSeriesIndex} polyline={routePoints} />
+        <div className="detail-grid">
+          <div className="detail-card detail-card-wide">
+            <p className="eyebrow">Route</p>
+            <MapPanel activeIndex={resolvedActiveIndex} onSelectIndex={onSelectSeriesIndex} polyline={routePoints} />
+          </div>
+          <DetailChart
+            accent="orange"
+            distanceValues={detail.series.distance_km}
+            label="Pace / Speed"
+            valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"}
+            values={paceOrSpeed}
+            activeIndex={resolvedActiveIndex}
+          />
+          <DetailChart
+            accent="red"
+            distanceValues={detail.series.distance_km}
+            label="Heart Rate"
+            valueKind="heart_rate"
+            values={detail.series.moving_average_heartrate}
+            activeIndex={resolvedActiveIndex}
+          />
+          <DetailChart
+            accent="green"
+            distanceValues={detail.series.distance_km}
+            label="Slope"
+            valueKind="slope"
+            values={detail.series.slope_percent}
+            activeIndex={resolvedActiveIndex}
+          />
         </div>
-        <DetailChart accent="orange" label="Pace / Speed" values={paceOrSpeed} activeIndex={activeSeriesIndex} onHoverIndex={onHoverIndex} />
-        <DetailChart accent="red" label="Heart Rate" values={detail.series.moving_average_heartrate} activeIndex={activeSeriesIndex} onHoverIndex={onHoverIndex} />
-        <DetailChart accent="green" label="Slope" values={detail.series.slope_percent} activeIndex={activeSeriesIndex} onHoverIndex={onHoverIndex} />
-      </div>
       <div className="detail-analysis-grid">
         <div className="detail-card">
           <p className="eyebrow">Zone Summary</p>
@@ -608,14 +630,20 @@ function ActivityDetail({ detail, activeSeriesIndex, onHoverIndex }) {
   );
 }
 
-function DetailChart({ accent, label, values, activeIndex, onHoverIndex }) {
-  return (
-    <div className="detail-card">
-      <p className="eyebrow">{label}</p>
-      <MiniLineChart accent={accent} activeIndex={activeIndex} values={values} onHoverIndex={onHoverIndex} />
-    </div>
-  );
-}
+function DetailChart({ accent, label, values, distanceValues, valueKind, activeIndex }) {
+    return (
+      <div className="detail-card">
+        <p className="eyebrow">{label}</p>
+        <MiniLineChart
+          accent={accent}
+          activeIndex={activeIndex}
+          distanceValues={distanceValues}
+          valueKind={valueKind}
+          values={values}
+        />
+      </div>
+    );
+  }
 
 function BestEffortsView({ items }) {
   return (
@@ -775,39 +803,87 @@ function IntervalList({ intervals }) {
   );
 }
 
-function MiniLineChart({ accent, activeIndex, values, onHoverIndex }) {
-  if (!values?.length) {
-    return <EmptyState compact text="No series available." />;
+function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values }) {
+    if (!values?.length) {
+      return <EmptyState compact text="No series available." />;
+    }
+  const chartLeft = 12;
+  const chartRight = 94;
+  const chartTop = 8;
+  const chartBottom = 82;
+  const seriesLength = values.length;
+  const xValues =
+    distanceValues?.length === seriesLength ? distanceValues.map((value) => Number(value ?? 0)) : values.map((_, index) => index);
+  const { maxValue, minValue, normalized } = normalizeSeries(values);
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const xSpan = Math.max(xMax - xMin, 0.00001);
+    const points = normalized
+      .map((value, index) => {
+        const x = chartLeft + (((xValues[index] - xMin) / xSpan) * (chartRight - chartLeft));
+        const y = chartBottom - (value * (chartBottom - chartTop));
+        return `${x},${y}`;
+      })
+      .join(" ");
+    const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, normalized.length - 1);
+    const markerX =
+      clampedActiveIndex == null
+        ? null
+        : chartLeft + (((xValues[clampedActiveIndex] - xMin) / xSpan) * (chartRight - chartLeft));
+    const markerY =
+      clampedActiveIndex == null
+        ? null
+        : chartBottom - (normalized[clampedActiveIndex] * (chartBottom - chartTop));
+    const xTicks = buildDistanceTicks(xMin, xMax);
+    const yTicks = buildTicks(minValue, maxValue, 4);
+  
+    return (
+      <svg
+        aria-label={`${labelForValueKind(valueKind)} chart`}
+        className={`mini-chart ${accent}`}
+        preserveAspectRatio="none"
+        viewBox="0 0 100 100"
+      >
+        <line className="chart-axis" x1={chartLeft} x2={chartLeft} y1={chartTop} y2={chartBottom} />
+        <line className="chart-axis" x1={chartLeft} x2={chartRight} y1={chartBottom} y2={chartBottom} />
+        {xTicks.map((tick) => {
+          const x = chartLeft + (((tick - xMin) / xSpan) * (chartRight - chartLeft));
+          return (
+            <g key={`x-${tick}`}>
+              <line className="chart-tick" x1={x} x2={x} y1={chartBottom} y2={chartBottom + 2.5} />
+              <text className="chart-tick-label" x={x} y={chartBottom + 8} textAnchor="middle">
+                {formatDistanceTick(tick)}
+              </text>
+            </g>
+          );
+        })}
+        {yTicks.map((tick) => {
+          const y =
+            maxValue === minValue
+              ? (chartTop + chartBottom) / 2
+              : chartBottom - (((tick - minValue) / (maxValue - minValue)) * (chartBottom - chartTop));
+          return (
+            <g key={`y-${tick}`}>
+              <line className="chart-tick" x1={chartLeft - 2.5} x2={chartLeft} y1={y} y2={y} />
+              <text className="chart-tick-label" x={chartLeft - 4} y={y + 1.5} textAnchor="end">
+                {formatSeriesValue(valueKind, tick)}
+              </text>
+            </g>
+          );
+        })}
+        <text className="chart-axis-label" x={(chartLeft + chartRight) / 2} y="98" textAnchor="middle">
+          km
+        </text>
+        <text className="chart-axis-label" x="4" y={(chartTop + chartBottom) / 2} textAnchor="middle" transform={`rotate(-90 4 ${(chartTop + chartBottom) / 2})`}>
+          {labelForValueKind(valueKind)}
+        </text>
+        <polyline fill="none" points={points} strokeWidth="2" />
+        {markerX != null && markerY != null ? <circle cx={markerX} cy={markerY} r="3.2" /> : null}
+      </svg>
+    );
   }
-  const normalized = normalizeSeries(values);
-  const points = normalized
-    .map((value, index) => `${(index / Math.max(values.length - 1, 1)) * 100},${100 - value * 100}`)
-    .join(" ");
-  const markerX = activeIndex == null ? null : (activeIndex / Math.max(values.length - 1, 1)) * 100;
-  const markerY = activeIndex == null ? null : 100 - normalized[Math.min(activeIndex, normalized.length - 1)] * 100;
 
-  function handleMove(event) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(Math.max((event.clientX - bounds.left) / Math.max(bounds.width, 1), 0), 1);
-    onHoverIndex(Math.round(ratio * Math.max(values.length - 1, 0)));
-  }
-
-  return (
-    <svg
-      aria-hidden="true"
-      className={`mini-chart ${accent}`}
-      onMouseLeave={() => onHoverIndex(null)}
-      onMouseMove={handleMove}
-      preserveAspectRatio="none"
-      viewBox="0 0 100 100"
-    >
-      <polyline fill="none" points={points} strokeWidth="3" />
-      {markerX != null && markerY != null ? <circle cx={markerX} cy={markerY} r="3.2" /> : null}
-    </svg>
-  );
-}
-
-function MapPanel({ activeIndex, polyline }) {
+function MapPanel({ activeIndex, onSelectIndex, polyline }) {
   if (!polyline.length) {
     return <EmptyState compact text="No GPS points available." />;
   }
@@ -831,7 +907,7 @@ function MapPanel({ activeIndex, polyline }) {
         return;
       }
 
-      const mapInstance = createMapyCzMap(mapApi, mapContainerRef.current, polyline);
+      const mapInstance = createMapyCzMap(mapApi, mapContainerRef.current, polyline, onSelectIndex);
       if (!mapInstance) {
         setMapState("fallback");
         return;
@@ -850,7 +926,7 @@ function MapPanel({ activeIndex, polyline }) {
       }
       mapStateRef.current = null;
     };
-  }, [mapyApiKey, polyline]);
+  }, [mapyApiKey, onSelectIndex, polyline]);
 
   useEffect(() => {
     if (mapState !== "ready" || !mapStateRef.current) {
@@ -859,19 +935,19 @@ function MapPanel({ activeIndex, polyline }) {
     mapStateRef.current.setActiveIndex(activeIndex);
   }, [activeIndex, mapState, polyline]);
 
-  return (
-    <div className="map-panel">
-      <div className="map-header-note">
-        {mapState === "ready"
-          ? "Mapy.cz map active."
-          : mapyApiKey
-            ? "Mapy.cz tiles unavailable, route preview fallback active."
-            : "Route preview fallback active."}
-      </div>
-      <div
-        className={mapState === "fallback" || !mapyApiKey ? "mapycz-canvas hidden" : "mapycz-canvas"}
-        ref={mapContainerRef}
-      />
+    return (
+      <div className="map-panel">
+        {mapState !== "ready" ? (
+          <div className="map-header-note">
+            {mapyApiKey
+              ? "Mapy.cz tiles unavailable, route preview fallback active."
+              : "Route preview fallback active."}
+          </div>
+        ) : null}
+        <div
+          className={mapState === "fallback" || !mapyApiKey ? "mapycz-canvas hidden" : "mapycz-canvas"}
+          ref={mapContainerRef}
+        />
       {mapState !== "ready" ? (
         <>
           {mapyApiKey ? (
@@ -880,14 +956,14 @@ function MapPanel({ activeIndex, polyline }) {
               allows `http://localhost:5173`.
             </div>
           ) : null}
-          <RoutePreview activeIndex={activeIndex} polyline={polyline} />
+          <RoutePreview activeIndex={activeIndex} onSelectIndex={onSelectIndex} polyline={polyline} />
         </>
       ) : null}
     </div>
   );
 }
 
-function RoutePreview({ activeIndex, polyline }) {
+function RoutePreview({ activeIndex, onSelectIndex, polyline }) {
   const latitudes = polyline.map((point) => point[0]);
   const longitudes = polyline.map((point) => point[1]);
   const minLat = Math.min(...latitudes);
@@ -899,9 +975,24 @@ function RoutePreview({ activeIndex, polyline }) {
     y: 100 - ((lat - minLat) / Math.max(maxLat - minLat, 0.00001)) * 100,
   }));
   const activePoint = activeIndex == null ? null : coordinates[Math.min(activeIndex, coordinates.length - 1)];
+
+  function handlePointer(event) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 100;
+    const y = ((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 100;
+    onSelectIndex(findClosestPointIndex(coordinates, { x, y }));
+  }
+
   return (
-    <svg aria-hidden="true" className="route-map" preserveAspectRatio="none" viewBox="0 0 100 100">
-      <polyline fill="none" points={coordinates.map(({ x, y }) => `${x},${y}`).join(" ")} strokeWidth="3" />
+    <svg
+      aria-label="Route preview"
+      className="route-map"
+      onClick={handlePointer}
+      onMouseMove={handlePointer}
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+    >
+      <polyline fill="none" points={coordinates.map(({ x, y }) => `${x},${y}`).join(" ")} strokeWidth="2" />
       <circle cx={coordinates[0].x} cy={coordinates[0].y} r="2.4" />
       {activePoint ? <circle className="active-route-point" cx={activePoint.x} cy={activePoint.y} r="3.2" /> : null}
     </svg>
@@ -928,7 +1019,7 @@ async function loadMapyCzApi() {
   };
 }
 
-function createMapyCzMap(mapApi, container, polyline) {
+function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
   if (!mapApi?.L || !mapApi?.tileConfig || !container || !polyline.length) {
     return null;
   }
@@ -950,7 +1041,7 @@ function createMapyCzMap(mapApi, container, polyline) {
 
     const route = L.polyline(coordinates, {
       color: "#fc4c02",
-      weight: 4,
+      weight: 3,
       opacity: 0.95,
     }).addTo(map);
 
@@ -972,6 +1063,15 @@ function createMapyCzMap(mapApi, container, polyline) {
       map.invalidateSize(false);
     });
 
+    function updateSelection(latlng) {
+      onSelectIndex(findClosestPointIndex(coordinates, { x: latlng.lat, y: latlng.lng }, "latlng"));
+    }
+
+    route.on("mousemove", (event) => updateSelection(event.latlng));
+    route.on("click", (event) => updateSelection(event.latlng));
+    map.on("mousemove", (event) => updateSelection(event.latlng));
+    map.on("click", (event) => updateSelection(event.latlng));
+
     return {
       destroy() {
         map.remove();
@@ -983,7 +1083,6 @@ function createMapyCzMap(mapApi, container, polyline) {
         }
         const nextPoint = coordinates[Math.min(activeIndex, coordinates.length - 1)];
         activeMarker.setLatLng(nextPoint);
-        map.panTo(nextPoint, { animate: false });
       },
     };
   } catch {
@@ -1130,16 +1229,110 @@ function formatAny(value) {
 }
 
 function normalizeSeries(values) {
-  const finiteValues = values.filter((value) => Number.isFinite(value));
-  if (!finiteValues.length) {
-    return values.map(() => 0);
+    const finiteValues = values.filter((value) => Number.isFinite(value));
+    if (!finiteValues.length) {
+      return { minValue: 0, maxValue: 0, normalized: values.map(() => 0) };
+    }
+    const minValue = Math.min(...finiteValues);
+    const maxValue = Math.max(...finiteValues);
+    if (maxValue === minValue) {
+      return { minValue, maxValue, normalized: values.map(() => 0.5) };
+    }
+    return {
+      minValue,
+      maxValue,
+      normalized: values.map((value) => (Number.isFinite(value) ? (value - minValue) / (maxValue - minValue) : 0)),
+    };
   }
-  const minValue = Math.min(...finiteValues);
-  const maxValue = Math.max(...finiteValues);
-  if (maxValue === minValue) {
-    return values.map(() => 0.5);
+
+function buildTicks(minValue, maxValue, count) {
+  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
+    return [0];
   }
-  return values.map((value) => (Number.isFinite(value) ? (value - minValue) / (maxValue - minValue) : 0));
+  if (minValue === maxValue) {
+    return [minValue];
+  }
+  return Array.from({ length: count }, (_, index) => minValue + ((maxValue - minValue) * index) / Math.max(count - 1, 1));
+}
+
+function buildDistanceTicks(minValue, maxValue) {
+  const safeMin = Math.max(0, Math.floor(minValue));
+  const safeMax = Math.max(safeMin, Math.ceil(maxValue));
+  const span = safeMax - safeMin;
+  if (span <= 5) {
+    return Array.from({ length: span + 1 }, (_, index) => safeMin + index);
+  }
+  const step = Math.max(1, Math.ceil(span / 6));
+  const ticks = [];
+  for (let value = safeMin; value <= safeMax; value += step) {
+    ticks.push(value);
+  }
+  if (ticks[ticks.length - 1] !== safeMax) {
+    ticks.push(safeMax);
+  }
+  return ticks;
+}
+
+function formatDistanceTick(value) {
+  return `${Math.round(value)} km`;
+}
+
+function formatSeriesValue(kind, value) {
+  if (!Number.isFinite(value)) {
+    return "n/a";
+  }
+  if (kind === "pace") {
+    return formatPaceMinutes(value);
+  }
+  if (kind === "speed") {
+    return `${formatNumber(value)} km/h`;
+  }
+  if (kind === "heart_rate") {
+    return `${Math.round(value)} bpm`;
+  }
+  if (kind === "slope") {
+    return `${formatNumber(value)}%`;
+  }
+  return formatNumber(value);
+}
+
+function formatPaceMinutes(value) {
+  const wholeMinutes = Math.floor(value);
+  const seconds = Math.round((value - wholeMinutes) * 60);
+  const normalizedMinutes = seconds === 60 ? wholeMinutes + 1 : wholeMinutes;
+  const normalizedSeconds = seconds === 60 ? 0 : seconds;
+  return `${normalizedMinutes}:${String(normalizedSeconds).padStart(2, "0")}`;
+}
+
+function labelForValueKind(kind) {
+  if (kind === "pace") {
+    return "min/km";
+  }
+  if (kind === "speed") {
+    return "km/h";
+  }
+  if (kind === "heart_rate") {
+    return "bpm";
+  }
+  if (kind === "slope") {
+    return "%";
+  }
+  return "value";
+}
+
+function findClosestPointIndex(points, target, mode = "xy") {
+  let closestIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  points.forEach((point, index) => {
+    const dx = mode === "latlng" ? point[0] - target.x : point.x - target.x;
+    const dy = mode === "latlng" ? point[1] - target.y : point.y - target.y;
+    const distance = (dx * dx) + (dy * dy);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+  return closestIndex;
 }
 
 function startOfMonth(value) {

@@ -112,6 +112,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.secrets
 .venv
 *-venv
 env/
@@ -119,6 +120,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+frontend/.env
+backend/.env
+backend/.env.secrets
+worker/.env
+worker/.env.secrets
 
 # Spyder project settings
 .spyderproject

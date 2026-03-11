@@ -161,6 +161,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Fix migration bootstrap so pre-Alembic scaffold databases are stamped at revision `20260309_0002` and still run later corrective migrations on startup.
 - [x] Replace the discontinued Mapy.cz JavaScript SDK integration with a supported Mapy REST tiles + Leaflet frontend implementation, while keeping the local route-preview fallback.
 - [x] Align the React Mapy.cz tile URL with the working Dash Leaflet implementation and make the frontend dev container refresh dependencies on startup so new packages are available in the mounted workspace.
+- [x] Split frontend public env files from backend and worker secret env files, add committed templates for each, and wire Docker Compose to the service-local real files.
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
 - [x] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
 - [x] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.

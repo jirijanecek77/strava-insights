@@ -32,7 +32,27 @@ If `make` is not installed on Windows, use:
 
 ## Environment
 
-Copy `.env.example` to `.env` and fill in the required values.
+Copy the template files into real service env files before running Docker:
+
+```bash
+cp frontend/.env.template frontend/.env
+cp backend/.env.template backend/.env
+cp backend/.env.secrets.template backend/.env.secrets
+cp worker/.env.template worker/.env
+cp worker/.env.secrets.template worker/.env.secrets
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item frontend/.env.template frontend/.env
+Copy-Item backend/.env.template backend/.env
+Copy-Item backend/.env.secrets.template backend/.env.secrets
+Copy-Item worker/.env.template worker/.env
+Copy-Item worker/.env.secrets.template worker/.env.secrets
+```
+
+Fill in the secret values in `backend/.env.secrets` and `worker/.env.secrets`. Only `frontend/.env` should contain `VITE_` variables that are safe to expose in the browser.
 
 ## Python Tooling
 

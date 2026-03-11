@@ -28,3 +28,4 @@ Windows fallback when `make` is not installed:
 - The new application lives in `frontend`, `backend`, and `worker`.
 - The Docker Compose stack is the default local entrypoint for validation.
 - Python dependency management for `backend` and `worker` should use Poetry rather than direct `pip` installs.
+- Create real env files from `frontend/.env.template`, `backend/.env.template`, `backend/.env.secrets.template`, `worker/.env.template`, and `worker/.env.secrets.template` before running the stack.
