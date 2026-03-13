@@ -32,6 +32,7 @@ class ActivityKpis(BaseModel):
 
 class ActivitySeries(BaseModel):
     distance_km: list[float]
+    altitude_meters: list[float]
     moving_average_heartrate: list[float]
     moving_average_speed_kph: list[float]
     pace_minutes_per_km: list[float]

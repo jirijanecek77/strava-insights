@@ -44,9 +44,18 @@ def get_trends(
 def get_comparisons(
     request: Request,
     period_type: str = Query(..., pattern="^(rolling_30d|week|month|year)$"),
+    current_period_start: date | None = Query(None),
+    previous_period_start: date | None = Query(None),
     sport_type: str | None = Query(None),
     current_user_service: CurrentUserService = Depends(CurrentUserService),
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
 ) -> list[PeriodComparisonSchema]:
     user = _require_user(request, current_user_service)
-    return dashboard_read_service.get_comparisons(user.id, period_type=period_type, today=date.today(), sport_type=sport_type)
+    return dashboard_read_service.get_comparisons(
+        user.id,
+        period_type=period_type,
+        today=date.today(),
+        current_period_start=current_period_start,
+        previous_period_start=previous_period_start,
+        sport_type=sport_type,
+    )

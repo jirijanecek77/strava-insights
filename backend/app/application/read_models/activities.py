@@ -94,6 +94,7 @@ class ActivityReadService:
             map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),
             series=ActivitySeries(
                 distance_km=analytics["distance_km"],
+                altitude_meters=analytics["altitude_meters"],
                 moving_average_heartrate=analytics["moving_average_heartrate"],
                 moving_average_speed_kph=analytics["moving_average_speed_kph"],
                 pace_minutes_per_km=analytics["pace_minutes_per_km"],

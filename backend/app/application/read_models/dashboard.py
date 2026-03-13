@@ -56,11 +56,16 @@ class DashboardReadService:
         *,
         period_type: str,
         today: date,
+        current_period_start: date | None = None,
+        previous_period_start: date | None = None,
         sport_type: str | None = None,
     ) -> list[PeriodComparisonSchema]:
         if period_type == "rolling_30d":
             return self._compare_rolling_30d(user_id, today=today, sport_type=sport_type)
-        if period_type == "week":
+        if current_period_start is not None and previous_period_start is not None:
+            current = current_period_start
+            previous = previous_period_start
+        elif period_type == "week":
             current = _week_start(today)
             previous = current - timedelta(days=7)
         elif period_type == "month":

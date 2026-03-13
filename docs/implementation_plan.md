@@ -135,6 +135,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Implement activity detail screen.
 - [x] Implement best efforts screen.
 - [x] Implement settings/profile screen.
+- [x] Add editable profile inputs for analytics prerequisites such as birthday and max speed, backed by a persisted user-profile API.
 - [x] Add shared sport-type and date-range filters.
 - [x] Integrate Mapy.cz on the activity detail page.
 - [x] Restyle the frontend visual language to be closer to Strava web: light surfaces, restrained neutrals, orange emphasis, and data-first layouts.
@@ -151,6 +152,11 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Remove the duplicate main-layout logout control and place the manual sync action in the sidebar status card.
 - [x] Auto-refresh sync status progress in the frontend while sync jobs are queued or running, without requiring a manual page reload.
 - [x] Refine calendar day-bubble sizing to use sport-specific distance buckets that better separate short, medium, and long training days.
+- [x] Refine the activity detail page by removing the standalone zone-summary card, shrinking the KPI row to keep five tiles on one line, and drawing running-zone context plus elevation backdrop directly into the three detail charts.
+- [x] Redesign the dashboard trend series panel as a date-based graph with distance in kilometers and session counts plotted together.
+- [x] Add explicit dashboard period selection so the selected-window comparison can compare any two available periods instead of only the latest pair.
+- [x] Move sync status controls out of the sidebar by removing the navbar latest-sync panel and placing the manual refresh action in `Settings -> Sync Status`.
+- [x] Isolate backend pytest runs from the development dataset by routing tests to a dedicated PostgreSQL schema and avoiding startup migrations against the main application schema.
 
 ## Phase 7: Validation and Hardening
 

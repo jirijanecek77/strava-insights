@@ -204,6 +204,7 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         assert activity_detail_response.status_code == 200
         assert activity_detail_response.json()["map"]["bounds"]["max_lat"] == 50.1
         assert activity_detail_response.json()["series"]["pace_display"][0] == "4:00"
+        assert activity_detail_response.json()["series"]["altitude_meters"][0] == 200
 
         best_efforts_response = client.get("/best-efforts")
         assert best_efforts_response.status_code == 200

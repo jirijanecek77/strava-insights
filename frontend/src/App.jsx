@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
@@ -29,6 +30,8 @@ export default function App() {
   const [selectedView, setSelectedView] = useState("dashboard");
   const [selectedWindow, setSelectedWindow] = useState("month");
   const [selectedSport, setSelectedSport] = useState("");
+  const [currentComparisonStart, setCurrentComparisonStart] = useState("");
+  const [previousComparisonStart, setPreviousComparisonStart] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState(null);
   const [activityDetail, setActivityDetail] = useState(null);
   const [activityDetailState, setActivityDetailState] = useState("idle");
@@ -39,6 +42,13 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    birthday: "",
+    maxHeartRateOverride: "",
+    maxPace: "",
+    speedMaxValue: "",
+  });
 
   const activityQuery = useMemo(
     () =>
@@ -103,6 +113,8 @@ export default function App() {
           fetchJson(
             `/comparisons${buildQuery({
               period_type: selectedWindow,
+              current_period_start: selectedWindow === "rolling_30d" ? undefined : currentComparisonStart || undefined,
+              previous_period_start: selectedWindow === "rolling_30d" ? undefined : previousComparisonStart || undefined,
               sport_type: selectedSport || undefined,
             })}`,
           ),
@@ -138,7 +150,35 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [activityQuery, selectedSport, selectedWindow, sessionState]);
+  }, [activityQuery, currentComparisonStart, previousComparisonStart, selectedSport, selectedWindow, sessionState]);
+
+  useEffect(() => {
+    if (selectedWindow === "rolling_30d") {
+      if (currentComparisonStart !== "") {
+        setCurrentComparisonStart("");
+      }
+      if (previousComparisonStart !== "") {
+        setPreviousComparisonStart("");
+      }
+      return;
+    }
+    const options = buildComparisonPeriodOptions(trends?.items ?? [], selectedWindow);
+    if (!options.length) {
+      return;
+    }
+    const optionIds = new Set(options.map((option) => option.id));
+    const nextCurrent = optionIds.has(currentComparisonStart) ? currentComparisonStart : options[0].id;
+    const nextPrevious =
+      optionIds.has(previousComparisonStart) && previousComparisonStart !== nextCurrent
+        ? previousComparisonStart
+        : options.find((option) => option.id !== nextCurrent)?.id ?? options[0].id;
+    if (nextCurrent !== currentComparisonStart) {
+      setCurrentComparisonStart(nextCurrent);
+    }
+    if (nextPrevious !== previousComparisonStart) {
+      setPreviousComparisonStart(nextPrevious);
+    }
+  }, [currentComparisonStart, previousComparisonStart, selectedWindow, trends]);
 
   useEffect(() => {
     if (sessionState !== "authenticated" || selectedActivityId == null) {
@@ -164,6 +204,33 @@ export default function App() {
       active = false;
     };
   }, [selectedActivityId, sessionState]);
+
+  useEffect(() => {
+    if (sessionState !== "authenticated" || selectedView !== "settings") {
+      return;
+    }
+    let active = true;
+    fetchJson("/me/profile")
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setProfileForm({
+          birthday: payload.birthday ?? "",
+          maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
+          maxPace: formatSpeedMaxAsPace(payload.speed_max),
+          speedMaxValue: payload.speed_max == null ? "" : String(payload.speed_max),
+        });
+      })
+      .catch((error) => {
+        if (active) {
+          setErrorMessage(error.message ?? "Failed to load profile settings.");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedView, sessionState]);
 
   useEffect(() => {
     if (sessionState !== "authenticated" || !isSyncInFlight(syncStatus)) {
@@ -215,6 +282,36 @@ export default function App() {
     }
   }
 
+  async function handleSaveProfile() {
+    try {
+      const parsedSpeedMax = parsePaceToSpeedMax(profileForm.maxPace);
+      if (profileForm.maxPace.trim() && parsedSpeedMax == null) {
+        setErrorMessage("Max aerobic pace must use mm:ss or decimal minutes.");
+        return;
+      }
+      setProfileBusy(true);
+      const payload = await fetchJson("/me/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          birthday: profileForm.birthday || null,
+          max_heart_rate_override: profileForm.maxHeartRateOverride ? Number(profileForm.maxHeartRateOverride) : null,
+          speed_max: profileForm.maxPace.trim() ? parsedSpeedMax : null,
+        }),
+      });
+      setProfileForm({
+        birthday: payload.birthday ?? "",
+        maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
+        maxPace: formatSpeedMaxAsPace(payload.speed_max),
+        speedMaxValue: payload.speed_max == null ? "" : String(payload.speed_max),
+      });
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error.message ?? "Failed to save profile settings.");
+    } finally {
+      setProfileBusy(false);
+    }
+  }
+
   if (sessionState === "loading") {
     return <LoadingScreen />;
   }
@@ -229,11 +326,7 @@ export default function App() {
       <div className="app-frame">
         <Sidebar
           selectedView={selectedView}
-          syncStatus={syncStatus}
-          syncBusy={syncBusy}
           user={user}
-          onLogout={handleLogout}
-          onRefresh={handleRefreshSync}
           onSelectView={setSelectedView}
         />
         <section className="workspace">
@@ -250,7 +343,16 @@ export default function App() {
           />
           {errorMessage ? <div className="banner-error">{errorMessage}</div> : null}
           {selectedView === "dashboard" ? (
-            <DashboardView comparisons={comparisons} dashboard={dashboard} trends={trends} />
+            <DashboardView
+              comparisons={comparisons}
+              currentComparisonStart={currentComparisonStart}
+              dashboard={dashboard}
+              onChangeCurrentComparisonStart={setCurrentComparisonStart}
+              onChangePreviousComparisonStart={setPreviousComparisonStart}
+              previousComparisonStart={previousComparisonStart}
+              selectedWindow={selectedWindow}
+              trends={trends}
+            />
           ) : null}
           {selectedView === "calendar" ? (
             <CalendarView
@@ -274,9 +376,34 @@ export default function App() {
                 onSelectActivity={setSelectedActivityId}
               />
           ) : null}
-          {selectedView === "best-efforts" ? <BestEffortsView items={bestEfforts} /> : null}
+          {selectedView === "best-efforts" ? (
+            <BestEffortsView
+              items={bestEfforts}
+              onSelectActivity={(activityId) => {
+                if (activityId == null) {
+                  return;
+                }
+                setDateFrom("");
+                setDateTo("");
+                setSelectedActivityId(activityId);
+                setSelectedView("activities");
+              }}
+            />
+          ) : null}
           {selectedView === "settings" ? (
-            <SettingsView syncStatus={syncStatus} user={user} onLogout={handleLogout} />
+            <SettingsView
+              syncBusy={syncBusy}
+              profileBusy={profileBusy}
+              profileForm={profileForm}
+              syncStatus={syncStatus}
+              user={user}
+              onChangeProfileField={(field, value) => {
+                setProfileForm((current) => ({ ...current, [field]: value }));
+              }}
+              onLogout={handleLogout}
+              onRefreshSync={handleRefreshSync}
+              onSaveProfile={handleSaveProfile}
+            />
           ) : null}
         </section>
       </div>
@@ -324,7 +451,7 @@ function LandingScreen({ authBusy, errorMessage, onLogin }) {
   );
 }
 
-function Sidebar({ selectedView, syncBusy, syncStatus, user, onLogout, onRefresh, onSelectView }) {
+function Sidebar({ selectedView, user, onSelectView }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-user">
@@ -343,14 +470,6 @@ function Sidebar({ selectedView, syncBusy, syncStatus, user, onLogout, onRefresh
           </button>
         ))}
       </nav>
-      <div className="sync-card">
-        <p className="eyebrow">Latest Sync</p>
-        <strong>{formatLabel(syncStatus?.status ?? "idle")}</strong>
-        <p className="sidebar-subtle">{formatSyncProgress(syncStatus)}</p>
-        <button className="ghost-button" disabled={syncBusy} onClick={onRefresh} type="button">
-          {syncBusy ? "Refreshing..." : "Refresh Sync"}
-        </button>
-      </div>
     </aside>
   );
 }
@@ -414,44 +533,21 @@ function FilterDate({ label, value, onChange }) {
   );
 }
 
-function DashboardView({ comparisons, dashboard, trends }) {
-  const snapshotCards = [...(dashboard?.month ?? []), ...(dashboard?.year ?? [])];
+function DashboardView({
+  comparisons,
+  currentComparisonStart,
+  dashboard,
+  onChangeCurrentComparisonStart,
+  onChangePreviousComparisonStart,
+  previousComparisonStart,
+  selectedWindow,
+  trends,
+}) {
+  const selectedComparisons = sortComparisons(comparisons);
+  const comparisonOptions = buildComparisonPeriodOptions(trends?.items ?? [], selectedWindow);
   return (
     <section className="panel-grid">
-      <article className="panel panel-span-two">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Overview</p>
-            <h2>Month and year snapshots</h2>
-          </div>
-        </div>
-        <div className="comparison-grid">
-          {snapshotCards.map((comparison, index) => (
-            <ComparisonCard
-              key={`${comparison.current?.sport_type ?? comparison.previous?.sport_type ?? "unknown"}-${index}`}
-              comparison={comparison}
-            />
-          ))}
-        </div>
-      </article>
-      <article className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Selected Window</p>
-            <h2>Comparison view</h2>
-          </div>
-        </div>
-        <div className="comparison-grid single-column">
-          {comparisons.length === 0 ? <EmptyState text="No comparison data yet." /> : null}
-          {comparisons.map((comparison, index) => (
-            <ComparisonCard
-              key={`${comparison.current?.sport_type ?? comparison.previous?.sport_type ?? "selected"}-${index}`}
-              comparison={comparison}
-            />
-          ))}
-        </div>
-      </article>
-      <article className="panel">
+      <article className="panel panel-span-full">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Trend Series</p>
@@ -459,6 +555,28 @@ function DashboardView({ comparisons, dashboard, trends }) {
           </div>
         </div>
         {trends ? <TrendList items={trends.items} /> : <EmptyState text="Rolling 30-day mode compares windows directly." />}
+      </article>
+      <article className="panel panel-span-full">
+        <div className="panel-header">
+          <div>
+            <p className="eyebrow">Overview</p>
+          </div>
+        </div>
+        {selectedWindow !== "rolling_30d" && comparisonOptions.length > 1 ? (
+          <div className="comparison-period-controls">
+            <FilterSelect label="Current" options={comparisonOptions} value={currentComparisonStart} onChange={onChangeCurrentComparisonStart} />
+            <FilterSelect label="Previous" options={comparisonOptions.filter((option) => option.id !== currentComparisonStart)} value={previousComparisonStart} onChange={onChangePreviousComparisonStart} />
+          </div>
+        ) : null}
+        <div className="comparison-grid comparison-grid-overview">
+          {selectedComparisons.length === 0 ? <EmptyState text="No comparison data yet." /> : null}
+          {selectedComparisons.map((comparison, index) => (
+            <ComparisonCard
+              key={`${comparison.current?.sport_type ?? comparison.previous?.sport_type ?? "selected"}-${index}`}
+              comparison={comparison}
+            />
+          ))}
+        </div>
       </article>
     </section>
   );
@@ -533,13 +651,21 @@ function ActivitiesView({
   onSelectSeriesIndex,
   onSelectActivity,
 }) {
+  const selectedRowRef = useRef(null);
+
+  useEffect(() => {
+    if (!selectedRowRef.current || typeof selectedRowRef.current.scrollIntoView !== "function") {
+      return;
+    }
+    selectedRowRef.current.scrollIntoView({ block: "nearest" });
+  }, [selectedActivityId, activities]);
+
   return (
     <section className="activities-layout">
       <article className="panel activity-list-panel">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Activities</p>
-            <h2>Imported sessions</h2>
           </div>
         </div>
         <div className="activity-list">
@@ -549,6 +675,7 @@ function ActivitiesView({
               key={activity.id}
               className={selectedActivityId === activity.id ? "activity-row active" : "activity-row"}
               onClick={() => onSelectActivity(activity.id)}
+              ref={selectedActivityId === activity.id ? selectedRowRef : null}
               type="button"
             >
               <div>
@@ -575,7 +702,7 @@ function ActivitiesView({
     );
   }
   
- function ActivityDetail({ detail, activeSeriesIndex, onSelectSeriesIndex }) {
+function ActivityDetail({ detail, activeSeriesIndex, onSelectSeriesIndex }) {
     const routePoints = detail.map?.polyline ?? [];
     const paceOrSpeed = detail.series.pace_minutes_per_km.length
       ? detail.series.pace_minutes_per_km
@@ -607,36 +734,37 @@ function ActivitiesView({
             accent="orange"
             distanceValues={detail.series.distance_km}
             label="Pace / Speed"
+            altitudeValues={detail.series.altitude_meters}
+            intervals={detail.intervals}
             valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"}
             values={paceOrSpeed}
             activeIndex={resolvedActiveIndex}
+            zones={detail.zones}
           />
           <DetailChart
             accent="red"
             distanceValues={detail.series.distance_km}
             label="Heart Rate"
+            altitudeValues={detail.series.altitude_meters}
+            intervals={detail.intervals}
             valueKind="heart_rate"
             values={detail.series.moving_average_heartrate}
             activeIndex={resolvedActiveIndex}
+            zones={detail.zones}
           />
           <DetailChart
             accent="green"
             distanceValues={detail.series.distance_km}
             label="Slope"
+            altitudeValues={detail.series.altitude_meters}
+            intervals={detail.intervals}
             valueKind="slope"
             values={detail.series.slope_percent}
             activeIndex={resolvedActiveIndex}
+            zones={detail.zones}
           />
         </div>
       <div className="detail-analysis-grid">
-        <div className="detail-card">
-          <p className="eyebrow">Zone Summary</p>
-          <KeyValueList data={detail.zone_summary} emptyText="No zone summary available." />
-        </div>
-        <div className="detail-card">
-          <p className="eyebrow">Intervals</p>
-          <IntervalList intervals={detail.intervals} />
-        </div>
         <div className="detail-card">
           <p className="eyebrow">Running Analysis</p>
           {detail.compliance ? (
@@ -653,22 +781,25 @@ function ActivitiesView({
   );
 }
 
-function DetailChart({ accent, label, values, distanceValues, valueKind, activeIndex }) {
+function DetailChart({ accent, label, values, distanceValues, altitudeValues, intervals, valueKind, activeIndex, zones }) {
     return (
       <div className="detail-card">
         <p className="eyebrow">{label}</p>
         <MiniLineChart
           accent={accent}
           activeIndex={activeIndex}
+          altitudeValues={altitudeValues}
           distanceValues={distanceValues}
+          intervals={intervals}
           valueKind={valueKind}
           values={values}
+          zones={zones}
         />
       </div>
     );
   }
 
-function BestEffortsView({ items }) {
+function BestEffortsView({ items, onSelectActivity }) {
   return (
     <section className="panel">
       <div className="panel-header">
@@ -680,22 +811,28 @@ function BestEffortsView({ items }) {
       <div className="best-effort-grid">
         {items.length === 0 ? <EmptyState text="No best efforts stored yet." /> : null}
         {items.map((item) => (
-          <div key={item.effort_code} className="best-effort-card">
+          <button
+            key={item.effort_code}
+            className="best-effort-card"
+            disabled={item.activity_id == null}
+            onClick={() => onSelectActivity(item.activity_id)}
+            type="button"
+          >
             <strong>{formatLabel(item.effort_code)}</strong>
             <span>{formatDuration(item.best_time_seconds)}</span>
             <p>{formatDistanceMeters(item.distance_meters)}</p>
             <small>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Imported best mark"}</small>
-          </div>
+          </button>
         ))}
       </div>
     </section>
   );
 }
 
-function SettingsView({ syncStatus, user, onLogout }) {
+function SettingsView({ profileBusy, profileForm, syncBusy, syncStatus, user, onChangeProfileField, onLogout, onRefreshSync, onSaveProfile }) {
   return (
     <section className="panel-grid">
-      <article className="panel">
+      <article className="panel settings-panel">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Profile</p>
@@ -704,12 +841,46 @@ function SettingsView({ syncStatus, user, onLogout }) {
         </div>
         <div className="settings-list">
           <div className="settings-row"><span>Strava Athlete</span><strong>{user.strava_athlete_id}</strong></div>
-          <div className="settings-row"><span>Session Model</span><strong>Cookie-based</strong></div>
-          <div className="settings-row"><span>Profile Image</span><strong>{user.profile_picture_url ? "Available" : "Not set"}</strong></div>
         </div>
+        <div className="settings-form">
+          <label className="control-chip">
+            <span>Birthday</span>
+            <input
+              aria-label="Birthday"
+              type="date"
+              value={profileForm.birthday}
+              onChange={(event) => onChangeProfileField("birthday", event.target.value)}
+            />
+          </label>
+          <label className="control-chip">
+            <span>Max Aerobic Pace (min/km)</span>
+            <input
+              aria-label="Max Aerobic Pace (min/km)"
+              inputMode="text"
+              placeholder="3:45"
+              type="text"
+              value={profileForm.maxPace}
+              onChange={(event) => onChangeProfileField("maxPace", event.target.value)}
+            />
+          </label>
+          <label className="control-chip">
+            <span>Max HR Override</span>
+            <input
+              aria-label="Max HR Override"
+              inputMode="numeric"
+              step="1"
+              type="number"
+              value={profileForm.maxHeartRateOverride}
+              onChange={(event) => onChangeProfileField("maxHeartRateOverride", event.target.value)}
+            />
+          </label>
+        </div>
+        <button className="primary-button" disabled={profileBusy} onClick={onSaveProfile} type="button">
+          {profileBusy ? "Saving..." : "Save Profile"}
+        </button>
         <button className="ghost-button inline-button" onClick={onLogout} type="button">Log out</button>
       </article>
-      <article className="panel">
+      <article className="panel settings-panel">
         <div className="panel-header">
           <div>
             <p className="eyebrow">Sync Status</p>
@@ -722,6 +893,9 @@ function SettingsView({ syncStatus, user, onLogout }) {
           <div className="settings-row"><span>Started</span><strong>{syncStatus?.started_at ? formatDateTime(syncStatus.started_at) : "n/a"}</strong></div>
           <div className="settings-row"><span>Finished</span><strong>{syncStatus?.finished_at ? formatDateTime(syncStatus.finished_at) : "n/a"}</strong></div>
         </div>
+        <button className="ghost-button" disabled={syncBusy} onClick={onRefreshSync} type="button">
+          {syncBusy ? "Refreshing..." : "Refresh Sync"}
+        </button>
       </article>
     </section>
   );
@@ -731,11 +905,12 @@ function ComparisonCard({ comparison }) {
   const current = comparison.current;
   const previous = comparison.previous;
   const isPace = current?.average_pace_seconds_per_km != null || previous?.average_pace_seconds_per_km != null;
+  const periodType = current?.period_type ?? previous?.period_type ?? "period";
   return (
     <div className="comparison-card">
       <div className="comparison-heading">
         <strong>{current?.sport_type ?? previous?.sport_type ?? "Unknown"}</strong>
-        <span>{formatLabel(current?.period_type ?? previous?.period_type ?? "period")}</span>
+        <span className="comparison-period-label">{formatComparisonRange(current?.period_start, previous?.period_start, periodType)}</span>
       </div>
       <MetricRow label="Distance" current={current?.total_distance_meters} previous={previous?.total_distance_meters} renderValue={formatDistanceMeters} />
       <MetricRow label="Moving Time" current={current?.total_moving_time_seconds} previous={previous?.total_moving_time_seconds} renderValue={formatDuration} />
@@ -754,20 +929,84 @@ function TrendList({ items }) {
   if (!items.length) {
     return <EmptyState text="No trend points yet." />;
   }
+  const points = aggregateTrendItems(items);
+  const [activeIndex, setActiveIndex] = useState(points.length - 1);
+  const periodType = items[0]?.period_type ?? "month";
+  const resolvedActiveIndex = Math.min(Math.max(activeIndex, 0), points.length - 1);
+  const activePoint = points[resolvedActiveIndex];
+  const chartData = points.map((point) => ({
+    ...point,
+    axisLabel: formatTrendAxisLabel(point.periodStart, periodType),
+  }));
+
+  function handleTrendPointer(event) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const relativeX = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
+    const nextIndex = Math.min(points.length - 1, Math.max(0, Math.round(relativeX * (points.length - 1))));
+    setActiveIndex(nextIndex);
+  }
+
   return (
-    <div className="trend-list">
-      {items.map((item) => (
-        <div key={`${item.sport_type}-${item.period_start}`} className="trend-row">
-          <div>
-            <strong>{item.sport_type}</strong>
-            <p>{formatDateLabel(item.period_start)}</p>
-          </div>
-          <div className="trend-metrics">
-            <span>{formatDistanceMeters(item.total_distance_meters)}</span>
-            <span>{item.activity_count} sessions</span>
-          </div>
+    <div className="trend-chart-shell">
+      <div className="trend-chart-legend" aria-hidden="true">
+        <span className="trend-legend-item">
+          <span className="trend-legend-swatch distance" />
+          Km
+        </span>
+        <span className="trend-legend-item">
+          <span className="trend-legend-swatch sessions" />
+          Sessions
+        </span>
+      </div>
+      <div aria-label="Trend graph" className="trend-chart" onClick={handleTrendPointer} onMouseMove={handleTrendPointer} role="img">
+        <ResponsiveContainer height="100%" width="100%">
+          <ComposedChart
+            data={chartData}
+            margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+            onMouseMove={(state) => {
+              if (Number.isInteger(state?.activeTooltipIndex)) {
+                setActiveIndex(state.activeTooltipIndex);
+              }
+            }}
+          >
+            <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false} />
+            <XAxis axisLine={false} dataKey="axisLabel" tick={{ fill: "#6f6b62", fontSize: 11 }} tickLine={false} />
+            <YAxis
+              axisLine={false}
+              domain={[0, "dataMax"]}
+              tick={{ fill: "#6f6b62", fontSize: 11 }}
+              tickFormatter={(value) => `${Math.round(value)}`}
+              tickLine={false}
+              width={28}
+            />
+            <YAxis
+              axisLine={false}
+              dataKey="sessions"
+              domain={[0, "dataMax"]}
+              hide
+              orientation="right"
+              yAxisId="sessions"
+            />
+            <Tooltip content={() => null} cursor={{ fill: "rgba(252, 76, 2, 0.08)" }} />
+            <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]} />
+            <Line
+              dataKey="sessions"
+              dot={{ fill: "#1d7af3", r: 4, stroke: "#ffffff", strokeWidth: 2 }}
+              stroke="#1d7af3"
+              strokeWidth={2}
+              type="monotone"
+              yAxisId="sessions"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="trend-summary">
+        <strong>{formatDateLabel(activePoint.periodStart)}</strong>
+        <div className="trend-metrics">
+          <span>{formatNumber(activePoint.distanceKm)} km</span>
+          <span>{activePoint.sessions} sessions</span>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -793,51 +1032,25 @@ function MetricRow({ label, current, previous, renderValue = formatMetricValue }
   );
 }
 
-function KeyValueList({ data, emptyText }) {
-  const items = Object.entries(data ?? {});
-  if (!items.length) {
-    return <EmptyState compact text={emptyText} />;
-  }
-  return (
-    <div className="summary-list">
-      {items.map(([key, value]) => (
-        <div className="summary-row" key={key}>
-          <span>{formatLabel(key)}</span>
-          <strong>{formatAny(value)}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function IntervalList({ intervals }) {
-  if (!intervals?.length) {
-    return <EmptyState compact text="No interval groups detected." />;
-  }
-  return (
-    <div className="interval-list">
-      {intervals.slice(0, 8).map((interval, index) => (
-        <div className="interval-row" key={`${interval.zone ?? "interval"}-${index}`}>
-          <span>{formatLabel(interval.zone ?? interval.label ?? `interval ${index + 1}`)}</span>
-          <strong>{interval.duration_seconds ? formatDuration(interval.duration_seconds) : formatAny(interval.count ?? interval.duration)}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values }) {
+function MiniLineChart({ accent, activeIndex, altitudeValues, distanceValues, intervals, valueKind, values, zones }) {
     if (!values?.length) {
       return <EmptyState compact text="No series available." />;
     }
-  const chartLeft = 12;
-  const chartRight = 94;
+  const chartLeft = 22;
+  const chartRight = 95;
   const chartTop = 8;
   const chartBottom = 82;
   const seriesLength = values.length;
   const xValues =
     distanceValues?.length === seriesLength ? distanceValues.map((value) => Number(value ?? 0)) : values.map((_, index) => index);
   const { maxValue, minValue, normalized } = normalizeSeries(values);
+    const altitudeSeries =
+      altitudeValues?.length === seriesLength
+        ? altitudeValues.map((value) => Number(value ?? 0))
+        : altitudeValues?.length
+          ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
+          : [];
+    const { normalized: normalizedAltitude } = normalizeSeries(altitudeSeries);
     const xMin = Math.min(...xValues);
     const xMax = Math.max(...xValues);
     const xSpan = Math.max(xMax - xMin, 0.00001);
@@ -848,6 +1061,17 @@ function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values 
         return `${x},${y}`;
       })
       .join(" ");
+    const elevationArea = normalizedAltitude.length
+      ? [
+          `${chartLeft},${chartBottom}`,
+          ...normalizedAltitude.map((value, index) => {
+            const x = chartLeft + (((xValues[index] - xMin) / xSpan) * (chartRight - chartLeft));
+            const y = chartBottom - (value * (chartBottom - chartTop)) * 0.68;
+            return `${x},${y}`;
+          }),
+          `${chartRight},${chartBottom}`,
+        ].join(" ")
+      : "";
     const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, normalized.length - 1);
     const markerX =
       clampedActiveIndex == null
@@ -859,6 +1083,23 @@ function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values 
         : chartBottom - (normalized[clampedActiveIndex] * (chartBottom - chartTop));
     const xTicks = buildDistanceTicks(xMin, xMax);
     const yTicks = buildTicks(minValue, maxValue, 4);
+    const zoneBands = buildIntervalBands({
+      chartLeft,
+      chartRight,
+      intervals,
+      xMax,
+      xMin,
+      xSpan,
+      zones,
+    });
+    const thresholdBands = buildThresholdBands({
+      chartBottom,
+      chartTop,
+      maxValue,
+      minValue,
+      valueKind,
+      zones,
+    });
   
     return (
       <svg
@@ -867,6 +1108,31 @@ function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values 
         preserveAspectRatio="none"
         viewBox="0 0 100 100"
       >
+        {zoneBands.map((band, index) => (
+          <rect
+            key={`interval-band-${index}`}
+            className="chart-interval-band"
+            fill={band.color}
+            height={chartBottom - chartTop}
+            opacity="0.14"
+            width={band.width}
+            x={band.x}
+            y={chartTop}
+          />
+        ))}
+        {thresholdBands.map((band, index) => (
+          <rect
+            key={`threshold-band-${index}`}
+            className="chart-threshold-band"
+            fill={band.color}
+            height={band.height}
+            opacity="0.2"
+            width={chartRight - chartLeft}
+            x={chartLeft}
+            y={band.y}
+          />
+        ))}
+        {elevationArea ? <polygon className="chart-elevation-area" points={elevationArea} /> : null}
         <line className="chart-axis" x1={chartLeft} x2={chartLeft} y1={chartTop} y2={chartBottom} />
         <line className="chart-axis" x1={chartLeft} x2={chartRight} y1={chartBottom} y2={chartBottom} />
         {xTicks.map((tick) => {
@@ -888,7 +1154,7 @@ function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values 
           return (
             <g key={`y-${tick}`}>
               <line className="chart-tick" x1={chartLeft - 2.5} x2={chartLeft} y1={y} y2={y} />
-              <text className="chart-tick-label" x={chartLeft - 4} y={y + 1.5} textAnchor="end">
+              <text className="chart-tick-label" x={chartLeft - 4.5} y={y + 1.5} textAnchor="end">
                 {formatSeriesValue(valueKind, tick)}
               </text>
             </g>
@@ -897,10 +1163,10 @@ function MiniLineChart({ accent, activeIndex, distanceValues, valueKind, values 
         <text className="chart-axis-label" x={(chartLeft + chartRight) / 2} y="98" textAnchor="middle">
           km
         </text>
-        <text className="chart-axis-label" x="4" y={(chartTop + chartBottom) / 2} textAnchor="middle" transform={`rotate(-90 4 ${(chartTop + chartBottom) / 2})`}>
+        <text className="chart-axis-label" x="6" y={(chartTop + chartBottom) / 2} textAnchor="middle" transform={`rotate(-90 6 ${(chartTop + chartBottom) / 2})`}>
           {labelForValueKind(valueKind)}
         </text>
-        <polyline fill="none" points={points} strokeWidth="2" />
+        <polyline fill="none" points={points} strokeWidth="1.4" />
         {markerX != null && markerY != null ? <circle cx={markerX} cy={markerY} r="3.2" /> : null}
       </svg>
     );
@@ -1223,6 +1489,43 @@ function formatDateLabel(value) {
   });
 }
 
+function formatTrendAxisLabel(value, periodType) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  if (periodType === "year") {
+    return date.toLocaleDateString(undefined, { year: "numeric" });
+  }
+  if (periodType === "week") {
+    return `${getIsoWeek(date)}/${date.getFullYear()}`;
+  }
+  return date.toLocaleDateString(undefined, { month: "2-digit", year: "numeric" });
+}
+
+function formatComparisonRange(currentValue, previousValue, periodType) {
+  const currentLabel = formatComparisonPeriod(currentValue, periodType);
+  const previousLabel = formatComparisonPeriod(previousValue, periodType);
+  if (currentLabel && previousLabel) {
+    return `${currentLabel} vs ${previousLabel}`;
+  }
+  return currentLabel || previousLabel || "Period unavailable";
+}
+
+function formatComparisonPeriod(value, periodType) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  if (periodType === "year") {
+    return date.toLocaleDateString(undefined, { year: "numeric" });
+  }
+  return date.toLocaleDateString(undefined, { month: "2-digit", year: "numeric" });
+}
+
 function formatSyncProgress(syncStatus) {
   if (!syncStatus) {
     return "No sync recorded";
@@ -1300,6 +1603,56 @@ function buildDistanceTicks(minValue, maxValue) {
   return ticks;
 }
 
+function aggregateTrendItems(items) {
+  const byDate = new Map();
+  items.forEach((item) => {
+    const key = item.period_start;
+    const current = byDate.get(key) ?? {
+      periodStart: key,
+      timestamp: new Date(key).getTime(),
+      distanceKm: 0,
+      sessions: 0,
+    };
+    current.distanceKm += Number(item.total_distance_meters ?? 0) / 1000;
+    current.sessions += Number(item.activity_count ?? 0);
+    byDate.set(key, current);
+  });
+  return Array.from(byDate.values()).sort((left, right) => left.timestamp - right.timestamp);
+}
+
+function buildComparisonPeriodOptions(items, periodType) {
+  const uniqueStarts = Array.from(new Set(items.map((item) => item.period_start))).sort((left, right) => right.localeCompare(left));
+  return uniqueStarts.map((value) => ({
+    id: value,
+    label: formatComparisonPeriod(value, periodType),
+  }));
+}
+
+function sortComparisons(items) {
+  return [...items].sort((left, right) => compareSportPriority(left.current?.sport_type ?? left.previous?.sport_type, right.current?.sport_type ?? right.previous?.sport_type));
+}
+
+function compareSportPriority(left, right) {
+  const order = ["Run", "Ride", "EBikeRide"];
+  const leftIndex = order.indexOf(left ?? "");
+  const rightIndex = order.indexOf(right ?? "");
+  const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+  const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft - normalizedRight;
+  }
+  return String(left ?? "").localeCompare(String(right ?? ""));
+}
+
+function getIsoWeek(value) {
+  const date = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+
 function formatDistanceTick(value) {
   return `${Math.round(value)} km`;
 }
@@ -1329,6 +1682,39 @@ function formatPaceMinutes(value) {
   const normalizedMinutes = seconds === 60 ? wholeMinutes + 1 : wholeMinutes;
   const normalizedSeconds = seconds === 60 ? 0 : seconds;
   return `${normalizedMinutes}:${String(normalizedSeconds).padStart(2, "0")}`;
+}
+
+function formatSpeedMaxAsPace(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return "";
+  }
+  return formatPaceMinutes(60 / numericValue);
+}
+
+function parsePaceToSpeedMax(value) {
+  if (!value?.trim()) {
+    return null;
+  }
+  const normalized = value.trim().replace(",", ".");
+  if (normalized.includes(":")) {
+    const [minutesText, secondsText = "0"] = normalized.split(":");
+    const minutes = Number(minutesText);
+    const seconds = Number(secondsText);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0 || seconds >= 60) {
+      return null;
+    }
+    const totalMinutes = minutes + (seconds / 60);
+    if (totalMinutes <= 0) {
+      return null;
+    }
+    return Number((60 / totalMinutes).toFixed(2));
+  }
+  const numericValue = Number(normalized);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+  return Number((60 / numericValue).toFixed(2));
 }
 
 function labelForValueKind(kind) {
@@ -1429,6 +1815,61 @@ function buildCalendarSummary(dayActivities) {
     primaryActivityId,
     sizePx: scaleCalendarBubbleSize(totalDistanceKm, dominantSport),
   };
+}
+
+function buildIntervalBands({ chartLeft, chartRight, intervals, xMax, xMin, xSpan, zones }) {
+  if (!intervals?.length || !zones?.length) {
+    return [];
+  }
+  const zoneColorMap = new Map(zones.map((zone) => [zone.name, zone.color]));
+  return intervals
+    .map((interval) => {
+      const distances = interval.distance_km ?? [];
+      if (!distances.length) {
+        return null;
+      }
+      const start = Math.min(...distances);
+      const end = Math.max(...distances, start + 0.05);
+      const color = zoneColorMap.get(interval.zones?.zone_pace) ?? "#cfd5db";
+      const x = chartLeft + (((start - xMin) / xSpan) * (chartRight - chartLeft));
+      const right = chartLeft + (((Math.min(end, xMax) - xMin) / xSpan) * (chartRight - chartLeft));
+      return {
+        color,
+        width: Math.max(right - x, 0.8),
+        x,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildThresholdBands({ chartBottom, chartTop, maxValue, minValue, valueKind, zones }) {
+  if (!zones?.length || (valueKind !== "pace" && valueKind !== "heart_rate")) {
+    return [];
+  }
+  const metricKey = valueKind === "pace" ? "range_zone_pace" : "range_zone_bpm";
+  const usableZones = zones.filter((zone) => zone?.[metricKey] != null);
+  if (!usableZones.length) {
+    return [];
+  }
+  return usableZones
+    .map((zone) => {
+      const lower = Number(zone[metricKey].lower);
+      const upper = Number(zone[metricKey].upper);
+      if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+        return null;
+      }
+      const clampedLower = Math.max(minValue, Math.min(maxValue, lower));
+      const clampedUpper = Math.max(minValue, Math.min(maxValue, upper));
+      const span = maxValue - minValue || 1;
+      const yTop = chartBottom - (((clampedUpper - minValue) / span) * (chartBottom - chartTop));
+      const yBottom = chartBottom - (((clampedLower - minValue) / span) * (chartBottom - chartTop));
+      return {
+        color: zone.color,
+        height: Math.max(yBottom - yTop, 0.8),
+        y: Math.min(yTop, yBottom),
+      };
+    })
+    .filter(Boolean);
 }
 
 function scaleCalendarBubbleSize(totalDistanceKm, dominantSport) {

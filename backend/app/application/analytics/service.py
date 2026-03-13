@@ -60,6 +60,7 @@ class ActivityDetailAnalyticsService:
 
         result = {
             "distance_km": distance_km,
+            "altitude_meters": altitude_stream_meters or [],
             "moving_average_heartrate": heartrate_ma,
             "moving_average_speed_kph": speed_ma_kph,
             "pace_minutes_per_km": pace_minutes_per_km,

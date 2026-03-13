@@ -13,6 +13,7 @@ from app.domain.schemas.best_effort import BestEffortItem, BestEffortsResponse
 from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
 from app.domain.schemas.sync import SyncStatusResponse
 from app.domain.schemas.user import CurrentUserResponse
+from app.infrastructure.db.models.user import User
 from app.main import app
 
 
@@ -71,7 +72,16 @@ class DashboardReadServiceStub:
     def get_trends(self, _user_id: int, *, period_type: str, sport_type=None) -> TrendsResponse:
         return TrendsResponse(items=[], period_type=period_type)
 
-    def get_comparisons(self, _user_id: int, *, period_type: str, today, sport_type=None) -> list[PeriodComparisonSchema]:
+    def get_comparisons(
+        self,
+        _user_id: int,
+        *,
+        period_type: str,
+        today,
+        current_period_start=None,
+        previous_period_start=None,
+        sport_type=None,
+    ) -> list[PeriodComparisonSchema]:
         return []
 
 
@@ -101,6 +111,7 @@ class ActivityReadServiceStub:
             map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
             series=ActivitySeries(
                 distance_km=[0.0, 1.0],
+                altitude_meters=[200.0, 202.0],
                 moving_average_heartrate=[140.0, 145.0],
                 moving_average_speed_kph=[12.0, 12.5],
                 pace_minutes_per_km=[5.0, 4.8],
@@ -141,6 +152,68 @@ def test_me_returns_current_user_with_dependency_override(client) -> None:
 
     assert response.status_code == 200
     assert response.json()["display_name"] == "Test Athlete"
+
+
+def test_me_profile_returns_empty_payload_when_profile_missing(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
+    )
+    try:
+        response = client.get("/me/profile")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "birthday": None,
+        "speed_max": None,
+        "max_heart_rate_override": None,
+    }
+
+
+def test_me_profile_can_be_updated(client, db_session) -> None:
+    db_session.add(
+        User(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
+    )
+    try:
+        response = client.put(
+            "/me/profile",
+            json={
+                "birthday": "1990-01-01",
+                "speed_max": "15.50",
+                "max_heart_rate_override": None,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "birthday": "1990-01-01",
+        "speed_max": "15.50",
+        "max_heart_rate_override": None,
+    }
 
 
 def test_sync_status_returns_idle_shape_with_override(client) -> None:
@@ -237,6 +310,19 @@ def test_comparisons_accepts_rolling_window_parameter(client) -> None:
     assert response.status_code == 200
 
 
+def test_comparisons_accepts_explicit_period_starts(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
+    try:
+        response = client.get("/comparisons?period_type=month&current_period_start=2026-03-01&previous_period_start=2026-02-01")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+
+
 def test_activities_list_returns_rows(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
         CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
@@ -263,6 +349,7 @@ def test_activity_detail_returns_payload(client) -> None:
 
     assert response.status_code == 200
     assert response.json()["series"]["pace_display"][0] == "5:00"
+    assert response.json()["series"]["altitude_meters"][0] == 200.0
 
 
 def test_best_efforts_returns_items(client) -> None:
