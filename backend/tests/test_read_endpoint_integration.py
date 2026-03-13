@@ -199,10 +199,14 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         activities_response = client.get("/activities")
         assert activities_response.status_code == 200
         assert activities_response.json()["items"][0]["name"] == "Morning Run"
+        assert activities_response.json()["items"][0]["summary_metric_display"] == "4:30"
+        assert activities_response.json()["items"][0]["summary_metric_kind"] == "pace"
 
         activity_detail_response = client.get("/activities/5")
         assert activity_detail_response.status_code == 200
         assert activity_detail_response.json()["map"]["bounds"]["max_lat"] == 50.1
+        assert activity_detail_response.json()["kpis"]["summary_metric_display"] == "4:30"
+        assert activity_detail_response.json()["kpis"]["summary_metric_kind"] == "pace"
         assert activity_detail_response.json()["series"]["pace_display"][0] == "4:00"
         assert activity_detail_response.json()["series"]["altitude_meters"][0] == 200
 

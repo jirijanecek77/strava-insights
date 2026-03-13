@@ -48,7 +48,8 @@ class ActivityReadService:
                     start_date_local=item.start_date_local,
                     distance_km=item.distance_km,
                     moving_time_display=item.moving_time_display,
-                    summary_metric_display=item.summary_metric_display,
+                    summary_metric_display=_format_summary_metric_value(item),
+                    summary_metric_kind=_summary_metric_kind(item),
                     total_elevation_gain_meters=item.total_elevation_gain_meters,
                     average_heartrate_bpm=item.average_heartrate_bpm,
                     difficulty_score=item.difficulty_score,
@@ -86,7 +87,8 @@ class ActivityReadService:
             kpis=ActivityKpis(
                 distance_km=activity.distance_km,
                 moving_time_display=activity.moving_time_display,
-                summary_metric_display=activity.summary_metric_display,
+                summary_metric_display=_format_summary_metric_value(activity),
+                summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
                 difficulty_score=activity.difficulty_score,
@@ -117,3 +119,20 @@ def _map_bounds(polyline: list[list[float]]) -> dict[str, float]:
         "min_lng": min(longitudes),
         "max_lng": max(longitudes),
     }
+
+
+def _summary_metric_kind(activity) -> str | None:
+    if activity.average_pace_display:
+        return "pace"
+    if activity.average_speed_kph is not None:
+        return "speed"
+    return None
+
+
+def _format_summary_metric_value(activity) -> str | None:
+    metric_kind = _summary_metric_kind(activity)
+    if metric_kind == "pace":
+        return activity.average_pace_display
+    if metric_kind == "speed" and activity.average_speed_kph is not None:
+        return f"{activity.average_speed_kph:.2f}".rstrip("0").rstrip(".")
+    return activity.summary_metric_display

@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
 from app.application.auth.dto import AuthenticatedUser, StravaTokenPayload
-from app.application.sync.orchestrator import SyncOrchestrator
 from app.core.config import settings
 from app.infrastructure.db.models.oauth_token import OauthToken
 from app.infrastructure.db.models.user import User

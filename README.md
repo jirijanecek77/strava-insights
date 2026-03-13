@@ -1,38 +1,36 @@
 # Strava Insights
 
-This repository is being rebuilt from the legacy Flask/Dash application into a separated frontend, backend, and worker stack.
+### This implementation was built completely with agentic AI assistance.
 
-## New Stack
+Strava Insights is a split-stack application for exploring imported Strava activity data without calling the Strava API
+on normal dashboard requests.
 
-- `frontend`: React + Vite + Tailwind
-- `backend`: FastAPI + Poetry
-- `worker`: Celery + Poetry
-- `postgres`: PostgreSQL
-- `redis`: Redis
+The current implementation is organized as:
 
-The default local workflow is Docker-based and driven through `make`.
+- `frontend`: React + Vite web UI
+- `backend`: FastAPI read/auth API
+- `worker`: Celery background sync and read-model work
+- `postgres`: persisted application data
+- `redis`: cache and Celery broker/backend
 
-## Commands
+## Current Features
 
-```bash
-make build
-make up
-make test
-make down
-```
+- Strava OAuth login and session-based authentication
+- Dashboard overview with period-to-period comparisons
+- Trend Series chart with brush-based range selection
+- Activity list with scrollable browsing
+- Activity detail page with synced charts and route selection
+- Best efforts view
+- Profile settings
+- Sync status and manual incremental refresh
 
-If `make` is not installed on Windows, use:
+## Docker Run
 
-```powershell
-.\make.ps1 build
-.\make.ps1 up
-.\make.ps1 test
-.\make.ps1 down
-```
+Docker is the default local workflow.
 
-## Environment
+### 1. Create env files
 
-Copy the template files into real service env files before running Docker:
+Copy the templates into real env files before starting the stack:
 
 ```bash
 cp frontend/.env.template frontend/.env
@@ -42,7 +40,7 @@ cp worker/.env.template worker/.env
 cp worker/.env.secrets.template worker/.env.secrets
 ```
 
-On Windows PowerShell:
+PowerShell:
 
 ```powershell
 Copy-Item frontend/.env.template frontend/.env
@@ -52,15 +50,136 @@ Copy-Item worker/.env.template worker/.env
 Copy-Item worker/.env.secrets.template worker/.env.secrets
 ```
 
-Fill in the secret values in `backend/.env.secrets` and `worker/.env.secrets`. Only `frontend/.env` should contain `VITE_` variables that are safe to expose in the browser.
+Fill in at least:
 
-## Python Tooling
+- `frontend/.env`: `VITE_MAPYCZ_API_KEY`
+- `backend/.env.secrets`: `SESSION_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
+- `worker/.env.secrets`: `SESSION_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
 
-Python package and environment management for the new backend and worker should use Poetry.
+### 2. Build and start
+
+```bash
+make build
+make up
+```
+
+Windows fallback when `make` is not installed:
+
+```powershell
+.\make.ps1 build
+.\make.ps1 up
+```
+
+### 3. Run tests
+
+```bash
+make test
+```
+
+PowerShell:
+
+```powershell
+.\make.ps1 test
+```
+
+### 4. Stop the stack
+
+```bash
+make down
+```
+
+PowerShell:
+
+```powershell
+.\make.ps1 down
+```
+
+### Docker service URLs
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- PostgreSQL: `localhost:5433`
+
+## Local Install
+
+You can also run the services locally. The simplest setup is:
+
+- run `postgres` and `redis` via Docker
+- run `frontend`, `backend`, and `worker` on the host machine
+
+### Prerequisites
+
+- Node.js 22+
+- Python 3.13
+- Poetry 2.x
+- Docker Desktop
+
+### 1. Start infrastructure
+
+```bash
+docker compose up -d postgres redis
+```
+
+### 2. Configure env files
+
+Create the same env files as in the Docker workflow.
+
+If `backend` or `worker` run outside Docker, update these values to host-based addresses:
+
+- `DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/strava_insights`
+- `REDIS_URL=redis://localhost:6379/0`
+
+Keep:
+
+- `BACKEND_PUBLIC_URL=http://localhost:8000`
+- `FRONTEND_PUBLIC_URL=http://localhost:5173`
+- `VITE_API_BASE_URL=http://localhost:8000`
+
+### 3. Install frontend
+
+```bash
+cd frontend
+npm install
+```
+
+Run:
+
+```bash
+npm run dev
+```
+
+### 4. Install backend
+
+```bash
+cd backend
+poetry install --with dev
+poetry run alembic upgrade head
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 5. Install worker
+
+```bash
+cd worker
+poetry install --with dev
+poetry run celery -A app.celery_app.celery_app worker --loglevel=info
+```
+
+Optional beat process:
+
+```bash
+cd worker
+poetry run celery -A app.celery_app.celery_app beat --loglevel=info
+```
+
+## Test Commands
+
+- Frontend: `docker compose run --rm frontend npm run test -- --run`
+- Backend: `docker compose run --rm backend pytest`
+- Worker: `docker compose run --rm worker pytest`
 
 ## Notes
 
-- The legacy Flask/Dash code remains in the repository during the migration.
-- The new implementation lives in `frontend`, `backend`, and `worker`.
+- Python dependency management for `backend` and `worker` uses Poetry.
+- Docker Compose is the default validation path for meaningful changes.
 - Product and architecture rules are documented in `docs/specification.md` and `docs/implementation_plan.md`.
-

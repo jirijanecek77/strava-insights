@@ -95,7 +95,8 @@ class ActivityReadServiceStub:
                     name="Morning Run",
                     distance_km="10.00",
                     moving_time_display="45:00",
-                    summary_metric_display="4:30 /km",
+                    summary_metric_display="4:30",
+                    summary_metric_kind="pace",
                 )
             ]
         )
@@ -107,7 +108,7 @@ class ActivityReadServiceStub:
             id=5,
             sport_type="Run",
             name="Morning Run",
-            kpis=ActivityKpis(distance_km="10.00", moving_time_display="45:00"),
+            kpis=ActivityKpis(distance_km="10.00", moving_time_display="45:00", summary_metric_display="4:30", summary_metric_kind="pace"),
             map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
             series=ActivitySeries(
                 distance_km=[0.0, 1.0],
