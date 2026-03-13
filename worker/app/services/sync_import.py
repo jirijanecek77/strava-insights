@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -25,11 +26,12 @@ from app.services.activity_summary import (
 )
 from app.services.cache_invalidator import UserCacheInvalidator
 from app.services.read_model_builder import ReadModelBuilder
-from app.strava_client import StravaApiClient
+from app.strava_client import StravaActivityStreamNotFoundError, StravaApiClient
 
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
 ACTIVITY_CHECKPOINT_TYPE = "activities"
+logger = logging.getLogger(__name__)
 
 
 class BaseImportService:
@@ -66,6 +68,13 @@ class BaseImportService:
             for activity in self.strava_client.get_activities(access_token, after=after)
             if activity.get("type") in SUPPORTED_SPORTS
         ]
+        existing_strava_ids = self.activities.list_existing_strava_ids_for_user(
+            user_id,
+            [activity["id"] for activity in activities_payload if activity.get("id") is not None],
+        )
+        activities_payload = [
+            activity for activity in activities_payload if activity.get("id") not in existing_strava_ids
+        ]
         self.sync_jobs.update_running(sync_job, progress_total=len(activities_payload))
         self.session.commit()
 
@@ -74,8 +83,12 @@ class BaseImportService:
 
         for index, activity_payload in enumerate(activities_payload, start=1):
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
-            stream_payload = self.strava_client.get_activity_stream(access_token, activity.strava_activity_id)
-            self._upsert_stream(activity_id=activity.id, payload=stream_payload)
+            try:
+                stream_payload = self.strava_client.get_activity_stream(access_token, activity.strava_activity_id)
+            except StravaActivityStreamNotFoundError:
+                logger.warning("Skipping missing Strava streams for activity %s.", activity.strava_activity_id)
+            else:
+                self._upsert_stream(activity_id=activity.id, payload=stream_payload)
             imported_count += 1
             latest_checkpoint_value = self._max_checkpoint_value(
                 latest_checkpoint_value,
@@ -235,5 +248,8 @@ class FullImportService(BaseImportService):
 class IncrementalSyncService(BaseImportService):
     def run(self, *, sync_job_id: int, user_id: int) -> int:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)
-        after = None if checkpoint is None else self._parse_datetime(checkpoint.checkpoint_value)
+        if checkpoint is not None:
+            after = self._parse_datetime(checkpoint.checkpoint_value)
+        else:
+            after = self.activities.get_latest_start_date_utc_for_user(user_id)
         return self._run(sync_job_id=sync_job_id, user_id=user_id, after=after)

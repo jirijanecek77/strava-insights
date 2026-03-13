@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -15,6 +15,7 @@ const sports = [
   { id: "Ride", label: "Ride" },
   { id: "EBikeRide", label: "E-Bike" },
 ];
+const syncPollIntervalMs = 3000;
 
 export default function App() {
   const [sessionState, setSessionState] = useState("loading");
@@ -48,6 +49,14 @@ export default function App() {
       }),
     [dateFrom, dateTo, selectedSport],
   );
+
+  const pollSyncStatus = useEffectEvent(async () => {
+    try {
+      setSyncStatus(await fetchJson("/sync/status"));
+    } catch {
+      // Keep the last known sync state if background polling fails.
+    }
+  });
 
   useEffect(() => {
     let active = true;
@@ -156,6 +165,18 @@ export default function App() {
     };
   }, [selectedActivityId, sessionState]);
 
+  useEffect(() => {
+    if (sessionState !== "authenticated" || !isSyncInFlight(syncStatus)) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      pollSyncStatus();
+    }, syncPollIntervalMs);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [pollSyncStatus, sessionState, syncStatus]);
+
   async function handleLogin() {
     try {
       setAuthBusy(true);
@@ -209,8 +230,10 @@ export default function App() {
         <Sidebar
           selectedView={selectedView}
           syncStatus={syncStatus}
+          syncBusy={syncBusy}
           user={user}
           onLogout={handleLogout}
+          onRefresh={handleRefreshSync}
           onSelectView={setSelectedView}
         />
         <section className="workspace">
@@ -220,10 +243,8 @@ export default function App() {
             selectedSport={selectedSport}
             selectedView={selectedView}
             selectedWindow={selectedWindow}
-            syncBusy={syncBusy}
             onChangeDateFrom={setDateFrom}
             onChangeDateTo={setDateTo}
-            onRefresh={handleRefreshSync}
             onSelectSport={setSelectedSport}
             onSelectWindow={setSelectedWindow}
           />
@@ -303,13 +324,12 @@ function LandingScreen({ authBusy, errorMessage, onLogin }) {
   );
 }
 
-function Sidebar({ selectedView, syncStatus, user, onLogout, onSelectView }) {
+function Sidebar({ selectedView, syncBusy, syncStatus, user, onLogout, onRefresh, onSelectView }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-user">
         <p className="eyebrow">Athlete</p>
         <h2 className="sidebar-title">{user.display_name}</h2>
-        <p className="sidebar-subtle">Strava ID {user.strava_athlete_id}</p>
       </div>
       <nav aria-label="Primary" className="sidebar-nav">
         {views.map((view) => (
@@ -327,10 +347,10 @@ function Sidebar({ selectedView, syncStatus, user, onLogout, onSelectView }) {
         <p className="eyebrow">Latest Sync</p>
         <strong>{formatLabel(syncStatus?.status ?? "idle")}</strong>
         <p className="sidebar-subtle">{formatSyncProgress(syncStatus)}</p>
+        <button className="ghost-button" disabled={syncBusy} onClick={onRefresh} type="button">
+          {syncBusy ? "Refreshing..." : "Refresh Sync"}
+        </button>
       </div>
-      <button className="ghost-button sidebar-logout" onClick={onLogout} type="button">
-        Log out
-      </button>
     </aside>
   );
 }
@@ -341,13 +361,15 @@ function Toolbar({
   selectedSport,
   selectedView,
   selectedWindow,
-  syncBusy,
   onChangeDateFrom,
   onChangeDateTo,
-  onRefresh,
   onSelectSport,
   onSelectWindow,
 }) {
+  const showSportFilter = selectedView === "dashboard" || selectedView === "calendar" || selectedView === "activities" || selectedView === "best-efforts";
+  const showWindowFilter = selectedView === "dashboard";
+  const showDateFilters = selectedView === "activities";
+
   return (
     <header className="toolbar">
       <div>
@@ -355,13 +377,14 @@ function Toolbar({
         <h1 className="toolbar-title">{formatLabel(selectedView)}</h1>
       </div>
       <div className="toolbar-controls">
-        <FilterSelect label="Sport" options={sports} value={selectedSport} onChange={onSelectSport} />
-        <FilterSelect label="Window" options={windows} value={selectedWindow} onChange={onSelectWindow} />
-        <FilterDate label="From" value={dateFrom} onChange={onChangeDateFrom} />
-        <FilterDate label="To" value={dateTo} onChange={onChangeDateTo} />
-        <button className="ghost-button" disabled={syncBusy} onClick={onRefresh} type="button">
-          {syncBusy ? "Refreshing..." : "Refresh Sync"}
-        </button>
+        {showSportFilter ? (
+          <FilterSelect label="Sport" options={sports} value={selectedSport} onChange={onSelectSport} />
+        ) : null}
+        {showWindowFilter ? (
+          <FilterSelect label="Window" options={windows} value={selectedWindow} onChange={onSelectWindow} />
+        ) : null}
+        {showDateFilters ? <FilterDate label="From" value={dateFrom} onChange={onChangeDateFrom} /> : null}
+        {showDateFilters ? <FilterDate label="To" value={dateTo} onChange={onChangeDateTo} /> : null}
       </div>
     </header>
   );
@@ -1210,6 +1233,10 @@ function formatSyncProgress(syncStatus) {
   return `${syncStatus.progress_completed} / ${syncStatus.progress_total}`;
 }
 
+function isSyncInFlight(syncStatus) {
+  return syncStatus?.status === "queued" || syncStatus?.status === "running";
+}
+
 function formatAny(value) {
   if (value == null) {
     return "n/a";
@@ -1355,10 +1382,6 @@ function buildCalendarDays(calendarMonth, activities) {
   const firstGridDay = new Date(firstDay);
   const mondayOffset = (firstDay.getDay() + 6) % 7;
   firstGridDay.setDate(firstGridDay.getDate() - mondayOffset);
-  const maxDailyDistance = activities.reduce((maxValue, activity) => {
-    const distance = Number(activity.distance_km ?? 0);
-    return Math.max(maxValue, distance);
-  }, 0);
 
   return Array.from({ length: 42 }, (_, index) => {
     const date = new Date(firstGridDay);
@@ -1371,12 +1394,12 @@ function buildCalendarDays(calendarMonth, activities) {
       date,
       isCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
       activities: dayActivities,
-      summary: buildCalendarSummary(dayActivities, maxDailyDistance),
+      summary: buildCalendarSummary(dayActivities),
     };
   });
 }
 
-function buildCalendarSummary(dayActivities, maxDailyDistance) {
+function buildCalendarSummary(dayActivities) {
   if (!dayActivities.length) {
     return null;
   }
@@ -1397,7 +1420,6 @@ function buildCalendarSummary(dayActivities, maxDailyDistance) {
   });
 
   const dominantSport = [...distanceBySport.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "Run";
-  const scale = maxDailyDistance > 0 ? totalDistanceKm / maxDailyDistance : 0;
 
   return {
     activityCount: dayActivities.length,
@@ -1405,8 +1427,27 @@ function buildCalendarSummary(dayActivities, maxDailyDistance) {
     distanceKm: roundNumber(totalDistanceKm),
     dominantSport,
     primaryActivityId,
-    sizePx: Math.round(26 + scale * 34),
+    sizePx: scaleCalendarBubbleSize(totalDistanceKm, dominantSport),
   };
+}
+
+function scaleCalendarBubbleSize(totalDistanceKm, dominantSport) {
+  if (totalDistanceKm <= 0) {
+    return 28;
+  }
+
+  if (dominantSport === "Run") {
+    if (totalDistanceKm <= 10) {
+      return 32;
+    }
+    if (totalDistanceKm <= 21.1) {
+      return 46;
+    }
+    return 60;
+  }
+
+  const rideBucket = Math.min(Math.ceil(totalDistanceKm / 20), 8);
+  return 28 + (rideBucket * 5);
 }
 
 function roundNumber(value) {

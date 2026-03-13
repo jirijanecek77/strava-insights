@@ -148,6 +148,9 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] average heart rate when available
 - [x] Render running-only activity analysis using backend interval and compliance outputs.
 - [x] Add frontend/component tests for the main flows.
+- [x] Remove the duplicate main-layout logout control and place the manual sync action in the sidebar status card.
+- [x] Auto-refresh sync status progress in the frontend while sync jobs are queued or running, without requiring a manual page reload.
+- [x] Refine calendar day-bubble sizing to use sport-specific distance buckets that better separate short, medium, and long training days.
 
 ## Phase 7: Validation and Hardening
 
@@ -165,6 +168,8 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
 - [x] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
 - [x] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.
+- [x] Prevent worker incremental sync jobs from failing when Strava returns `404 Not Found` for an activity streams endpoint; import the activity and continue without streams.
+- [x] Ensure manual refresh remains incremental even if the sync checkpoint is missing by falling back to the latest locally stored activity timestamp instead of refetching full history.
 - [ ] Validate that cached/database-backed reads meet the expected latency target under normal use.
 - [x] Confirm no normal UI reads depend on live Strava calls.
 - [ ] Review code structure against clean architecture requirements in [AGENTS.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\AGENTS.md).

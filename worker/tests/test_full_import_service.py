@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 
 from app.services.sync_import import FullImportService, IncrementalSyncService
+from app.strava_client import StravaActivityStreamNotFoundError
 
 
 class SyncJobStub:
@@ -81,9 +82,14 @@ class ActivityRepositoryStub:
     def __init__(self) -> None:
         self.by_id = {}
         self.counter = 1
+        self.latest_start_date_utc = None
+        self.existing_strava_ids = set()
 
     def get_by_strava_id(self, _user_id: int, strava_activity_id: int):
         return self.by_id.get(strava_activity_id)
+
+    def list_existing_strava_ids_for_user(self, _user_id: int, strava_activity_ids: list[int]):
+        return {strava_activity_id for strava_activity_id in strava_activity_ids if strava_activity_id in self.existing_strava_ids}
 
     def save(self, activity):
         if getattr(activity, "id", None) is None:
@@ -91,6 +97,9 @@ class ActivityRepositoryStub:
             self.counter += 1
         self.by_id[activity.strava_activity_id] = activity
         return activity
+
+    def get_latest_start_date_utc_for_user(self, _user_id: int):
+        return self.latest_start_date_utc
 
 
 class ActivityStreamRepositoryStub:
@@ -161,6 +170,7 @@ class TokenCipherStub:
 class StravaClientStub:
     def __init__(self) -> None:
         self.after = None
+        self.stream_calls: list[int] = []
 
     def refresh_access_token(self, refresh_token: str):
         assert refresh_token == "refresh-token"
@@ -203,6 +213,7 @@ class StravaClientStub:
     def get_activity_stream(self, access_token: str, activity_id: int):
         assert access_token in {"access-token", "fresh-access-token"}
         assert activity_id == 100
+        self.stream_calls.append(activity_id)
         return {
             "time": {"data": [0, 1]},
             "distance": {"data": [0, 10]},
@@ -211,6 +222,11 @@ class StravaClientStub:
             "velocity_smooth": {"data": [3.5, 3.6]},
             "heartrate": {"data": [145, 146]},
         }
+
+
+class MissingStreamStravaClientStub(StravaClientStub):
+    def get_activity_stream(self, access_token: str, activity_id: int):
+        raise StravaActivityStreamNotFoundError(activity_id)
 
 
 def test_full_import_service_imports_activities_updates_progress_and_checkpoint() -> None:
@@ -292,3 +308,74 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     assert imported_count == 1
     assert strava_client.after == datetime.fromisoformat("2026-03-01T06:00:00+00:00")
     assert checkpoint_repo.value["sync_type"] == "activities"
+
+
+def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
+    session = SessionStub()
+    sync_job = SyncJobStub()
+    sync_job.sync_type = "incremental_sync"
+    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
+    service = IncrementalSyncService(session, strava_client=MissingStreamStravaClientStub(), token_cipher=TokenCipherStub())
+    service.sync_jobs = SyncJobRepositoryStub(sync_job)
+    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.activities = ActivityRepositoryStub()
+    service.activity_streams = ActivityStreamRepositoryStub()
+    service.checkpoints = CheckpointRepositoryStub()
+    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
+    service.cache_invalidator = CacheInvalidatorStub()
+    service.read_model_builder = ReadModelBuilderStub()
+
+    imported_count = service.run(sync_job_id=1, user_id=1)
+
+    assert imported_count == 1
+    assert sync_job.status == "completed"
+    assert 100 in service.activities.by_id
+    assert service.activity_streams.by_activity_id == {}
+
+
+def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing() -> None:
+    session = SessionStub()
+    sync_job = SyncJobStub()
+    sync_job.sync_type = "incremental_sync"
+    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
+    strava_client = StravaClientStub()
+    service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
+    service.sync_jobs = SyncJobRepositoryStub(sync_job)
+    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.activities = ActivityRepositoryStub()
+    service.activities.latest_start_date_utc = datetime.fromisoformat("2026-03-07T06:00:00+00:00")
+    service.activity_streams = ActivityStreamRepositoryStub()
+    service.checkpoints = CheckpointRepositoryStub()
+    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
+    service.cache_invalidator = CacheInvalidatorStub()
+    service.read_model_builder = ReadModelBuilderStub()
+
+    imported_count = service.run(sync_job_id=1, user_id=1)
+
+    assert imported_count == 1
+    assert strava_client.after == datetime.fromisoformat("2026-03-07T06:00:00+00:00")
+
+
+def test_incremental_sync_skips_already_imported_activities() -> None:
+    session = SessionStub()
+    sync_job = SyncJobStub()
+    sync_job.sync_type = "incremental_sync"
+    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
+    strava_client = StravaClientStub()
+    service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
+    service.sync_jobs = SyncJobRepositoryStub(sync_job)
+    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.activities = ActivityRepositoryStub()
+    service.activities.existing_strava_ids = {100}
+    service.activity_streams = ActivityStreamRepositoryStub()
+    service.checkpoints = CheckpointRepositoryStub()
+    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
+    service.cache_invalidator = CacheInvalidatorStub()
+    service.read_model_builder = ReadModelBuilderStub()
+
+    imported_count = service.run(sync_job_id=1, user_id=1)
+
+    assert imported_count == 0
+    assert sync_job.status == "completed"
+    assert sync_job.progress_total == 0
+    assert strava_client.stream_calls == []

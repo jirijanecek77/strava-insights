@@ -304,4 +304,221 @@ describe("App", () => {
     const bubble = await screen.findByRole("button", { name: /42 km/i });
     expect(bubble).toHaveClass("is-ride");
   });
+
+  it("uses run distance buckets for calendar bubble sizing", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 1,
+          strava_athlete_id: 99,
+          display_name: "Test Athlete",
+          profile_picture_url: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "completed",
+          sync_type: "full_import",
+          progress_total: 10,
+          progress_completed: 10,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ month: [], year: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              id: 31,
+              sport_type: "Run",
+              name: "Easy Run",
+              start_date_local: "2026-03-03T08:30:00",
+              distance_km: 8,
+              summary_metric_display: "6:00 /km",
+            },
+            {
+              id: 32,
+              sport_type: "Run",
+              name: "Half Marathon Effort",
+              start_date_local: "2026-03-04T08:30:00",
+              distance_km: 18,
+              summary_metric_display: "5:00 /km",
+            },
+            {
+              id: 33,
+              sport_type: "Run",
+              name: "Long Run",
+              start_date_local: "2026-03-05T08:30:00",
+              distance_km: 30,
+              summary_metric_display: "5:15 /km",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ period_type: "month", items: [] }));
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /calendar/i }));
+
+    const shortBubble = await screen.findByRole("button", { name: /^8 km$/i });
+    const mediumBubble = await screen.findByRole("button", { name: /^18 km$/i });
+    const longBubble = await screen.findByRole("button", { name: /^30 km$/i });
+
+    expect(shortBubble.style.getPropertyValue("--bubble-size")).toBe("32px");
+    expect(mediumBubble.style.getPropertyValue("--bubble-size")).toBe("46px");
+    expect(longBubble.style.getPropertyValue("--bubble-size")).toBe("60px");
+  });
+
+  it("uses 20 km ride buckets for calendar bubble sizing", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 1,
+          strava_athlete_id: 99,
+          display_name: "Test Athlete",
+          profile_picture_url: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "completed",
+          sync_type: "full_import",
+          progress_total: 10,
+          progress_completed: 10,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ month: [], year: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            {
+              id: 41,
+              sport_type: "Ride",
+              name: "Short Ride",
+              start_date_local: "2026-03-03T08:30:00",
+              distance_km: 20,
+              summary_metric_display: "25 km/h",
+            },
+            {
+              id: 42,
+              sport_type: "Ride",
+              name: "Big Ride",
+              start_date_local: "2026-03-04T08:30:00",
+              distance_km: 100,
+              summary_metric_display: "28 km/h",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ period_type: "month", items: [] }));
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /calendar/i }));
+
+    const shortRideBubble = await screen.findByRole("button", { name: /^20 km$/i });
+    const longRideBubble = await screen.findByRole("button", { name: /^100 km$/i });
+
+    expect(shortRideBubble.style.getPropertyValue("--bubble-size")).toBe("33px");
+    expect(longRideBubble.style.getPropertyValue("--bubble-size")).toBe("53px");
+  });
+
+  it("updates sync progress while a sync is running without a manual reload", async () => {
+    let intervalCallback = null;
+    vi.spyOn(window, "setInterval").mockImplementation((callback) => {
+      intervalCallback = callback;
+      return 1;
+    });
+    vi.spyOn(window, "clearInterval").mockImplementation(() => {});
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 1,
+          strava_athlete_id: 99,
+          display_name: "Test Athlete",
+          profile_picture_url: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "running",
+          sync_type: "incremental_sync",
+          progress_total: 10,
+          progress_completed: 1,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ month: [], year: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ period_type: "month", items: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "running",
+          sync_type: "incremental_sync",
+          progress_total: 10,
+          progress_completed: 2,
+        }),
+      );
+
+    render(<App />);
+
+    expect(await screen.findByText("1 / 10")).toBeInTheDocument();
+    expect(intervalCallback).not.toBeNull();
+
+    await intervalCallback();
+
+    expect(await screen.findByText("2 / 10")).toBeInTheDocument();
+  });
+
+  it("shows only the controls relevant to the selected view", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 1,
+          strava_athlete_id: 99,
+          display_name: "Test Athlete",
+          profile_picture_url: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "completed",
+          sync_type: "full_import",
+          progress_total: 10,
+          progress_completed: 10,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ month: [], year: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] }))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ period_type: "month", items: [] }));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByText("Sport")).toBeInTheDocument();
+    expect(screen.getByText("Window")).toBeInTheDocument();
+    expect(screen.queryByText("From")).not.toBeInTheDocument();
+    expect(screen.queryByText("To")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /activities/i }));
+    expect(await screen.findByRole("heading", { name: /activities/i })).toBeInTheDocument();
+    expect(screen.getByText("Sport")).toBeInTheDocument();
+    expect(screen.getByText("From")).toBeInTheDocument();
+    expect(screen.getByText("To")).toBeInTheDocument();
+    expect(screen.queryByText("Window")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /calendar/i }));
+    expect(await screen.findByRole("heading", { name: /calendar/i })).toBeInTheDocument();
+    expect(screen.getByText("Sport")).toBeInTheDocument();
+    expect(screen.queryByText("Window")).not.toBeInTheDocument();
+    expect(screen.queryByText("From")).not.toBeInTheDocument();
+    expect(screen.queryByText("To")).not.toBeInTheDocument();
+  });
 });

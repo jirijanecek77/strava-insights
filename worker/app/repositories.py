@@ -126,6 +126,16 @@ class ActivityRepository:
             .one_or_none()
         )
 
+    def list_existing_strava_ids_for_user(self, user_id: int, strava_activity_ids: list[int]) -> set[int]:
+        if not strava_activity_ids:
+            return set()
+        rows = (
+            self.session.query(Activity.strava_activity_id)
+            .filter(Activity.user_id == user_id, Activity.strava_activity_id.in_(strava_activity_ids))
+            .all()
+        )
+        return {strava_activity_id for (strava_activity_id,) in rows}
+
     def save(self, activity: Activity) -> Activity:
         self.session.add(activity)
         self.session.flush()
@@ -136,6 +146,17 @@ class ActivityRepository:
         if sport_type is not None:
             query = query.filter(Activity.sport_type == sport_type)
         return query.order_by(Activity.start_date_local.asc()).all()
+
+    def get_latest_start_date_utc_for_user(self, user_id: int) -> datetime | None:
+        row = (
+            self.session.query(Activity.start_date_utc)
+            .filter(Activity.user_id == user_id)
+            .order_by(Activity.start_date_utc.desc())
+            .first()
+        )
+        if row is None:
+            return None
+        return row[0]
 
 
 class ActivityStreamRepository:

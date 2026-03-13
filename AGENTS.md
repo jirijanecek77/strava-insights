@@ -37,6 +37,8 @@ Windows is the primary local environment, so command design must keep Windows co
 - Every meaningful change should be exercised through local Docker deployment before being considered complete.
 - Every code change must include a successful build validation.
 - Prefer Docker Compose or an equivalent local orchestration setup for frontend, backend, worker, PostgreSQL, and Redis.
+- Do not rely on deleting or recreating the local database as part of normal development validation.
+- When schema changes are needed, add and run proper migrations instead of resetting persisted data.
 
 Expected local validation flow:
 
@@ -93,6 +95,9 @@ Do not treat a code change as complete if it has not been tested and validated l
 - Do not place live Strava API calls on the normal UI request path.
 - Persist imported Strava data locally and serve the UI from database/cache-backed read models.
 - Keep first import and later sync work in background jobs.
+- Treat manual `Refresh Sync` as incremental sync only: it must download only newly available activities and preserve already imported records.
+- Do not delete application data or rebuild the database from scratch to implement feature changes, bug fixes, or sync behavior adjustments.
+- Evolve persisted schema through explicit migrations and backward-safe data transitions whenever storage changes are required.
 - Preserve the analytical intent of the current application, especially on the activity detail page.
 - Maintain clear separation between auth, sync, analytics, and read APIs.
 

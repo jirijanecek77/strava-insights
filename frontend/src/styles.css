@@ -145,9 +145,9 @@ button {
 
 .sidebar {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
   height: fit-content;
-  padding: 1.25rem;
+  padding: 1rem;
   position: sticky;
   top: 24px;
 }
@@ -179,7 +179,7 @@ button {
 
 .sidebar-nav {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .nav-pill,
@@ -204,7 +204,7 @@ button {
 }
 
 .nav-pill {
-  padding: 0.8rem 1rem;
+  padding: 0.68rem 0.9rem;
   text-align: left;
 }
 
@@ -216,7 +216,6 @@ button {
 
 .ghost-button,
 .primary-button,
-.sidebar-logout,
 .inline-button {
   padding: 0.8rem 1rem;
 }
@@ -237,7 +236,7 @@ button {
   background: #fffdfa;
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 1rem;
+  padding: 0.9rem;
 }
 
 .toolbar {
@@ -358,13 +357,13 @@ button {
 
 .calendar-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.3rem;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .calendar-head {
-  font-size: 0.82rem;
-  padding: 0 0.2rem;
+  font-size: 0.72rem;
+  padding: 0 0.12rem;
 }
 
 .calendar-cell {
@@ -372,9 +371,9 @@ button {
   border: 1px solid var(--border);
   border-radius: 18px;
   display: grid;
-  gap: 0.75rem;
-  min-height: 10rem;
-  padding: 0.8rem;
+  gap: 0.3rem;
+  min-height: 6.2rem;
+  padding: 0.4rem;
 }
 
 .calendar-cell.muted {
@@ -382,7 +381,7 @@ button {
 }
 
 .calendar-date {
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 
@@ -390,7 +389,7 @@ button {
   align-content: center;
   display: grid;
   flex: 1;
-  gap: 0.75rem;
+  gap: 0.25rem;
   justify-items: center;
 }
 
@@ -440,8 +439,8 @@ button {
 
 .calendar-summary {
   display: grid;
-  font-size: 0.78rem;
-  gap: 0.15rem;
+  font-size: 0.66rem;
+  gap: 0.08rem;
   justify-items: center;
   text-align: center;
 }
@@ -669,11 +668,11 @@ button {
   }
 
   .calendar-grid {
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 
   .calendar-cell {
-    min-height: 8rem;
-    padding: 0.6rem;
+    min-height: 5.4rem;
+    padding: 0.35rem;
   }
 }

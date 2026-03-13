@@ -6,6 +6,12 @@ import httpx
 from app.config import settings
 
 
+class StravaActivityStreamNotFoundError(Exception):
+    def __init__(self, activity_id: int) -> None:
+        super().__init__(f"Strava activity stream not found for activity {activity_id}.")
+        self.activity_id = activity_id
+
+
 class StravaApiClient:
     def __init__(self) -> None:
         self.base_url = settings.strava_api_base_url.rstrip("/")
@@ -63,6 +69,8 @@ class StravaApiClient:
             },
             timeout=30.0,
         )
+        if response.status_code == 404:
+            raise StravaActivityStreamNotFoundError(activity_id)
         response.raise_for_status()
         return response.json()
 
