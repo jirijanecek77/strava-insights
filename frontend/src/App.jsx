@@ -1,6 +1,6 @@
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, Brush, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
@@ -732,35 +732,38 @@ function ActivityDetail({ detail, activeSeriesIndex, onSelectSeriesIndex }) {
           </div>
           <DetailChart
             accent="orange"
+            activeIndex={resolvedActiveIndex}
             distanceValues={detail.series.distance_km}
             label="Pace / Speed"
             altitudeValues={detail.series.altitude_meters}
             intervals={detail.intervals}
+            onSelectIndex={onSelectSeriesIndex}
             valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"}
             values={paceOrSpeed}
-            activeIndex={resolvedActiveIndex}
             zones={detail.zones}
           />
           <DetailChart
             accent="red"
+            activeIndex={resolvedActiveIndex}
             distanceValues={detail.series.distance_km}
             label="Heart Rate"
             altitudeValues={detail.series.altitude_meters}
             intervals={detail.intervals}
+            onSelectIndex={onSelectSeriesIndex}
             valueKind="heart_rate"
             values={detail.series.moving_average_heartrate}
-            activeIndex={resolvedActiveIndex}
             zones={detail.zones}
           />
           <DetailChart
             accent="green"
+            activeIndex={resolvedActiveIndex}
             distanceValues={detail.series.distance_km}
             label="Slope"
             altitudeValues={detail.series.altitude_meters}
             intervals={detail.intervals}
+            onSelectIndex={onSelectSeriesIndex}
             valueKind="slope"
             values={detail.series.slope_percent}
-            activeIndex={resolvedActiveIndex}
             zones={detail.zones}
           />
         </div>
@@ -781,7 +784,7 @@ function ActivityDetail({ detail, activeSeriesIndex, onSelectSeriesIndex }) {
   );
 }
 
-function DetailChart({ accent, label, values, distanceValues, altitudeValues, intervals, valueKind, activeIndex, zones }) {
+function DetailChart({ accent, activeIndex, label, values, distanceValues, altitudeValues, intervals, onSelectIndex, valueKind, zones }) {
     return (
       <div className="detail-card">
         <p className="eyebrow">{label}</p>
@@ -791,6 +794,8 @@ function DetailChart({ accent, label, values, distanceValues, altitudeValues, in
           altitudeValues={altitudeValues}
           distanceValues={distanceValues}
           intervals={intervals}
+          label={label}
+          onSelectIndex={onSelectIndex}
           valueKind={valueKind}
           values={values}
           zones={zones}
@@ -932,19 +937,10 @@ function TrendList({ items }) {
   const points = aggregateTrendItems(items);
   const [activeIndex, setActiveIndex] = useState(points.length - 1);
   const periodType = items[0]?.period_type ?? "month";
-  const resolvedActiveIndex = Math.min(Math.max(activeIndex, 0), points.length - 1);
-  const activePoint = points[resolvedActiveIndex];
   const chartData = points.map((point) => ({
     ...point,
     axisLabel: formatTrendAxisLabel(point.periodStart, periodType),
   }));
-
-  function handleTrendPointer(event) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const relativeX = (event.clientX - bounds.left) / Math.max(bounds.width, 1);
-    const nextIndex = Math.min(points.length - 1, Math.max(0, Math.round(relativeX * (points.length - 1))));
-    setActiveIndex(nextIndex);
-  }
 
   return (
     <div className="trend-chart-shell">
@@ -958,11 +954,16 @@ function TrendList({ items }) {
           Sessions
         </span>
       </div>
-      <div aria-label="Trend graph" className="trend-chart" onClick={handleTrendPointer} onMouseMove={handleTrendPointer} role="img">
+      <div aria-label="Trend graph" className="trend-chart" role="img">
         <ResponsiveContainer height="100%" width="100%">
           <ComposedChart
             data={chartData}
             margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+            onClick={(state) => {
+              if (Number.isInteger(state?.activeTooltipIndex)) {
+                setActiveIndex(state.activeTooltipIndex);
+              }
+            }}
             onMouseMove={(state) => {
               if (Number.isInteger(state?.activeTooltipIndex)) {
                 setActiveIndex(state.activeTooltipIndex);
@@ -987,7 +988,7 @@ function TrendList({ items }) {
               orientation="right"
               yAxisId="sessions"
             />
-            <Tooltip content={() => null} cursor={{ fill: "rgba(252, 76, 2, 0.08)" }} />
+            <Tooltip content={<TrendChartTooltip />} cursor={{ fill: "rgba(252, 76, 2, 0.08)" }} />
             <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]} />
             <Line
               dataKey="sessions"
@@ -997,16 +998,32 @@ function TrendList({ items }) {
               type="monotone"
               yAxisId="sessions"
             />
+            <Brush
+              dataKey="axisLabel"
+              defaultEndIndex={points.length - 1}
+              defaultStartIndex={Math.max(points.length - 12, 0)}
+              fill="rgba(252, 76, 2, 0.08)"
+              height={22}
+              stroke="#fc4c02"
+              travellerWidth={12}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="trend-summary">
-        <strong>{formatDateLabel(activePoint.periodStart)}</strong>
-        <div className="trend-metrics">
-          <span>{formatNumber(activePoint.distanceKm)} km</span>
-          <span>{activePoint.sessions} sessions</span>
-        </div>
-      </div>
+    </div>
+  );
+}
+
+function TrendChartTooltip({ active, payload }) {
+  const point = payload?.[0]?.payload;
+  if (!active || !point) {
+    return null;
+  }
+  return (
+    <div className="trend-tooltip">
+      <strong>{formatDateLabel(point.periodStart)}</strong>
+      <span>{formatNumber(point.distanceKm)} km</span>
+      <span>{point.sessions} sessions</span>
     </div>
   );
 }
@@ -1032,145 +1049,147 @@ function MetricRow({ label, current, previous, renderValue = formatMetricValue }
   );
 }
 
-function MiniLineChart({ accent, activeIndex, altitudeValues, distanceValues, intervals, valueKind, values, zones }) {
-    if (!values?.length) {
-      return <EmptyState compact text="No series available." />;
-    }
-  const chartLeft = 22;
-  const chartRight = 95;
-  const chartTop = 8;
-  const chartBottom = 82;
+function MiniLineChart({ accent, activeIndex, altitudeValues, distanceValues, intervals, label, onSelectIndex, valueKind, values, zones }) {
+  if (!values?.length) {
+    return <EmptyState compact text="No series available." />;
+  }
   const seriesLength = values.length;
   const xValues =
     distanceValues?.length === seriesLength ? distanceValues.map((value) => Number(value ?? 0)) : values.map((_, index) => index);
-  const { maxValue, minValue, normalized } = normalizeSeries(values);
-    const altitudeSeries =
-      altitudeValues?.length === seriesLength
-        ? altitudeValues.map((value) => Number(value ?? 0))
-        : altitudeValues?.length
-          ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
-          : [];
-    const { normalized: normalizedAltitude } = normalizeSeries(altitudeSeries);
-    const xMin = Math.min(...xValues);
-    const xMax = Math.max(...xValues);
-    const xSpan = Math.max(xMax - xMin, 0.00001);
-    const points = normalized
-      .map((value, index) => {
-        const x = chartLeft + (((xValues[index] - xMin) / xSpan) * (chartRight - chartLeft));
-        const y = chartBottom - (value * (chartBottom - chartTop));
-        return `${x},${y}`;
-      })
-      .join(" ");
-    const elevationArea = normalizedAltitude.length
-      ? [
-          `${chartLeft},${chartBottom}`,
-          ...normalizedAltitude.map((value, index) => {
-            const x = chartLeft + (((xValues[index] - xMin) / xSpan) * (chartRight - chartLeft));
-            const y = chartBottom - (value * (chartBottom - chartTop)) * 0.68;
-            return `${x},${y}`;
-          }),
-          `${chartRight},${chartBottom}`,
-        ].join(" ")
-      : "";
-    const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, normalized.length - 1);
-    const markerX =
-      clampedActiveIndex == null
-        ? null
-        : chartLeft + (((xValues[clampedActiveIndex] - xMin) / xSpan) * (chartRight - chartLeft));
-    const markerY =
-      clampedActiveIndex == null
-        ? null
-        : chartBottom - (normalized[clampedActiveIndex] * (chartBottom - chartTop));
-    const xTicks = buildDistanceTicks(xMin, xMax);
-    const yTicks = buildTicks(minValue, maxValue, 4);
-    const zoneBands = buildIntervalBands({
-      chartLeft,
-      chartRight,
-      intervals,
-      xMax,
-      xMin,
-      xSpan,
-      zones,
-    });
-    const thresholdBands = buildThresholdBands({
-      chartBottom,
-      chartTop,
-      maxValue,
-      minValue,
-      valueKind,
-      zones,
-    });
-  
-    return (
-      <svg
-        aria-label={`${labelForValueKind(valueKind)} chart`}
-        className={`mini-chart ${accent}`}
-        preserveAspectRatio="none"
-        viewBox="0 0 100 100"
-      >
-        {zoneBands.map((band, index) => (
-          <rect
-            key={`interval-band-${index}`}
-            className="chart-interval-band"
-            fill={band.color}
-            height={chartBottom - chartTop}
-            opacity="0.14"
-            width={band.width}
-            x={band.x}
-            y={chartTop}
-          />
-        ))}
-        {thresholdBands.map((band, index) => (
-          <rect
-            key={`threshold-band-${index}`}
-            className="chart-threshold-band"
-            fill={band.color}
-            height={band.height}
-            opacity="0.2"
-            width={chartRight - chartLeft}
-            x={chartLeft}
-            y={band.y}
-          />
-        ))}
-        {elevationArea ? <polygon className="chart-elevation-area" points={elevationArea} /> : null}
-        <line className="chart-axis" x1={chartLeft} x2={chartLeft} y1={chartTop} y2={chartBottom} />
-        <line className="chart-axis" x1={chartLeft} x2={chartRight} y1={chartBottom} y2={chartBottom} />
-        {xTicks.map((tick) => {
-          const x = chartLeft + (((tick - xMin) / xSpan) * (chartRight - chartLeft));
-          return (
-            <g key={`x-${tick}`}>
-              <line className="chart-tick" x1={x} x2={x} y1={chartBottom} y2={chartBottom + 2.5} />
-              <text className="chart-tick-label" x={x} y={chartBottom + 8} textAnchor="middle">
-                {formatDistanceTick(tick)}
-              </text>
-            </g>
-          );
-        })}
-        {yTicks.map((tick) => {
-          const y =
-            maxValue === minValue
-              ? (chartTop + chartBottom) / 2
-              : chartBottom - (((tick - minValue) / (maxValue - minValue)) * (chartBottom - chartTop));
-          return (
-            <g key={`y-${tick}`}>
-              <line className="chart-tick" x1={chartLeft - 2.5} x2={chartLeft} y1={y} y2={y} />
-              <text className="chart-tick-label" x={chartLeft - 4.5} y={y + 1.5} textAnchor="end">
-                {formatSeriesValue(valueKind, tick)}
-              </text>
-            </g>
-          );
-        })}
-        <text className="chart-axis-label" x={(chartLeft + chartRight) / 2} y="98" textAnchor="middle">
-          km
-        </text>
-        <text className="chart-axis-label" x="6" y={(chartTop + chartBottom) / 2} textAnchor="middle" transform={`rotate(-90 6 ${(chartTop + chartBottom) / 2})`}>
-          {labelForValueKind(valueKind)}
-        </text>
-        <polyline fill="none" points={points} strokeWidth="1.4" />
-        {markerX != null && markerY != null ? <circle cx={markerX} cy={markerY} r="3.2" /> : null}
-      </svg>
-    );
+  const altitudeSeries =
+    altitudeValues?.length === seriesLength
+      ? altitudeValues.map((value) => Number(value ?? 0))
+      : altitudeValues?.length
+        ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
+        : [];
+  const chartData = values.map((value, index) => ({
+    altitude: Number.isFinite(Number(altitudeSeries[index])) ? Number(altitudeSeries[index]) : null,
+    distance: Number.isFinite(Number(xValues[index])) ? Number(xValues[index]) : index,
+    sourceIndex: index,
+    value: Number.isFinite(Number(value)) ? Number(value) : null,
+  }));
+  const sampledChartData = downsampleChartData(chartData, activeIndex);
+  const numericValues = chartData.map((point) => point.value).filter(Number.isFinite);
+  const numericDistances = chartData.map((point) => point.distance).filter(Number.isFinite);
+  const lineColor = getDetailAccentColor(accent);
+
+  if (!numericValues.length || !numericDistances.length) {
+    return <EmptyState compact text="No series available." />;
   }
+
+  const { max: maxValue, min: minValue } = expandChartDomain(Math.min(...numericValues), Math.max(...numericValues));
+  const xMin = Math.min(...numericDistances);
+  const xMax = Math.max(...numericDistances);
+  const intervalBands = buildIntervalBands({ intervals, xMax, xMin, zones });
+  const thresholdBands = buildThresholdBands({ maxValue, minValue, valueKind, xMax, xMin, zones });
+  const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, chartData.length - 1);
+  const activePoint = clampedActiveIndex == null ? null : chartData[clampedActiveIndex];
+  const gradientId = `detail-elevation-${accent}-${valueKind}`;
+
+  function handleChartSelection(state) {
+    const activeDistance = Number(state?.activeLabel);
+    if (!Number.isFinite(activeDistance)) {
+      return;
+    }
+    const nextIndex = findClosestDistanceIndex(chartData, activeDistance);
+    if (Number.isInteger(nextIndex) && nextIndex >= 0) {
+      onSelectIndex(nextIndex);
+    }
+  }
+
+  return (
+    <div aria-label={`${labelForValueKind(valueKind)} chart`} className={`mini-chart ${accent}`} role="img">
+      <ResponsiveContainer height="100%" width="100%">
+        <ComposedChart
+          data={sampledChartData}
+          margin={{ top: 10, right: 12, bottom: 16, left: 8 }}
+          onClick={handleChartSelection}
+          onMouseMove={handleChartSelection}
+          syncId="activity-detail-series"
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="rgba(100, 116, 139, 0.35)" />
+              <stop offset="100%" stopColor="rgba(100, 116, 139, 0.08)" />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="distance"
+            domain={[xMin, xMax]}
+            tick={{ fill: "#6f6b62", fontSize: 11 }}
+            tickFormatter={(value) => Math.round(value)}
+            tickLine={false}
+            type="number"
+          />
+          <YAxis
+            axisLine={false}
+            domain={[minValue, maxValue]}
+            tick={{ fill: "#6f6b62", fontSize: 11 }}
+            tickFormatter={(value) => formatSeriesValue(valueKind, value)}
+            tickLine={false}
+            width={52}
+          />
+          <YAxis dataKey="altitude" domain={["dataMin", "dataMax"]} hide yAxisId="altitude" />
+          <Tooltip
+            content={() => null}
+            cursor={{ stroke: "rgba(29, 122, 243, 0.28)", strokeDasharray: "4 4" }}
+          />
+          {intervalBands.map((band, index) => (
+            <ReferenceArea
+              key={`interval-band-${index}`}
+              fill={band.color}
+              fillOpacity={0.12}
+              ifOverflow="extendDomain"
+              x1={band.x1}
+              x2={band.x2}
+              y1={minValue}
+              y2={maxValue}
+            />
+          ))}
+          {thresholdBands.map((band, index) => (
+            <ReferenceArea
+              key={`threshold-band-${index}`}
+              fill={band.color}
+              fillOpacity={0.16}
+              ifOverflow="extendDomain"
+              x1={xMin}
+              x2={xMax}
+              y1={band.y1}
+              y2={band.y2}
+            />
+          ))}
+          <Area
+            dataKey="altitude"
+            fill={`url(#${gradientId})`}
+            isAnimationActive={false}
+            stroke="rgba(100, 116, 139, 0.28)"
+            strokeWidth={1}
+            type="monotone"
+            yAxisId="altitude"
+          />
+          <Line
+            activeDot={false}
+            connectNulls
+            dataKey="value"
+            dot={false}
+            isAnimationActive={false}
+            stroke={lineColor}
+            strokeWidth={2.25}
+            type="monotone"
+          />
+          {activePoint && Number.isFinite(activePoint.distance) ? (
+            <ReferenceLine stroke="rgba(29, 122, 243, 0.32)" strokeDasharray="4 4" x={activePoint.distance} />
+          ) : null}
+          {activePoint && Number.isFinite(activePoint.distance) && Number.isFinite(activePoint.value) ? (
+            <ReferenceDot fill="#ffffff" r={4} stroke={lineColor} strokeWidth={2} x={activePoint.distance} y={activePoint.value} />
+          ) : null}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 function MapPanel({ activeIndex, onSelectIndex, polyline }) {
   if (!polyline.length) {
@@ -1277,7 +1296,6 @@ function RoutePreview({ activeIndex, onSelectIndex, polyline }) {
       aria-label="Route preview"
       className="route-map"
       onClick={handlePointer}
-      onMouseMove={handlePointer}
       preserveAspectRatio="none"
       viewBox="0 0 100 100"
     >
@@ -1356,9 +1374,7 @@ function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
       onSelectIndex(findClosestPointIndex(coordinates, { x: latlng.lat, y: latlng.lng }, "latlng"));
     }
 
-    route.on("mousemove", (event) => updateSelection(event.latlng));
     route.on("click", (event) => updateSelection(event.latlng));
-    map.on("mousemove", (event) => updateSelection(event.latlng));
     map.on("click", (event) => updateSelection(event.latlng));
 
     return {
@@ -1817,7 +1833,7 @@ function buildCalendarSummary(dayActivities) {
   };
 }
 
-function buildIntervalBands({ chartLeft, chartRight, intervals, xMax, xMin, xSpan, zones }) {
+function buildIntervalBands({ intervals, xMax, xMin, zones }) {
   if (!intervals?.length || !zones?.length) {
     return [];
   }
@@ -1831,18 +1847,16 @@ function buildIntervalBands({ chartLeft, chartRight, intervals, xMax, xMin, xSpa
       const start = Math.min(...distances);
       const end = Math.max(...distances, start + 0.05);
       const color = zoneColorMap.get(interval.zones?.zone_pace) ?? "#cfd5db";
-      const x = chartLeft + (((start - xMin) / xSpan) * (chartRight - chartLeft));
-      const right = chartLeft + (((Math.min(end, xMax) - xMin) / xSpan) * (chartRight - chartLeft));
       return {
         color,
-        width: Math.max(right - x, 0.8),
-        x,
+        x1: Math.max(start, xMin),
+        x2: Math.max(Math.min(end, xMax), start + 0.02),
       };
     })
     .filter(Boolean);
 }
 
-function buildThresholdBands({ chartBottom, chartTop, maxValue, minValue, valueKind, zones }) {
+function buildThresholdBands({ maxValue, minValue, valueKind, xMax, xMin, zones }) {
   if (!zones?.length || (valueKind !== "pace" && valueKind !== "heart_rate")) {
     return [];
   }
@@ -1860,16 +1874,68 @@ function buildThresholdBands({ chartBottom, chartTop, maxValue, minValue, valueK
       }
       const clampedLower = Math.max(minValue, Math.min(maxValue, lower));
       const clampedUpper = Math.max(minValue, Math.min(maxValue, upper));
-      const span = maxValue - minValue || 1;
-      const yTop = chartBottom - (((clampedUpper - minValue) / span) * (chartBottom - chartTop));
-      const yBottom = chartBottom - (((clampedLower - minValue) / span) * (chartBottom - chartTop));
       return {
         color: zone.color,
-        height: Math.max(yBottom - yTop, 0.8),
-        y: Math.min(yTop, yBottom),
+        x1: xMin,
+        x2: xMax,
+        y1: clampedLower,
+        y2: clampedUpper,
       };
     })
     .filter(Boolean);
+}
+
+function expandChartDomain(minValue, maxValue) {
+  if (minValue === maxValue) {
+    const padding = minValue === 0 ? 1 : Math.abs(minValue) * 0.08;
+    return { max: maxValue + padding, min: minValue - padding };
+  }
+  const padding = (maxValue - minValue) * 0.08;
+  return {
+    max: maxValue + padding,
+    min: minValue - padding,
+  };
+}
+
+function getDetailAccentColor(accent) {
+  if (accent === "red") {
+    return "#d94841";
+  }
+  if (accent === "green") {
+    return "#3d9b63";
+  }
+  return "#fc4c02";
+}
+
+function downsampleChartData(points, focusIndex, maxPoints = 240) {
+  if (!points.length || points.length <= maxPoints) {
+    return points;
+  }
+  const clampedFocusIndex = focusIndex == null ? null : Math.min(Math.max(focusIndex, 0), points.length - 1);
+  const targetIndexes = new Set([0, points.length - 1]);
+  if (clampedFocusIndex != null) {
+    targetIndexes.add(clampedFocusIndex);
+  }
+  const step = (points.length - 1) / (maxPoints - 1);
+  for (let index = 0; index < maxPoints; index += 1) {
+    targetIndexes.add(Math.round(index * step));
+  }
+  return [...targetIndexes]
+    .sort((left, right) => left - right)
+    .map((index) => points[index]);
+}
+
+function findClosestDistanceIndex(points, targetDistance) {
+  let closestIndex = -1;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  points.forEach((point, index) => {
+    const delta = Math.abs(Number(point.distance ?? 0) - targetDistance);
+    if (delta < closestDistance) {
+      closestDistance = delta;
+      closestIndex = index;
+    }
+  });
+  return closestIndex;
 }
 
 function scaleCalendarBubbleSize(totalDistanceKm, dominantSport) {

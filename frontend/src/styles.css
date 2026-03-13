@@ -386,7 +386,6 @@ button {
 }
 
 .trend-chart-shell,
-.trend-summary,
 .trend-chart-legend {
     display: grid;
     gap: 0.55rem;
@@ -431,20 +430,25 @@ button {
     background: #1d7af3;
 }
 
-.trend-summary {
-    align-items: center;
-    border-top: 1px solid var(--border);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding-top: 0.75rem;
+.trend-tooltip {
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 0.7rem;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+    color: #f8fafc;
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.45rem 0.65rem;
 }
 
-.trend-summary strong {
-    font-size: 0.8rem;
+.trend-tooltip strong {
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
-.trend-summary .trend-metrics {
-    color: var(--text-subtle);
-    font-size: 0.68rem;
+.trend-tooltip span {
+    color: rgba(226, 232, 240, 0.9);
+    font-size: 0.7rem;
 }
 
 .calendar-grid {
@@ -553,7 +557,7 @@ button {
 }
 
 .activity-list {
-    max-height: calc((5.4rem * 10) + (1rem * 9));
+    max-height: calc((5.4rem * 15) + (1rem * 14));
     overflow-y: auto;
     padding-right: 0.2rem;
 }
@@ -600,15 +604,11 @@ button {
 .detail-analysis-grid {
     display: grid;
     gap: 1rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
 }
 
 .detail-analysis-grid {
     grid-template-columns: 1fr;
-}
-
-.detail-card-wide {
-    grid-column: span 3;
 }
 
 .route-map,
@@ -618,6 +618,10 @@ button {
     display: block;
     min-height: 13rem;
     width: 100%;
+}
+
+.mini-chart {
+    height: 13rem;
 }
 
 .mapycz-canvas {
@@ -645,6 +649,11 @@ button {
     stroke-linejoin: round;
 }
 
+.mini-chart {
+    overflow: hidden;
+    padding: 0.35rem 0.45rem 0.15rem 0.15rem;
+}
+
 .route-map polyline {
     stroke: var(--accent);
 }
@@ -658,67 +667,10 @@ button {
     fill: #1d7af3;
 }
 
-.mini-chart polyline,
-.mini-chart circle {
-    fill: none;
-}
-
-.mini-chart .chart-elevation-area {
-    fill: rgba(100, 116, 139, 0.18);
-    stroke: rgba(100, 116, 139, 0.3);
-    stroke-width: 0.4;
-}
-
-.mini-chart polyline {
-    stroke-width: 0.7;
-}
-
-.mini-chart.orange polyline,
-.mini-chart.orange circle {
-    stroke: var(--accent);
-}
-
-.mini-chart.red polyline,
-.mini-chart.red circle {
-    stroke: #d94841;
-}
-
-.mini-chart.green polyline,
-.mini-chart.green circle {
-    stroke: #3d9b63;
-}
-
-.mini-chart circle {
-    fill: rgba(255, 255, 255, 0.95);
-    stroke-width: 0.8;
-}
-
-.mini-chart .chart-axis,
-.mini-chart .chart-tick {
-    stroke: rgba(31, 41, 55, 0.3);
-    stroke-width: 0.6;
-}
-
-.mini-chart .chart-axis-label,
-.mini-chart .chart-tick-label {
-    fill: var(--text-subtle);
-    font-size: 5px;
-}
-
-.mini-chart .chart-interval-band,
-.mini-chart .chart-threshold-band {
-    pointer-events: none;
-}
-
 @media (max-width: 1100px) {
     .kpi-grid {
         grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     }
-}
-
-.mini-chart .chart-axis-label {
-    font-size: 5.4px;
-    font-weight: 700;
 }
 
 .best-effort-grid {
@@ -821,7 +773,4 @@ button {
         padding: 0.35rem;
     }
 
-    .trend-summary {
-        grid-template-columns: 1fr;
-    }
 }

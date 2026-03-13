@@ -154,6 +154,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [x] Refine calendar day-bubble sizing to use sport-specific distance buckets that better separate short, medium, and long training days.
 - [x] Refine the activity detail page by removing the standalone zone-summary card, shrinking the KPI row to keep five tiles on one line, and drawing running-zone context plus elevation backdrop directly into the three detail charts.
 - [x] Redesign the dashboard trend series panel as a date-based graph with distance in kilometers and session counts plotted together.
+- [x] Replace the activity-detail mini charts with Recharts-based detail graphs while preserving elevation backdrop, interval shading, and active-point highlighting.
 - [x] Add explicit dashboard period selection so the selected-window comparison can compare any two available periods instead of only the latest pair.
 - [x] Move sync status controls out of the sidebar by removing the navbar latest-sync panel and placing the manual refresh action in `Settings -> Sync Status`.
 - [x] Isolate backend pytest runs from the development dataset by routing tests to a dedicated PostgreSQL schema and avoiding startup migrations against the main application schema.
