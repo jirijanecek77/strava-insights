@@ -454,12 +454,31 @@ button {
 .calendar-grid {
     display: grid;
     gap: 0.3rem;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: minmax(1.8rem, 0.28fr) repeat(7, minmax(0, 1fr));
 }
 
+.calendar-corner,
 .calendar-head {
     font-size: 0.72rem;
+    font-weight: 700;
     padding: 0 0.12rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.calendar-corner,
+.calendar-week-label {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+}
+
+.calendar-week-label {
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0;
 }
 
 .calendar-cell {
@@ -766,6 +785,7 @@ button {
 
     .calendar-grid {
         gap: 0.25rem;
+        grid-template-columns: minmax(1.5rem, 0.22fr) repeat(7, minmax(0, 1fr));
     }
 
     .calendar-cell {

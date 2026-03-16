@@ -181,6 +181,7 @@ This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_in
 - [ ] Validate that cached/database-backed reads meet the expected latency target under normal use.
 - [x] Confirm no normal UI reads depend on live Strava calls.
 - [ ] Review code structure against clean architecture requirements in [AGENTS.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\AGENTS.md).
+- [x] Remove dead frontend state/helpers and stale frontend test-only branches that no longer match the current API flow.
 - [ ] Refactor the frontend out of the single-file `App.jsx` composition into separate screens, reusable hooks, API client utilities, and map/calendar components.
 - [ ] Make the Windows wrapper execution path resilient to default PowerShell execution-policy restrictions or document an execution-policy-safe invocation path.
 

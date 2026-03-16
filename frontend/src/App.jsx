@@ -1,4 +1,4 @@
-import {startTransition, useEffect, useEffectEvent, useMemo, useRef, useState} from "react";
+import {Fragment, startTransition, useEffect, useEffectEvent, useMemo, useRef, useState} from "react";
 import "leaflet/dist/leaflet.css";
 import {
   Area,
@@ -61,7 +61,6 @@ export default function App() {
         birthday: "",
         maxHeartRateOverride: "",
         maxPace: "",
-        speedMaxValue: "",
     });
 
     const activityQuery = useMemo(
@@ -237,7 +236,6 @@ export default function App() {
                     birthday: payload.birthday ?? "",
                     maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
                     maxPace: formatSpeedMaxAsPace(payload.speed_max),
-                    speedMaxValue: payload.speed_max == null ? "" : String(payload.speed_max),
                 });
             })
             .catch((error) => {
@@ -320,7 +318,6 @@ export default function App() {
                 birthday: payload.birthday ?? "",
                 maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
                 maxPace: formatSpeedMaxAsPace(payload.speed_max),
-                speedMaxValue: payload.speed_max == null ? "" : String(payload.speed_max),
             });
             setErrorMessage("");
         } catch (error) {
@@ -605,7 +602,7 @@ function DashboardView({
 }
 
 function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivity}) {
-    const days = useMemo(() => buildCalendarDays(calendarMonth, activities), [activities, calendarMonth]);
+    const weeks = useMemo(() => buildCalendarWeeks(calendarMonth, activities), [activities, calendarMonth]);
     return (
         <section className="panel">
             <div className="panel-header">
@@ -625,42 +622,49 @@ function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivit
                 </div>
             </div>
             <div className="calendar-grid">
+                <div className="calendar-corner" aria-hidden="true"/>
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                     <div className="calendar-head" key={day}>
                         {day}
                     </div>
                 ))}
-                {days.map((day) => (
-                    <div
-                        key={formatLocalDateKey(day.date)}
-                        className={day.isCurrentMonth ? "calendar-cell" : "calendar-cell muted"}
-                    >
-                        <div className="calendar-date">{day.date.getDate()}</div>
-                        <div className="calendar-events">
-                            {day.summary ? (
-                                <button
-                                    className={`calendar-bubble ${day.summary.colorClass}`}
-                                    onClick={() => onSelectActivity(day.summary.primaryActivityId)}
-                                    style={{"--bubble-size": `${day.summary.sizePx}px`}}
-                                    type="button"
-                                >
-                                    <span
-                                        className="calendar-bubble-distance">{formatNumber(day.summary.distanceKm)}</span>
-                                    <span className="calendar-bubble-unit">km</span>
-                                </button>
-                            ) : (
-                                <div className="calendar-bubble calendar-bubble-empty"/>
-                            )}
-                            {day.summary ? (
-                                <div className="calendar-summary">
-                                    <strong>{formatLabel(day.summary.dominantSport)}</strong>
-                                    <span>{day.summary.activityCount} activities</span>
-                                </div>
-                            ) : (
-                                <div className="calendar-summary empty">Rest day</div>
-                            )}
+                {weeks.map((week) => (
+                    <Fragment key={`week-${formatLocalDateKey(week.days[0].date)}`}>
+                        <div className="calendar-week-label" aria-label={`Week ${week.weekNumber}`}>
+                            {week.weekNumber}
                         </div>
-                    </div>
+                        {week.days.map((day) => (
+                            <div
+                                key={formatLocalDateKey(day.date)}
+                                className={day.isCurrentMonth ? "calendar-cell" : "calendar-cell muted"}
+                            >
+                                <div className="calendar-date">{day.date.getDate()}</div>
+                                <div className="calendar-events">
+                                    {day.summary ? (
+                                        <button
+                                            className={`calendar-bubble ${day.summary.colorClass}`}
+                                            onClick={() => onSelectActivity(day.summary.primaryActivityId)}
+                                            style={{"--bubble-size": `${day.summary.sizePx}px`}}
+                                            type="button"
+                                        >
+                                            <span className="calendar-bubble-distance">{formatNumber(day.summary.distanceKm)}</span>
+                                            <span className="calendar-bubble-unit">km</span>
+                                        </button>
+                                    ) : (
+                                        <div className="calendar-bubble calendar-bubble-empty"/>
+                                    )}
+                                    {day.summary ? (
+                                        <div className="calendar-summary">
+                                            <strong>{formatLabel(day.summary.dominantSport)}</strong>
+                                            <span>{day.summary.activityCount} activities</span>
+                                        </div>
+                                    ) : (
+                                        <div className="calendar-summary empty">Rest day</div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </Fragment>
                 ))}
             </div>
         </section>
@@ -1129,37 +1133,64 @@ function MiniLineChart({
     if (!values?.length) {
         return <EmptyState compact text="No series available."/>;
     }
-    const seriesLength = values.length;
-    const xValues =
-        distanceValues?.length === seriesLength ? distanceValues.map((value) => Number(value ?? 0)) : values.map((_, index) => index);
-    const altitudeSeries =
-        altitudeValues?.length === seriesLength
-            ? altitudeValues.map((value) => Number(value ?? 0))
-            : altitudeValues?.length
-                ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
-                : [];
-    const chartData = values.map((value, index) => ({
-        altitude: Number.isFinite(Number(altitudeSeries[index])) ? Number(altitudeSeries[index]) : null,
-        distance: Number.isFinite(Number(xValues[index])) ? Number(xValues[index]) : index,
-        sourceIndex: index,
-        value: Number.isFinite(Number(value)) ? Number(value) : null,
-    }));
-    const sampledChartData = downsampleChartData(chartData, activeIndex);
-    const numericValues = chartData.map((point) => point.value).filter(Number.isFinite);
-    const numericDistances = chartData.map((point) => point.distance).filter(Number.isFinite);
+    const chartData = useMemo(() => {
+        const seriesLength = values.length;
+        const xValues =
+            distanceValues?.length === seriesLength
+                ? distanceValues.map((value) => Number(value ?? 0))
+                : values.map((_, index) => index);
+        const altitudeSeries =
+            altitudeValues?.length === seriesLength
+                ? altitudeValues.map((value) => Number(value ?? 0))
+                : altitudeValues?.length
+                    ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
+                    : [];
+        return values.map((value, index) => ({
+            altitude: Number.isFinite(Number(altitudeSeries[index])) ? Number(altitudeSeries[index]) : null,
+            distance: Number.isFinite(Number(xValues[index])) ? Number(xValues[index]) : index,
+            sourceIndex: index,
+            value: Number.isFinite(Number(value)) ? Number(value) : null,
+        }));
+    }, [altitudeValues, distanceValues, values]);
+    const sampledChartData = useMemo(() => downsampleChartData(chartData, activeIndex), [activeIndex, chartData]);
+    const numericValues = useMemo(
+        () => chartData.map((point) => point.value).filter(Number.isFinite),
+        [chartData],
+    );
+    const numericDistances = useMemo(
+        () => chartData.map((point) => point.distance).filter(Number.isFinite),
+        [chartData],
+    );
     const lineColor = getDetailAccentColor(accent);
 
     if (!numericValues.length || !numericDistances.length) {
         return <EmptyState compact text="No series available."/>;
     }
 
-    const {max: maxValue, min: minValue} = expandChartDomain(Math.min(...numericValues), Math.max(...numericValues));
-    const xMin = Math.min(...numericDistances);
-    const xMax = Math.max(...numericDistances);
-    const intervalBands = buildIntervalBands({intervals, xMax, xMin, zones});
-    const thresholdBands = buildThresholdBands({maxValue, minValue, valueKind, xMax, xMin, zones});
+    const {max: maxValue, min: minValue} = useMemo(
+        () => expandChartDomain(Math.min(...numericValues), Math.max(...numericValues)),
+        [numericValues],
+    );
+    const {xMax, xMin} = useMemo(
+        () => ({
+            xMax: Math.max(...numericDistances),
+            xMin: Math.min(...numericDistances),
+        }),
+        [numericDistances],
+    );
+    const intervalBands = useMemo(
+        () => buildIntervalBands({intervals, xMax, xMin, zones}),
+        [intervals, xMax, xMin, zones],
+    );
+    const thresholdBands = useMemo(
+        () => buildThresholdBands({maxValue, minValue, valueKind, xMax, xMin, zones}),
+        [maxValue, minValue, valueKind, xMax, xMin, zones],
+    );
     const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, chartData.length - 1);
-    const activePoint = clampedActiveIndex == null ? null : chartData[clampedActiveIndex];
+    const activePoint = useMemo(
+        () => (clampedActiveIndex == null ? null : chartData[clampedActiveIndex]),
+        [chartData, clampedActiveIndex],
+    );
     const gradientId = `detail-elevation-${accent}-${valueKind}`;
 
     function handleChartSelection(state) {
@@ -1637,69 +1668,6 @@ function isSyncInFlight(syncStatus) {
     return syncStatus?.status === "queued" || syncStatus?.status === "running";
 }
 
-function formatAny(value) {
-    if (value == null) {
-        return "n/a";
-    }
-    if (typeof value === "number") {
-        return formatNumber(value);
-    }
-    if (typeof value === "string") {
-        return value;
-    }
-    if (typeof value === "object") {
-        return Object.entries(value)
-            .map(([key, nestedValue]) => `${formatLabel(key)}: ${formatAny(nestedValue)}`)
-            .join(" | ");
-    }
-    return String(value);
-}
-
-function normalizeSeries(values) {
-    const finiteValues = values.filter((value) => Number.isFinite(value));
-    if (!finiteValues.length) {
-        return {minValue: 0, maxValue: 0, normalized: values.map(() => 0)};
-    }
-    const minValue = Math.min(...finiteValues);
-    const maxValue = Math.max(...finiteValues);
-    if (maxValue === minValue) {
-        return {minValue, maxValue, normalized: values.map(() => 0.5)};
-    }
-    return {
-        minValue,
-        maxValue,
-        normalized: values.map((value) => (Number.isFinite(value) ? (value - minValue) / (maxValue - minValue) : 0)),
-    };
-}
-
-function buildTicks(minValue, maxValue, count) {
-    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
-        return [0];
-    }
-    if (minValue === maxValue) {
-        return [minValue];
-    }
-    return Array.from({length: count}, (_, index) => minValue + ((maxValue - minValue) * index) / Math.max(count - 1, 1));
-}
-
-function buildDistanceTicks(minValue, maxValue) {
-    const safeMin = Math.max(0, Math.floor(minValue));
-    const safeMax = Math.max(safeMin, Math.ceil(maxValue));
-    const span = safeMax - safeMin;
-    if (span <= 5) {
-        return Array.from({length: span + 1}, (_, index) => safeMin + index);
-    }
-    const step = Math.max(1, Math.ceil(span / 6));
-    const ticks = [];
-    for (let value = safeMin; value <= safeMax; value += step) {
-        ticks.push(value);
-    }
-    if (ticks[ticks.length - 1] !== safeMax) {
-        ticks.push(safeMax);
-    }
-    return ticks;
-}
-
 function aggregateTrendItems(items) {
     const byDate = new Map();
     items.forEach((item) => {
@@ -1891,6 +1859,17 @@ function buildCalendarDays(calendarMonth, activities) {
             isCurrentMonth: date.getMonth() === calendarMonth.getMonth(),
             activities: dayActivities,
             summary: buildCalendarSummary(dayActivities),
+        };
+    });
+}
+
+function buildCalendarWeeks(calendarMonth, activities) {
+    const days = buildCalendarDays(calendarMonth, activities);
+    return Array.from({length: days.length / 7}, (_, index) => {
+        const weekDays = days.slice(index * 7, (index + 1) * 7);
+        return {
+            days: weekDays,
+            weekNumber: getIsoWeek(weekDays[0].date),
         };
     });
 }

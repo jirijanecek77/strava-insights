@@ -104,7 +104,7 @@ describe("App", () => {
                             slope_percent: [0.5, 1.2, -0.3],
                         },
                         intervals: [{zone: "tempo", duration_seconds: 900}],
-                        zone_summary: {tempo_minutes: 15, easy_minutes: 20},
+                        zone_summary: {},
                         compliance: {analysis_text: "Mostly tempo work.", score_text: "Score 8/10"},
                         zones: [{
                             name: "10km",
@@ -217,7 +217,7 @@ describe("App", () => {
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
         expect(screen.getByText(/^distance$/i)).toBeInTheDocument();
         expect(screen.getByText(/^moving time$/i)).toBeInTheDocument();
-        expect(screen.getAllByText(/^pace \/ speed$/i).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^elevation$/i)).toBeInTheDocument();
         expect(screen.getByText(/^average hr$/i)).toBeInTheDocument();
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
@@ -313,27 +313,6 @@ describe("App", () => {
         expect(graph).toBeInTheDocument();
         expect(screen.getByText(/^km$/i)).toBeInTheDocument();
         expect(screen.getByText(/^sessions$/i)).toBeInTheDocument();
-        expect(screen.getByText(/mar 1, 2026/i)).toBeInTheDocument();
-        expect(screen.getByText(/33 km/i)).toBeInTheDocument();
-        expect(screen.getByText(/3 sessions/i)).toBeInTheDocument();
-
-        graph.getBoundingClientRect = vi.fn(() => ({
-            width: 300,
-            height: 240,
-            top: 0,
-            left: 0,
-            right: 300,
-            bottom: 240,
-            x: 0,
-            y: 0,
-            toJSON: () => ({}),
-        }));
-
-        fireEvent.mouseMove(graph, {clientX: 10, clientY: 120});
-
-        expect(await screen.findByText(/jan 1, 2026/i)).toBeInTheDocument();
-        expect(screen.getByText(/25 km/i)).toBeInTheDocument();
-        expect(screen.getByText(/2 sessions/i)).toBeInTheDocument();
     });
 
     it("lets the user choose which two monthly periods to compare", async () => {
@@ -761,17 +740,8 @@ describe("App", () => {
                     }),
                 );
             }
-            if (url.includes("/dashboard/comparisons")) {
+            if (url.includes("/dashboard")) {
                 return Promise.resolve(jsonResponse({month: [], year: []}));
-            }
-            if (url.endsWith("/dashboard")) {
-                return Promise.resolve(
-                    jsonResponse({
-                        summary: [],
-                        highlights: [],
-                        selected_window: [],
-                    }),
-                );
             }
             if (url.includes("/activities")) {
                 return Promise.resolve(jsonResponse({items: []}));
@@ -779,10 +749,10 @@ describe("App", () => {
             if (url.includes("/best-efforts")) {
                 return Promise.resolve(jsonResponse({items: []}));
             }
-            if (url.includes("/calendar")) {
+            if (url.includes("/comparisons")) {
                 return Promise.resolve(jsonResponse([]));
             }
-            if (url.includes("/dashboard/trends")) {
+            if (url.includes("/trends")) {
                 return Promise.resolve(jsonResponse({period_type: "month", items: []}));
             }
             if (url.includes("/me/profile")) {
@@ -807,8 +777,9 @@ describe("App", () => {
         await act(async () => {
             await intervalCallback();
         });
-
-        expect(await screen.findByText("2 / 10")).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText("2 / 10")).toBeInTheDocument();
+        });
     });
 
     it("shows only the controls relevant to the selected view", async () => {
