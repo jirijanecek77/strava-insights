@@ -14,11 +14,17 @@ from app.repositories import (
 
 RUN_SPORT = "Run"
 RIDE_SPORTS = {"Ride", "EBikeRide"}
-BEST_EFFORT_DISTANCES = {
+RUN_BEST_EFFORT_DISTANCES = {
     "1km": 1000.0,
     "5km": 5000.0,
     "10km": 10000.0,
     "Half-Marathon": 21097.5,
+}
+RIDE_BEST_EFFORT_DISTANCES = {
+    "10km": 10000.0,
+    "20km": 20000.0,
+    "50km": 50000.0,
+    "100km": 100000.0,
 }
 
 
@@ -124,29 +130,31 @@ class ReadModelBuilder:
         return summaries
 
     def _build_best_efforts(self, user_id: int, activities: list) -> tuple[list[BestEffort], list[ActivityBestEffort]]:
-        run_activities = [activity for activity in activities if activity.sport_type == RUN_SPORT]
-        streams = {stream.activity_id: stream for stream in self.activity_streams.get_by_activity_ids([activity.id for activity in run_activities])}
+        supported_activities = [activity for activity in activities if activity.sport_type == RUN_SPORT or activity.sport_type in RIDE_SPORTS]
+        streams = {stream.activity_id: stream for stream in self.activity_streams.get_by_activity_ids([activity.id for activity in supported_activities])}
         all_activity_efforts: list[ActivityBestEffort] = []
-        best_by_code: dict[str, BestEffort] = {}
+        best_by_code: dict[tuple[str, str], BestEffort] = {}
 
-        for activity in run_activities:
+        for activity in supported_activities:
             stream = streams.get(activity.id)
             if stream is None or stream.distance_stream is None or stream.time_stream is None:
                 continue
             distance_values = stream.distance_stream.get("data", [])
             time_values = stream.time_stream.get("data", [])
-            for effort_code, target_distance in BEST_EFFORT_DISTANCES.items():
+            effort_distances = RUN_BEST_EFFORT_DISTANCES if activity.sport_type == RUN_SPORT else RIDE_BEST_EFFORT_DISTANCES
+            for effort_code, target_distance in effort_distances.items():
                 best_time = self._best_time_for_distance(distance_values, time_values, target_distance)
                 if best_time is None:
                     continue
                 all_activity_efforts.append(
                     ActivityBestEffort(activity_id=activity.id, effort_code=effort_code, best_time_seconds=best_time)
                 )
-                current_best = best_by_code.get(effort_code)
+                best_key = (activity.sport_type, effort_code)
+                current_best = best_by_code.get(best_key)
                 if current_best is None or best_time < current_best.best_time_seconds:
-                    best_by_code[effort_code] = BestEffort(
+                    best_by_code[best_key] = BestEffort(
                         user_id=user_id,
-                        sport_type=RUN_SPORT,
+                        sport_type=activity.sport_type,
                         effort_code=effort_code,
                         best_time_seconds=best_time,
                         distance_meters=Decimal(str(target_distance)),

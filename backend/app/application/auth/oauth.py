@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC
 from urllib.parse import urlencode
 
 from fastapi import Depends
@@ -53,23 +53,6 @@ class StravaOAuthService:
             profile_picture_url=user.profile_picture_url,
             is_new_user=is_new_user,
         )
-
-    def refresh_access_token_for_user(self, user_id: int) -> datetime:
-        oauth_token = self.oauth_token_repository.get_by_user_and_provider(user_id)
-        if oauth_token is None:
-            raise ValueError("OAuth token not found for user.")
-
-        refresh_token = self.token_cipher.decrypt(oauth_token.refresh_token_encrypted)
-        token_payload = self.strava_client.refresh_access_token(refresh_token)
-        oauth_token.access_token_encrypted = self.token_cipher.encrypt(token_payload.access_token)
-        oauth_token.refresh_token_encrypted = self.token_cipher.encrypt(token_payload.refresh_token)
-        oauth_token.expires_at = token_payload.expires_at.astimezone(UTC)
-        oauth_token.scope = token_payload.scope
-        oauth_token.strava_athlete_id = token_payload.athlete_id
-        self.oauth_token_repository.save(oauth_token)
-        self.db_session.commit()
-
-        return oauth_token.expires_at
 
     def _upsert_user_with_token(self, token_payload: StravaTokenPayload) -> tuple[User, bool]:
         user = self.user_repository.get_by_strava_athlete_id(token_payload.athlete_id)

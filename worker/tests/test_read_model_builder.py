@@ -110,7 +110,12 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
                 activity_id=1,
                 distance_data=[0, 1000, 5000, 10000, 21097.5],
                 time_data=[0, 240, 1400, 3000, 7000],
-            )
+            ),
+            ActivityStreamStub(
+                activity_id=2,
+                distance_data=[0, 10000, 20000, 50000, 100000],
+                time_data=[0, 900, 2100, 6000, 13200],
+            ),
         ]
     )
     builder.period_summaries = PeriodSummaryRepositoryStub()
@@ -122,5 +127,14 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
     assert builder.period_summaries.user_id == 7
     assert len(builder.period_summaries.summaries) == 6
     assert builder.best_efforts.user_id == 7
-    assert {effort.effort_code for effort in builder.best_efforts.efforts} == {"1km", "5km", "10km", "Half-Marathon"}
+    assert {(effort.sport_type, effort.effort_code) for effort in builder.best_efforts.efforts} == {
+        ("Run", "1km"),
+        ("Run", "5km"),
+        ("Run", "10km"),
+        ("Run", "Half-Marathon"),
+        ("Ride", "10km"),
+        ("Ride", "20km"),
+        ("Ride", "50km"),
+        ("Ride", "100km"),
+    }
     assert builder.activity_best_efforts.activity_ids == [1, 2]

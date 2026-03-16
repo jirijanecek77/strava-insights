@@ -11,7 +11,7 @@ router = APIRouter(prefix="/best-efforts")
 @router.get("", response_model=BestEffortsResponse)
 def list_best_efforts(
     request: Request,
-    sport_type: str | None = Query("Run"),
+    sport_type: str | None = Query(None),
     current_user_service: CurrentUserService = Depends(CurrentUserService),
     best_effort_read_service: BestEffortReadService = Depends(BestEffortReadService),
 ) -> BestEffortsResponse:

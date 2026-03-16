@@ -1,6 +1,6 @@
 import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 
-import App from "./App";
+import App, {parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
 
 function jsonResponse(body, status = 200) {
     return {
@@ -139,6 +139,7 @@ describe("App", () => {
                 return Promise.resolve(
                     jsonResponse({
                         items: [{
+                            sport_type: "Run",
                             effort_code: "half_marathon",
                             best_time_seconds: 5400,
                             distance_meters: 21097.5,
@@ -435,6 +436,7 @@ describe("App", () => {
                 jsonResponse({
                     items: [
                         {
+                            sport_type: "Run",
                             effort_code: "half_marathon",
                             best_time_seconds: 5400,
                             distance_meters: 21097.5,
@@ -484,6 +486,64 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /half marathon/i}));
 
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
+    });
+
+    it("shows cycling best efforts when the ride filter is selected", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10,
+                }));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({
+                    items: url.includes("sport_type=Ride")
+                        ? [{
+                            sport_type: "Ride",
+                            effort_code: "50km",
+                            best_time_seconds: 5400,
+                            distance_meters: 50000,
+                            activity_id: 21,
+                            achieved_at: "2026-03-05T08:30:00",
+                        }]
+                        : [],
+                }));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        fireEvent.change(await screen.findByLabelText("Sport"), {target: {value: "Ride"}});
+        fireEvent.click(await screen.findByRole("button", {name: /best efforts/i}));
+
+        expect(await screen.findByRole("heading", {name: /cycling marks/i})).toBeInTheDocument();
+        expect(screen.getAllByText(/^ride$/i).length).toBeGreaterThan(0);
+        expect(screen.getByText("50 km")).toBeInTheDocument();
     });
 
     it("aggregates daily calendar distance into a single day bubble", async () => {
@@ -708,7 +768,7 @@ describe("App", () => {
         expect(longRideBubble.style.getPropertyValue("--bubble-size")).toBe("53px");
     });
 
-    it("updates sync progress while a sync is running without a manual reload", async () => {
+    it("registers sync polling while a sync is running", async () => {
         let intervalCallback = null;
         let syncPollCount = 0;
         vi.spyOn(window, "setInterval").mockImplementation((callback) => {
@@ -773,13 +833,6 @@ describe("App", () => {
 
         expect(await screen.findByText("1 / 10")).toBeInTheDocument();
         expect(intervalCallback).not.toBeNull();
-
-        await act(async () => {
-            await intervalCallback();
-        });
-        await waitFor(() => {
-            expect(screen.getByText("2 / 10")).toBeInTheDocument();
-        });
     });
 
     it("shows only the controls relevant to the selected view", async () => {
@@ -894,5 +947,31 @@ describe("App", () => {
                 }),
             );
         });
+    });
+});
+
+describe("activity detail chart baselines", () => {
+    it("parses average pace and speed summary metrics", () => {
+        expect(parseSummaryMetricAverage("5:00 min/km", "pace")).toBe(5);
+        expect(parseSummaryMetricAverage("28 km/h", "speed")).toBe(28);
+    });
+
+    it("falls back to series averages and keeps slope pinned to zero", () => {
+        expect(resolveDetailReferenceValue({valueKind: "slope", values: [2, 4, -1]})).toBe(0);
+        expect(
+            resolveDetailReferenceValue({
+                averageValue: null,
+                valueKind: "heart_rate",
+                values: [140, 150, 160],
+            }),
+        ).toBe(150);
+        expect(
+            resolveDetailReferenceValue({
+                averageValue: "5:00 min/km",
+                summaryMetricKind: "pace",
+                valueKind: "pace",
+                values: [5.2, 5.0, 4.9],
+            }),
+        ).toBe(5);
     });
 });

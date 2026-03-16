@@ -213,5 +213,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         best_efforts_response = client.get("/best-efforts")
         assert best_efforts_response.status_code == 200
         assert best_efforts_response.json()["items"][0]["effort_code"] == "5km"
+        assert best_efforts_response.json()["items"][0]["sport_type"] == "Run"
     finally:
         app.dependency_overrides.clear()

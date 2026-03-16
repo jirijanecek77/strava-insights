@@ -125,7 +125,7 @@ export default function App() {
                     fetchJson("/sync/status"),
                     fetchJson(`/dashboard${buildQuery({sport_type: selectedSport || undefined})}`),
                     fetchJson(`/activities${activityQuery}`),
-                    fetchJson(`/best-efforts${buildQuery({sport_type: selectedSport || "Run"})}`),
+                    fetchJson(`/best-efforts${buildQuery({sport_type: selectedSport || undefined})}`),
                     fetchJson(
                         `/comparisons${buildQuery({
                             period_type: selectedWindow,
@@ -394,6 +394,7 @@ export default function App() {
                     {selectedView === "best-efforts" ? (
                         <BestEffortsView
                             items={bestEfforts}
+                            selectedSport={selectedSport}
                             onSelectActivity={(activityId) => {
                                 if (activityId == null) {
                                     return;
@@ -737,6 +738,21 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
     const paceOrSpeed = detail.series.pace_minutes_per_km.length
         ? detail.series.pace_minutes_per_km
         : detail.series.moving_average_speed_kph;
+    const paceReferenceValue = resolveDetailReferenceValue({
+        averageValue: detail.kpis.summary_metric_display,
+        summaryMetricKind: detail.kpis.summary_metric_kind ?? (detail.series.pace_minutes_per_km.length ? "pace" : "speed"),
+        valueKind: detail.series.pace_minutes_per_km.length ? "pace" : "speed",
+        values: paceOrSpeed,
+    });
+    const heartRateReferenceValue = resolveDetailReferenceValue({
+        averageValue: detail.kpis.average_heartrate_bpm,
+        valueKind: "heart_rate",
+        values: detail.series.moving_average_heartrate,
+    });
+    const slopeReferenceValue = resolveDetailReferenceValue({
+        valueKind: "slope",
+        values: detail.series.slope_percent,
+    });
     const resolvedActiveIndex = Math.min(activeSeriesIndex ?? 0, Math.max(routePoints.length - 1, 0));
 
     return (
@@ -775,6 +791,7 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     altitudeValues={detail.series.altitude_meters}
                     intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
+                    referenceValue={paceReferenceValue}
                     valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"}
                     values={paceOrSpeed}
                     zones={detail.zones}
@@ -787,6 +804,7 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     altitudeValues={detail.series.altitude_meters}
                     intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
+                    referenceValue={heartRateReferenceValue}
                     valueKind="heart_rate"
                     values={detail.series.moving_average_heartrate}
                     zones={detail.zones}
@@ -799,6 +817,7 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     altitudeValues={detail.series.altitude_meters}
                     intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
+                    referenceValue={slopeReferenceValue}
                     valueKind="slope"
                     values={detail.series.slope_percent}
                     zones={detail.zones}
@@ -830,6 +849,7 @@ function DetailChart({
                          altitudeValues,
                          intervals,
                          onSelectIndex,
+                         referenceValue,
                          valueKind,
                          zones
                      }) {
@@ -844,6 +864,7 @@ function DetailChart({
                 intervals={intervals}
                 label={label}
                 onSelectIndex={onSelectIndex}
+                referenceValue={referenceValue}
                 valueKind={valueKind}
                 values={values}
                 zones={zones}
@@ -852,13 +873,18 @@ function DetailChart({
     );
 }
 
-function BestEffortsView({items, onSelectActivity}) {
+function BestEffortsView({items, selectedSport, onSelectActivity}) {
+    const heading = selectedSport === "Ride" || selectedSport === "EBikeRide"
+        ? "Cycling marks"
+        : selectedSport === "Run"
+            ? "Running marks"
+            : "All-sport marks";
     return (
         <section className="panel">
             <div className="panel-header">
                 <div>
                     <p className="eyebrow">Best Efforts</p>
-                    <h2>Running marks</h2>
+                    <h2>{heading}</h2>
                 </div>
             </div>
             <div className="best-effort-grid">
@@ -874,6 +900,7 @@ function BestEffortsView({items, onSelectActivity}) {
                         <strong>{formatLabel(item.effort_code)}</strong>
                         <span>{formatDuration(item.best_time_seconds)}</span>
                         <p>{formatDistanceMeters(item.distance_meters)}</p>
+                        <p className="sidebar-subtle">{formatSportLabel(item.sport_type)}</p>
                         <small>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Imported best mark"}</small>
                     </button>
                 ))}
@@ -1126,6 +1153,7 @@ function MiniLineChart({
                            intervals,
                            label,
                            onSelectIndex,
+                           referenceValue,
                            valueKind,
                            values,
                            zones
@@ -1162,15 +1190,18 @@ function MiniLineChart({
         [chartData],
     );
     const lineColor = getDetailAccentColor(accent);
+    const referenceLineColor = getDetailReferenceColor(accent);
 
     if (!numericValues.length || !numericDistances.length) {
         return <EmptyState compact text="No series available."/>;
     }
 
-    const {max: maxValue, min: minValue} = useMemo(
-        () => expandChartDomain(Math.min(...numericValues), Math.max(...numericValues)),
-        [numericValues],
-    );
+    const {max: maxValue, min: minValue} = useMemo(() => {
+        if (valueKind === "slope") {
+            return expandChartDomain(Math.min(...numericValues, 0), Math.max(...numericValues, 0));
+        }
+        return expandChartDomain(Math.min(...numericValues), Math.max(...numericValues));
+    }, [numericValues, valueKind]);
     const {xMax, xMin} = useMemo(
         () => ({
             xMax: Math.max(...numericDistances),
@@ -1287,6 +1318,15 @@ function MiniLineChart({
                         strokeWidth={2.25}
                         type="monotone"
                     />
+                    {Number.isFinite(referenceValue) ? (
+                        <ReferenceLine
+                            ifOverflow="extendDomain"
+                            stroke={referenceLineColor}
+                            strokeDasharray="5 5"
+                            strokeWidth={1.5}
+                            y={referenceValue}
+                        />
+                    ) : null}
                     {activePoint && Number.isFinite(activePoint.distance) ? (
                         <ReferenceLine stroke="rgba(29, 122, 243, 0.32)" strokeDasharray="4 4"
                                        x={activePoint.distance}/>
@@ -1863,6 +1903,13 @@ function buildCalendarDays(calendarMonth, activities) {
     });
 }
 
+function formatSportLabel(value) {
+    if (value === "EBikeRide") {
+        return "E-Bike";
+    }
+    return formatLabel(value);
+}
+
 function buildCalendarWeeks(calendarMonth, activities) {
     const days = buildCalendarDays(calendarMonth, activities);
     return Array.from({length: days.length / 7}, (_, index) => {
@@ -1978,6 +2025,70 @@ function getDetailAccentColor(accent) {
         return "#3d9b63";
     }
     return "#fc4c02";
+}
+
+function getDetailReferenceColor(accent) {
+    if (accent === "red") {
+        return "rgba(217, 72, 65, 0.42)";
+    }
+    if (accent === "green") {
+        return "rgba(61, 155, 99, 0.42)";
+    }
+    return "rgba(252, 76, 2, 0.42)";
+}
+
+export function resolveDetailReferenceValue({averageValue, summaryMetricKind, valueKind, values}) {
+    if (valueKind === "slope") {
+        return 0;
+    }
+    if (valueKind === "heart_rate") {
+        const numericAverage = averageValue == null ? Number.NaN : Number(averageValue);
+        return Number.isFinite(numericAverage) ? numericAverage : averageSeriesValue(values);
+    }
+    if (valueKind === "pace" || valueKind === "speed") {
+        const parsedAverage = parseSummaryMetricAverage(averageValue, summaryMetricKind ?? valueKind);
+        return Number.isFinite(parsedAverage) ? parsedAverage : averageSeriesValue(values);
+    }
+    return averageSeriesValue(values);
+}
+
+export function parseSummaryMetricAverage(value, kind) {
+    if (value == null) {
+        return null;
+    }
+    const rawValue = String(value).trim();
+    if (!rawValue) {
+        return null;
+    }
+    if (kind === "speed") {
+        const match = rawValue.match(/-?\d+(?:[.,]\d+)?/);
+        if (!match) {
+            return null;
+        }
+        const numeric = Number(match[0].replace(",", "."));
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+    if (kind === "pace") {
+        const clockMatch = rawValue.match(/(\d+):(\d{1,2})/);
+        if (clockMatch) {
+            const minutes = Number(clockMatch[1]);
+            const seconds = Number(clockMatch[2]);
+            if (Number.isFinite(minutes) && Number.isFinite(seconds) && seconds >= 0 && seconds < 60) {
+                return minutes + (seconds / 60);
+            }
+        }
+        const numeric = Number(rawValue.replace(",", "."));
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+    return null;
+}
+
+function averageSeriesValue(values) {
+    const numericValues = (values ?? []).map((value) => Number(value)).filter(Number.isFinite);
+    if (!numericValues.length) {
+        return null;
+    }
+    return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
 }
 
 function downsampleChartData(points, focusIndex, maxPoints = 240) {

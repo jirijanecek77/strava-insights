@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 
 class BestEffortItem(BaseModel):
+    sport_type: str
     effort_code: str
     best_time_seconds: int
     distance_meters: Decimal

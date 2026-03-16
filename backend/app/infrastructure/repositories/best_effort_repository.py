@@ -11,4 +11,4 @@ class BestEffortRepository:
         query = self.session.query(BestEffort).filter(BestEffort.user_id == user_id)
         if sport_type is not None:
             query = query.filter(BestEffort.sport_type == sport_type)
-        return query.order_by(BestEffort.distance_meters.asc()).all()
+        return query.order_by(BestEffort.sport_type.asc(), BestEffort.distance_meters.asc()).all()

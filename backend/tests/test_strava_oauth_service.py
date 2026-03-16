@@ -19,20 +19,6 @@ class StravaClientStub:
             athlete_profile="https://example.com/profile.png",
         )
 
-    def refresh_access_token(self, refresh_token: str) -> StravaTokenPayload:
-        assert refresh_token == "refresh-token"
-        return StravaTokenPayload(
-            access_token="new-access-token",
-            refresh_token="new-refresh-token",
-            expires_at=datetime(2026, 3, 9, 13, 0, tzinfo=UTC),
-            scope="read,activity:read_all",
-            athlete_id=162181,
-            athlete_firstname="Jiri",
-            athlete_lastname="Janecek",
-            athlete_profile="https://example.com/profile.png",
-        )
-
-
 class QueryStub:
     def __init__(self, value):
         self._value = value
@@ -103,19 +89,3 @@ def test_authenticate_from_code_persists_user_and_encrypted_tokens() -> None:
     assert session.oauth is not None
     assert session.oauth.access_token_encrypted != "access-token"
     assert session.oauth.refresh_token_encrypted != "refresh-token"
-
-
-def test_refresh_access_token_updates_persisted_encrypted_tokens() -> None:
-    session = SessionStub()
-    service = StravaOAuthService(
-        db_session=session,
-        strava_client=StravaClientStub(),
-        token_cipher=TokenCipher(),
-    )
-    service.authenticate_from_code("valid-code")
-
-    expires_at = service.refresh_access_token_for_user(1)
-
-    assert expires_at == datetime(2026, 3, 9, 13, 0, tzinfo=UTC)
-    assert session.oauth.access_token_encrypted != "new-access-token"
-    assert service.token_cipher.decrypt(session.oauth.access_token_encrypted) == "new-access-token"

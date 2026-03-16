@@ -128,7 +128,7 @@ class ActivityReadServiceStub:
 
 class BestEffortReadServiceStub:
     def list_best_efforts(self, _user_id: int, *, sport_type=None) -> BestEffortsResponse:
-        return BestEffortsResponse(items=[BestEffortItem(effort_code="5km", best_time_seconds=1400, distance_meters="5000")])
+        return BestEffortsResponse(items=[BestEffortItem(sport_type=sport_type or "Run", effort_code="5km", best_time_seconds=1400, distance_meters="5000")])
 
 
 def test_me_requires_authentication(client) -> None:
