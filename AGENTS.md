@@ -1,126 +1,31 @@
-/# Repository Guidelines
+# Repository Guidelines
 
-## Project Structure & Module Organization
+## Agent Scope
 
-This project is being rebuilt as a separate frontend and backend application.
+- Treat [specification.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/specification.md) as the source of truth for product requirements, architecture, constraints, and target structure.
+- Treat [implementation_plan.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/implementation_plan.md) as the source of truth for delivery status, completed work, and remaining work.
+- Keep [development.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/development.md) aligned with the actual local developer workflow and commands.
 
-- Frontend: React application for the web UI.
-- Backend: FastAPI application for auth, read APIs, and sync orchestration.
-- Worker: Celery worker for first import and scheduled synchronization.
-- Database: PostgreSQL for persisted application data.
-- Cache/Broker: Redis for caching and Celery broker/backend support.
+## Documentation Rules
 
-The implementation should follow clean architecture principles:
+- Keep `AGENTS.md` limited to instructions for the coding agent working in this repository.
+- Put project-specific behavior, architecture, requirements, and workflow expectations into `docs`, not into `AGENTS.md`.
+- Update `docs/specification.md` when the intended product behavior, architecture, or operational constraints change.
+- Update `docs/implementation_plan.md` after significant implementation work so completed and remaining tasks stay accurate.
+- Remove contradictions and duplicated guidance when editing repository documentation.
 
-- keep framework code at the edges
-- keep business logic in testable domain/application layers
-- isolate infrastructure concerns such as Strava API access, database access, cache, and background jobs
-- avoid coupling UI, HTTP handlers, and persistence logic directly
+## Implementation Rules
 
-Until the new structure is fully created, treat the specification document as the source of truth for the target layout and responsibilities:
+- Follow clean architecture boundaries described in the specification.
+- Keep framework code at the edges and business logic in testable application or domain layers.
+- Do not add live Strava API calls to normal UI read paths.
+- Do not solve feature work by deleting application data or resetting the database.
+- When persistence changes are required, use explicit backward-safe migrations.
 
-- [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\specification.md)
+## Validation Rules
 
-## Build, Test, and Development Commands
-
-The target local development workflow should use Docker for repeatable validation.
-Build, deploy, and test workflows should be exposed through simple `make` commands.
-
-Windows is the primary local environment, so command design must keep Windows compatibility in mind.
-
-- Provide a `Makefile` as the main task entrypoint.
-- Prefer short, predictable commands such as `make build`, `make up`, `make test`, and `make down`.
-- If a Windows-specific wrapper is needed later, keep command names aligned with the `make` targets.
-- Avoid requiring long manual command sequences for normal development tasks.
-
-- Every meaningful iteration should be validated locally.
-- Every meaningful change should be exercised through local Docker deployment before being considered complete.
-- Every code change must include a successful build validation.
-- Prefer Docker Compose or an equivalent local orchestration setup for frontend, backend, worker, PostgreSQL, and Redis.
-- Do not rely on deleting or recreating the local database as part of normal development validation.
-- When schema changes are needed, add and run proper migrations instead of resetting persisted data.
-
-Expected local validation flow:
-
-```bash
-make build
-make up
-make test
-```
-
-As the new codebase is created, keep commands documented for:
-
-- frontend install, run, lint, and test
-- backend install, run, lint, type-check, and test through Poetry
-- worker startup and scheduled job execution through Poetry
-- local end-to-end validation through Docker
-- full local lifecycle through `make` targets
-
-## Coding Style & Naming Conventions
-
-Use clean, explicit, maintainable code.
-
-- Prefer small, composable units with clear responsibilities.
-- Keep domain logic deterministic and easy to test.
-- Avoid hidden side effects and framework-driven business logic.
-- Use `snake_case` for Python modules, functions, and variables.
-- Use `PascalCase` for Python classes and React components.
-- Follow Black-compatible Python formatting.
-- Keep public interfaces narrow and well defined.
-
-## Testing & Validation Guidelines
-
-Testing is a core project requirement.
-
-- All important business logic must be covered by automated tests.
-- Add unit tests for domain logic, transformations, and analytics calculations.
-- Add integration tests for API, persistence, sync, and background job behavior.
-- Add UI/component or end-to-end coverage for the main user flows.
-- Validate performance-sensitive paths, especially dashboard and activity-detail reads.
-
-Minimum expectations for significant changes:
-
-- relevant unit tests added or updated
-- relevant integration tests added or updated
-- local Docker deployment started successfully
-- changed behavior validated in the running stack
-- validation available through simple `make` targets
-- build validation completed successfully after the change
-- `docs/implementation_plan.md` updated to reflect completed work and newly discovered remaining work
-
-Do not treat a code change as complete if it has not been tested and validated locally.
-
-## Architecture Constraints
-
-- Do not place live Strava API calls on the normal UI request path.
-- Persist imported Strava data locally and serve the UI from database/cache-backed read models.
-- Keep first import and later sync work in background jobs.
-- Treat manual `Refresh Sync` as incremental sync only: it must download only newly available activities and preserve already imported records.
-- Do not delete application data or rebuild the database from scratch to implement feature changes, bug fixes, or sync behavior adjustments.
-- Evolve persisted schema through explicit migrations and backward-safe data transitions whenever storage changes are required.
-- Preserve the analytical intent of the current application, especially on the activity detail page.
-- Maintain clear separation between auth, sync, analytics, and read APIs.
-
-## Commit & Pull Request Guidelines
-
-Keep commit subjects short, imperative, and lowercase. Group related changes into one commit. Pull requests should describe:
-
-- the user-visible change
-- architecture or data-model impact
-- testing performed
-- Docker validation performed
-
-Include screenshots for UI changes where useful.
-
-## Configuration Tips
-
-Do not commit filled `.env` files or live credentials.
-
-Expected runtime configuration will include at least:
-
-- `STRAVA_CLIENT_ID`
-- `STRAVA_CLIENT_SECRET`
-- `MAPY_CZ_API_KEY`
-- database connection settings
-- Redis connection settings
-- frontend/backend application URLs as needed
+- Validate meaningful changes locally.
+- Use the repository command surface documented in `docs/development.md`.
+- After each meaningful fix, run the relevant automated tests before treating the change as complete.
+- If a change affects a running service, restart or rebuild the affected Docker service or services and verify the behavior in the stack.
+- Treat a change as incomplete if build or relevant tests have not been run successfully.

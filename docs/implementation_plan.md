@@ -1,194 +1,100 @@
 # Strava Insights Implementation Plan
 
-## Summary
+## Purpose
 
-This plan turns [specification.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\docs\specification.md) into a trackable delivery sequence. The new application will be built greenfield alongside the current Flask/Dash app using `Vite + React`, `FastAPI`, `Celery`, `PostgreSQL`, `Redis`, Docker, Poetry for Python package management, and simple `make` commands.
+This document tracks implementation status against [specification.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/specification.md). It should record what is done, what remains, and what still needs validation. It should not restate the full product specification.
 
-## Progress Rules
+## Status Rules
 
-- Mark items complete only after code is implemented, tested, and validated.
-- Every code change must include a successful `make build`.
-- Validation should happen through Docker-based commands, not ad hoc local-only steps.
+- Mark work complete only after code is implemented and relevant validation has passed.
+- Every meaningful code change must include a successful `make build`.
+- Prefer Docker-based validation through the standard command surface in [development.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/development.md).
 
-## Phase 1: Foundation
+## Current State
 
-- [x] Create top-level structure for `frontend`, `backend`, `worker`, and Docker/infrastructure files.
-- [x] Add `Makefile` with `make build`, `make up`, `make test`, and `make down`.
-- [x] Add Docker Compose stack for frontend, backend, worker, PostgreSQL, and Redis.
-- [x] Initialize React frontend with Vite and Tailwind.
-- [x] Initialize FastAPI backend with clean architecture folder layout.
-- [x] Initialize Celery worker and shared configuration.
-- [x] Add Poetry configuration for backend and worker dependency management.
-- [x] Add environment configuration templates for Strava, Mapy.cz, PostgreSQL, and Redis.
-- [x] Verify the stack builds successfully with `make build`.
-- [x] Verify the stack starts successfully with `make up`.
+### Completed Foundations
 
-## Phase 2: Backend Core
+- [x] Created the split application structure for `frontend`, `backend`, and `worker`.
+- [x] Added Docker Compose, `Makefile`, and Windows wrapper support for the local stack lifecycle.
+- [x] Initialized the React frontend, FastAPI backend, Celery worker, and Poetry-managed Python services.
+- [x] Added committed env templates for service-local configuration.
 
-- [x] Add SQLAlchemy models and Alembic migrations for:
-- [x] `users`
-- [x] `oauth_tokens`
-- [x] `activities`
-- [x] `activity_streams`
-- [x] `period_summaries`
-- [x] `best_efforts`
-- [x] `activity_best_efforts`
-- [x] `sync_jobs`
-- [x] `sync_checkpoints`
-- [x] Add required indexes from `specification.md`.
-- [x] Model imported activity fields required by the spec:
-- [x] `name`, `description`, `start_date_local`, `type`
-- [x] `distance`, `moving_time`, `elapsed_time`
-- [x] `total_elevation_gain`, `elev_high`, `elev_low`
-- [x] `average_speed`, `max_speed`
-- [x] `average_heartrate`, `max_heartrate`
-- [x] `average_cadence`, `start_latlng`
-- [x] Model activity streams required for local detail rendering:
-- [x] `time`
-- [x] `distance`
-- [x] `latlng`
-- [x] `altitude`
-- [x] `velocity_smooth`
-- [x] `heartrate`
-- [x] Implement Strava OAuth backend flow.
-- [x] Implement secure token persistence.
-- [x] Implement server-side session auth with secure cookie-based session management.
-- [x] Implement current-user/profile endpoint.
-- [x] Implement sync-status endpoint.
-- [x] Add Redis-backed caching utilities.
-- [x] Add backend DTOs for raw activity data, derived activity KPIs, and activity-detail analytics payloads.
-- [x] Add backend unit and integration test scaffolding.
+### Completed Backend and Data Work
 
-## Phase 3: Sync and Import Pipeline
+- [x] Implemented the core PostgreSQL schema and Alembic migrations for users, auth tokens, activities, streams, summaries, sync tracking, and analytics-related tables.
+- [x] Added the required indexes described in the specification.
+- [x] Implemented Strava OAuth, secure token persistence, and cookie-based session auth.
+- [x] Added current-user and sync-status endpoints.
+- [x] Added Redis-backed cache utilities needed by current reads and sync behavior.
 
-- [x] Implement first-login full historical import job.
-- [x] Implement daily incremental sync job.
-- [x] Implement sync checkpoint logic to fetch only new activities after initial import.
-- [x] Persist normalized activity metadata.
-- [x] Persist activity streams required for detail views.
-- [x] Persist or derive normalized activity fields used across reads:
-- [x] `distance_km`
-- [x] formatted moving time
-- [x] sport-specific display pace or speed fields
-- [x] difficulty inputs needed for activity list and calendar read models
-- [x] Persist sync job status and progress.
-- [x] Invalidate or refresh affected cache entries after sync.
-- [x] Ensure standard read endpoints do not call Strava synchronously.
-- [x] Add tests for first import and incremental sync behavior.
+### Completed Sync and Import Work
 
-## Phase 4: Analytics Port
+- [x] Implemented first-login full historical import.
+- [x] Implemented daily incremental sync.
+- [x] Added sync checkpoint handling to fetch only newly available activities.
+- [x] Persisted normalized activity metadata and required stream data for local detail rendering.
+- [x] Persisted sync job status and progress.
+- [x] Invalidated or refreshed affected cache entries after sync.
+- [x] Ensured normal read endpoints do not depend on synchronous Strava calls.
+- [x] Made manual refresh remain incremental when a checkpoint is missing by falling back to the latest stored activity timestamp.
+- [x] Tolerated Strava activity-stream `404` responses by importing the activity without streams.
 
-- [x] Port activity detail derivations from the current app as explicit backend analytics services:
-- [x] moving-average heart rate with `range_points = 10`
-- [x] moving-average speed from `velocity_smooth * 3.6` with `range_points = 10`
-- [x] derived running pace from stream `time` and `distance` with `range_points = 20`
-- [x] formatted running pace output in both numeric and `MM:SS` forms
-- [x] slope calculation over a 30-point window with clamp to `[-45, 45]`
-- [x] running interval and pace-zone analysis
-- [x] running compliance score and explanatory summary for dominant pace zone
-- [x] Port the user-relative running pace / heart-rate zone model:
-- [x] `bpm_max = 220 - 0.7 * age`
-- [x] pace and bpm anchors for `100m`, `5km`, `10km`, `Half-Marathon`, `Marathon`, `Active Jogging`, `Slow Jogging`, `Walk`
-- [x] midpoint-based pace and bpm zone boundaries
-- [x] Implement the derived activity difficulty heuristic from the current app as a reusable analytics function.
-- [x] Implement summary aggregation for dashboard KPIs.
-- [x] Implement monthly, yearly, and rolling-period comparisons.
-- [x] Implement best-effort calculations.
-- [x] Store or precompute period summaries needed for fast reads.
-- [x] Add tests for analytics calculations and aggregations.
+### Completed Analytics and API Work
 
-## Phase 5: API Surface
+- [x] Ported activity-detail derivations for smoothed heart rate, smoothed speed, derived running pace, slope, running zones, interval grouping, and compliance scoring.
+- [x] Implemented the derived difficulty heuristic as reusable backend analytics logic.
+- [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
+- [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
+- [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
 
-- [x] Implement `/auth/*` endpoints.
-- [x] Implement `/me` endpoint.
-- [x] Implement `/sync/status` endpoint.
-- [x] Implement `/dashboard` endpoint.
-- [x] Implement `/trends` and `/comparisons` endpoints.
-- [x] Implement `/activities` list endpoint with sport and date filters.
-- [x] Implement `/activities/{id}` detail endpoint.
-- [x] Implement `/best-efforts` endpoint.
-- [x] Define stable response contracts for:
-- [x] activity summary cards
-- [x] activity list rows
-- [x] activity-detail metadata and KPI header
-- [x] activity-detail graph series
-- [x] running interval-analysis payloads
-- [x] Ensure activity detail payload includes:
-- [x] metadata and KPI values
-- [x] map bounds and route polyline
-- [x] pace or speed series
-- [x] heart rate series
-- [x] elevation series
-- [x] slope series
-- [x] running interval analysis when applicable
-- [x] Add integration tests for all core read endpoints.
+### Completed Frontend Work
 
-## Phase 6: Frontend Application
+- [x] Implemented landing/login, dashboard, calendar, activity list, activity detail, best efforts, and settings/profile screens.
+- [x] Added shared sport and date filtering.
+- [x] Integrated map rendering for activity detail with local route fallback behavior.
+- [x] Restyled the UI toward the intended Strava-inspired visual direction.
+- [x] Added sync-status progress refresh behavior in the frontend.
+- [x] Refined the calendar daily marker behavior and activity-detail chart presentation.
+- [x] Added editable profile inputs required by analytics formulas.
 
-- [x] Implement landing/login screen.
-- [x] Implement sync/import status screen or state.
-- [x] Implement dashboard screen.
-- [x] Implement calendar screen.
-- [x] Refine the calendar screen to use one aggregated daily circle marker with distance-scaled diameter.
-- [x] Apply calendar day colors: yellow for running, orange for cycling, based on summed daily distance.
-- [x] Implement activity list screen.
-- [x] Implement activity detail screen.
-- [x] Implement best efforts screen.
-- [x] Implement settings/profile screen.
-- [x] Add editable profile inputs for analytics prerequisites such as birthday and max speed, backed by a persisted user-profile API.
-- [x] Add shared sport-type and date-range filters.
-- [x] Integrate Mapy.cz on the activity detail page.
-- [x] Restyle the frontend visual language to be closer to Strava web: light surfaces, restrained neutrals, orange emphasis, and data-first layouts.
-- [x] Render the activity detail graph with pace/speed, heart rate, elevation, and slope.
-- [x] Add hover-linked map marker behavior.
-- [x] Render the canonical activity KPI header:
-- [x] distance
-- [x] moving time
-- [x] average running pace or cycling speed
-- [x] total elevation gain
-- [x] average heart rate when available
-- [x] Render running-only activity analysis using backend interval and compliance outputs.
-- [x] Add frontend/component tests for the main flows.
-- [x] Remove the duplicate main-layout logout control and place the manual sync action in the sidebar status card.
-- [x] Auto-refresh sync status progress in the frontend while sync jobs are queued or running, without requiring a manual page reload.
-- [x] Refine calendar day-bubble sizing to use sport-specific distance buckets that better separate short, medium, and long training days.
-- [x] Refine the activity detail page by removing the standalone zone-summary card, shrinking the KPI row to keep five tiles on one line, and drawing running-zone context plus elevation backdrop directly into the three detail charts.
-- [x] Redesign the dashboard trend series panel as a date-based graph with distance in kilometers and session counts plotted together.
-- [x] Replace the activity-detail mini charts with Recharts-based detail graphs while preserving elevation backdrop, interval shading, and active-point highlighting.
-- [x] Add explicit dashboard period selection so the selected-window comparison can compare any two available periods instead of only the latest pair.
-- [x] Move sync status controls out of the sidebar by removing the navbar latest-sync panel and placing the manual refresh action in `Settings -> Sync Status`.
-- [x] Isolate backend pytest runs from the development dataset by routing tests to a dedicated PostgreSQL schema and avoiding startup migrations against the main application schema.
+### Completed Validation and Hardening Work
 
-## Phase 7: Validation and Hardening
+- [x] Verified the stack builds with `make build`.
+- [x] Verified the stack starts with `make up`.
+- [x] Verified the automated suite passes with `make test`.
+- [x] Fixed frontend/backend local connectivity and credentialed CORS behavior.
+- [x] Fixed Docker session-secret handling.
+- [x] Fixed local-time calendar day grouping.
+- [x] Fixed handling for large Strava activity ids.
+- [x] Fixed migration bootstrap for databases created before Alembic tracking.
+- [x] Replaced the discontinued Mapy.cz JavaScript SDK integration with the supported current map approach.
+- [x] Normalized activity summary metric payloads so the frontend can render pace and speed consistently.
+- [x] Isolated backend pytest runs from the development dataset.
+- [x] Removed dead frontend helpers and stale backend-only code paths with no production call sites.
 
-- [x] Verify all services build successfully with `make build`.
-- [x] Verify the full stack runs with `make up`.
-- [x] Verify the automated suite passes with `make test`.
-- [x] Fix default local Docker/browser connectivity by pointing the frontend to the published backend URL and allowing credentialed CORS from the frontend origin.
-- [x] Fix session-secret handling in Docker Compose so `.env` values are not overridden by a known constant.
-- [x] Fix calendar day grouping to compare activity dates in local time instead of UTC.
-- [x] Fix Strava activity import for modern large Strava activity ids by migrating `activities.strava_activity_id` to `BIGINT` and rolling back failed worker sessions before marking sync jobs failed.
-- [x] Fix migration bootstrap so pre-Alembic scaffold databases are stamped at revision `20260309_0002` and still run later corrective migrations on startup.
-- [x] Replace the discontinued Mapy.cz JavaScript SDK integration with a supported Mapy REST tiles + Leaflet frontend implementation, while keeping the local route-preview fallback.
-- [x] Align the React Mapy.cz tile URL with the working Dash Leaflet implementation and make the frontend dev container refresh dependencies on startup so new packages are available in the mounted workspace.
-- [x] Split frontend public env files from backend and worker secret env files, add committed templates for each, and wire Docker Compose to the service-local real files.
-- [x] Normalize activity summary metric API payloads so backend returns unit-free values plus metric kind, and frontend renders pace/speed units consistently.
-- [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end.
-- [x] Validate that activity list, calendar, and detail screens match the KPI and analytics definitions in `specification.md`.
-- [x] Validate running detail parity for smoothing windows, pace zones, interval grouping, and compliance scoring.
-- [x] Prevent worker incremental sync jobs from failing when Strava returns `404 Not Found` for an activity streams endpoint; import the activity and continue without streams.
-- [x] Ensure manual refresh remains incremental even if the sync checkpoint is missing by falling back to the latest locally stored activity timestamp instead of refetching full history.
-- [ ] Validate that cached/database-backed reads meet the expected latency target under normal use.
-- [x] Confirm no normal UI reads depend on live Strava calls.
-- [ ] Review code structure against clean architecture requirements in [AGENTS.md](C:\Users\jiri.janecek1\IdeaProjects\strava_insights\AGENTS.md).
-- [x] Remove dead frontend state/helpers and stale frontend test-only branches that no longer match the current API flow.
-- [x] Remove backend cache helpers and OAuth token-refresh code paths that had no production call sites and were only retained by tests.
-- [x] Extend best-effort derivation and UI support from running-only to include ride and e-bike activities using locally stored stream data.
-- [ ] Refactor the frontend out of the single-file `App.jsx` composition into separate screens, reusable hooks, API client utilities, and map/calendar components.
-- [ ] Make the Windows wrapper execution path resilient to default PowerShell execution-policy restrictions or document an execution-policy-safe invocation path.
+## Remaining Work
 
-## Future-Ready Constraints
+### End-to-End Validation
 
-- [ ] Keep backend service boundaries reusable for future LLM-style insight features.
-- [ ] Keep analytics available in backend-readable form, not only frontend rendering logic.
+- [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end in the running Docker stack.
+- [ ] Validate that cache-backed and database-backed reads meet the expected latency target under normal use.
+
+### Architecture and Codebase Cleanup
+
+- [ ] Review the current code structure against the clean-architecture target in the specification and close remaining boundary leaks.
+- [ ] Refactor the frontend out of the current single-file `App.jsx` composition into screens, reusable hooks, API utilities, and focused components.
+
+### Local Workflow Hardening
+
+- [ ] Make the Windows wrapper path resilient to default PowerShell execution-policy restrictions, or document an execution-policy-safe invocation path.
+
+### Future-Ready Guardrails
+
+- [ ] Keep backend service boundaries reusable for future insight-oriented features.
+- [ ] Keep analytics available in backend-readable form rather than only in frontend presentation code.
 - [ ] Keep user data access clearly scoped for future natural-language query support.
+
+## Notes
+
+- The implementation has already expanded best-effort support beyond running-only behavior. The specification is the source of truth for the supported v1 scope.
+- Update this document after meaningful implementation work so open items remain actionable and credible.

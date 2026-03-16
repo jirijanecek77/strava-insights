@@ -1,62 +1,29 @@
-# Strava Insights Project Specification
+# Strava Insights Specification
 
-## Summary
+## Purpose
 
-Strava Insights is a desktop web application for hobby athletes who want fast access to training analytics based on
-their Strava data. The system imports Strava activities into a local database, computes derived metrics, and serves the
-UI from local storage and cache instead of live Strava requests.
+Strava Insights is a desktop-first web application for athletes who want fast analytics over their Strava history without depending on live Strava reads during normal app use. The system imports Strava data into local storage, computes derived metrics, and serves dashboards and activity detail views from the local database and cache.
 
-## Product Requirements
+## Documentation Roles
+
+- `docs/specification.md`: source of truth for product scope, architecture, constraints, and required behavior
+- `docs/implementation_plan.md`: source of truth for implementation status and remaining work
+- `docs/development.md`: source of truth for local setup, validation commands, and day-to-day development workflow
+
+## Product Scope
+
+### Core Requirements
 
 - Authentication uses Strava OAuth only.
-- The system supports multiple users, each with separate data.
-- Supported sports are running and cycling, including e-bike and related cycling ride types.
-- First login triggers a full historical import in the background.
-- Ongoing synchronization runs daily, with optional refresh on startup if data is stale.
+- The system supports multiple users with isolated data.
+- Supported sports in v1 are running, cycling, and e-bike ride types.
+- First login triggers a background full historical import.
+- Ongoing synchronization runs daily, with optional refresh on startup when data is stale.
 - Users cannot export, delete, or disconnect their data in v1.
-- Historical edits made later in Strava do not need to be synchronized.
-- Desktop is the primary target; mobile is not required.
+- Historical edits and deletions performed later in Strava are out of scope for v1.
+- Desktop is the primary target. Mobile optimization is not required for v1.
 
-## Performance Requirements
-
-- Normal UI reads should complete within 500 ms when served from local storage/cache.
-- Standard page rendering must not depend on synchronous Strava API calls.
-- Activity detail must be fully renderable from locally stored streams and derived data.
-
-## Technology Stack
-
-- Frontend: React, Tailwind CSS, Recharts, Mapy.cz
-- Backend: Python 3.13, FastAPI, Poetry
-- Jobs: Celery
-- Database: PostgreSQL
-- Cache and broker: Redis
-- Local workflow: simple `make`-style commands driving Docker-based build, run, and test tasks
-
-## Architecture
-
-- React frontend
-- FastAPI backend API
-- Celery worker for import and sync jobs
-- PostgreSQL as the source of truth
-- Redis for cache and job state
-- Docker as the local virtualization and validation environment
-
-```mermaid
-flowchart LR
-    U[User Browser] --> FE[React Frontend]
-    FE --> API[FastAPI]
-    FE --> MAPY[Mapy.cz]
-    API --> R[(Redis)]
-    API --> DB[(PostgreSQL)]
-    API --> W[Celery Worker]
-    W --> STRAVA[Strava API]
-    W --> DB
-    W --> R
-```
-
-## Functional Scope
-
-Required screens:
+### Required Screens
 
 - landing/login
 - dashboard
@@ -67,63 +34,125 @@ Required screens:
 - settings/profile
 - sync/import status
 
-## Frontend Visual Direction
+## Performance and Operational Requirements
 
-The frontend should follow a visual language that is clearly inspired by Strava web rather than a generic admin dashboard.
+- Normal UI reads should complete within 500 ms when served from local storage or cache.
+- Standard page rendering must not depend on synchronous Strava API calls.
+- Activity detail must be renderable from locally stored activity and stream data.
+- Duplicate activities must be upserted by Strava activity id.
+- Token expiry during sync must trigger refresh and retry.
+- Temporary Strava API failures should retry with backoff before a sync job is marked failed.
+- Partial import failure for one activity must not corrupt already persisted valid data.
 
-Required styling direction for v1:
+## Technology and Delivery Constraints
 
-- clean, bright, sport-product presentation with strong emphasis on activity metrics
-- white or very light primary surfaces
+### Target Stack
+
+- Frontend: React, Tailwind CSS, Recharts, Mapy.cz-backed map rendering
+- Backend: Python 3.13, FastAPI, Poetry
+- Worker: Celery, Poetry
+- Database: PostgreSQL
+- Cache and broker: Redis
+- Local validation: Docker Compose driven through short `make` targets
+
+### Local Workflow Requirements
+
+- Docker is the standard local validation environment.
+- The repository must expose short task entrypoints such as `make build`, `make up`, `make test`, and `make down`.
+- Windows is the primary local environment, so command design must remain Windows-compatible.
+- Every meaningful iteration should be validated locally.
+- Every meaningful code change must include a successful build validation.
+- Do not rely on deleting or recreating the database as a normal development step.
+- When schema changes are required, add explicit backward-safe migrations.
+
+## Architecture
+
+### Target Structure
+
+- `frontend`: React web application
+- `backend`: FastAPI application for auth, read APIs, profile management, and sync orchestration
+- `worker`: Celery worker for full import, incremental sync, and read-model refresh
+- `postgres`: source of truth for persisted application data
+- `redis`: cache plus Celery broker/backend
+
+### Architectural Rules
+
+- Keep framework code at the edges.
+- Keep business logic in testable domain and application layers.
+- Isolate infrastructure concerns such as Strava access, persistence, cache, and background jobs.
+- Avoid coupling UI code, HTTP handlers, and persistence logic directly.
+- Maintain clear separation between auth, sync, analytics, and read APIs.
+- Keep read APIs reusable so future machine-consumable or insight-oriented endpoints can be added without major redesign.
+
+```mermaid
+flowchart LR
+    U[User Browser] --> FE[React Frontend]
+    FE --> API[FastAPI]
+    FE --> MAPY[Map Provider]
+    API --> R[(Redis)]
+    API --> DB[(PostgreSQL)]
+    API --> W[Celery Worker]
+    W --> STRAVA[Strava API]
+    W --> DB
+    W --> R
+```
+
+## Frontend Direction
+
+The frontend should feel closer to Strava web than to a generic admin dashboard.
+
+### Visual Direction
+
+- clean, bright, metric-first presentation
+- light primary surfaces
 - dark or charcoal text for primary numbers and labels
-- Strava-like orange as the main accent color for active controls, emphasis states, and cycling-related indicators
-- restrained neutral grays for borders, dividers, secondary text, and inactive controls
-- large, high-contrast KPI numbers with compact supporting labels
-- rounded cards and controls, but not overly soft consumer-app styling
-- simple, data-first layouts with generous whitespace and minimal decorative background effects
+- orange accent for active controls, emphasis states, and cycling-related indicators
+- restrained neutral grays for borders, dividers, and secondary text
+- large KPI numbers with compact labels
+- rounded cards and controls without over-soft consumer styling
+- simple layouts with generous whitespace and minimal decoration
 
-The frontend should avoid:
+### Avoid
 
-- dark immersive dashboard styling as the default product surface
-- neon gradients, glassmorphism-heavy treatments, or decorative effects that compete with the metrics
-- arbitrary color systems unrelated to activity meaning
+- dark default product surfaces
+- neon gradients or glass-heavy styling
+- decorative effects that compete with metrics
+- arbitrary color systems unrelated to sport meaning
 
-The goal is not to clone Strava exactly, but to make the application feel closer to Strava web than to a generic template.
+## Analytics and Read Requirements
 
-Required analytics:
+### Global Analytics Scope
+
+The application must support:
 
 - progression over time
 - pace or speed trends
 - elevation trends
-- training load or difficulty trend
+- training load or difficulty trends
 - best efforts
 - monthly, yearly, and rolling comparisons
 - single-activity analysis
 
-Filters required in v1:
+### Shared Filters
 
 - sport type
 - date range
 
-### Dashboard and Comparison Metrics
-
-The dashboard and comparison views in v1 should focus on simple period-over-period comparisons over imported local data.
-
-Required comparison windows:
+### Dashboard Comparison Windows
 
 - current week versus previous week
 - current month versus previous month
 - current year versus previous year
 - rolling 30 days versus previous rolling 30 days
 
-The comparison UI should let the user switch among:
+Supported comparison selectors:
 
 - `week`
 - `month`
 - `year`
 - `rolling_30d`
 
-Required comparison metrics:
+### Comparison Metrics
 
 - total distance
 - total moving time
@@ -131,26 +160,18 @@ Required comparison metrics:
 - average running pace for running activities
 - average cycling speed for cycling activities
 
-Comparison metrics must be computed separately per sport type when a sport filter is applied.
+Rules:
 
-For period-level pace and speed comparisons:
+- comparisons must honor the selected sport filter
+- period pace and speed must be derived from aggregated totals, not from averaging per-activity averages
+- running pace is `total_moving_time / total_distance`
+- cycling speed is `total_distance / total_moving_time`
 
-- do not compute a naive average of per-activity averages
-- instead derive the period metric from aggregated totals
-- running pace should be computed from `total_moving_time / total_distance`
-- cycling speed should be computed from `total_distance / total_moving_time`
+## Activity Data Requirements
 
-This is a requirement for correctness because direct averaging of per-activity values would bias the result toward shorter sessions.
+### Imported Activity Fields
 
-## Activity Metrics and KPI Definitions
-
-The system should distinguish clearly between three categories of activity data:
-
-- raw activity fields imported from Strava
-- derived per-activity KPI values shown in summary cards and lists
-- derived time-series and analytical outputs used by the activity detail page
-
-Supported imported activity fields for v1 should include at least:
+At minimum, imported activity metadata must support:
 
 - `id`
 - `name`
@@ -170,7 +191,9 @@ Supported imported activity fields for v1 should include at least:
 - `average_cadence`
 - `start_latlng`
 
-The current application also uses the following activity streams for detail analysis and must preserve them in v1 when available:
+### Imported Streams
+
+When available, the system must persist streams needed for local detail rendering:
 
 - `time`
 - `distance`
@@ -179,40 +202,42 @@ The current application also uses the following activity streams for detail anal
 - `velocity_smooth`
 - `heartrate`
 
-For persisted read models and API payloads, the backend should normalize and expose at least:
+### Normalized Read Fields
+
+Backend read models and API payloads should expose at least:
 
 - `distance_km = distance / 1000`
-- formatted moving time for display
-- running pace derived from time and distance where applicable
+- formatted moving time
+- running pace when applicable
 - cycling speed in `km/h`
-- route polyline and map bounds
+- route polyline and map bounds when GPS data exists
 
-### Activity Summary KPI Cards
+## Activity Summary KPIs
 
-The activity detail header and activity-summary surfaces should expose the following KPI set:
+Activity summary surfaces and detail headers must expose:
 
 - distance in kilometers
 - moving time
-- average pace for running or max speed for cycling
+- running pace for running activities or speed for cycling activities
 - total elevation gain
 - average heart rate when available
 
-The current application renders these values as follows:
+Formatting rules:
 
 - `distance_km = round(distance / 1000, 2)`
-- moving time is formatted as `M:SS` for durations below one hour and `H:M:SS` for longer durations
-- running summary pace is computed from `average_speed` and displayed as `min/km`
-- cycling summary speed is displayed in `km/h`
+- moving time is `M:SS` below one hour and `H:M:SS` for longer durations
+- running summary pace is displayed as `min/km`
+- cycling speed is displayed in `km/h`
 - elevation is displayed in meters
-- heart rate is displayed in beats per minute
+- heart rate is displayed in bpm
 
-If heart-rate data is absent, the API must return a nullable value and the frontend must render the KPI gracefully without failing the page.
+If heart-rate data is missing, the API must return a nullable value and the frontend must omit or soften that KPI without failing the page.
 
-### Derived Activity Difficulty KPI
+## Derived Difficulty Metric
 
-The current application computes a coarse per-activity difficulty score for activity lists and calendar summaries. This should be preserved as a derived metric in v1, even if the UI wording later changes.
+The current application uses a local heuristic to rank effort. Preserve it as a reusable derived metric in v1.
 
-Current formula:
+Formula:
 
 - `d_distance_km = distance_km / 15`
 - `d_total_elevation_gain = total_elevation_gain / 150`
@@ -220,29 +245,32 @@ Current formula:
 - `d_average_speed = 6 - abs(user.speed_max - average_speed_kmh)`
 - `difficulty = d_distance_km * d_total_elevation_gain * d_average_heartrate * d_average_speed`
 
-Where:
+Definitions:
 
 - `average_speed_kmh = average_speed * 3.6`
-- `user.max_bpm` is taken from the user profile
-- `user.speed_max` is taken from the user profile
+- `user.max_bpm` comes from the user profile
+- `user.speed_max` comes from the user profile
 
-This difficulty score is not a training-science metric. It is a local heuristic used to rank or visually mark sessions by effort level. The new architecture should keep it isolated as a reusable analytics function so it can be revised later without changing raw imports.
+This metric is a product-specific heuristic, not a scientific training score.
 
-### Best Efforts
+## Best Efforts
 
-Best efforts in v1 should be intentionally narrow and easy to understand.
+### Functional Scope
 
-Scope for v1:
+Best efforts should be available for:
 
-- running only
-- best time for `1 km`
-- best time for `5 km`
-- best time for `10 km`
-- best time for `Half-Marathon`
+- running
+- ride
+- e-bike ride
+
+The implementation should remain extensible to new effort distances and sport categories without schema rework.
+
+### Record Requirements
 
 Each best-effort record should retain at least:
 
 - user id
+- sport type
 - effort code or canonical distance label
 - best time
 - source activity id
@@ -250,68 +278,60 @@ Each best-effort record should retain at least:
 
 Implementation rule:
 
-- use imported Strava best-effort or split-style data when it is available and reliable
-- otherwise derive the best effort locally from stored activity and stream data
-
-The backend should expose the best mark per user and distance for the selected sport and should be designed so additional distances can be added later without schema rework.
+- prefer imported Strava best-effort or split-like data when available and trustworthy
+- otherwise derive best efforts locally from persisted activity and stream data
 
 ## Activity Detail Requirements
 
-The activity detail page must preserve the current analytical scope and improve presentation.
-
-Required elements:
+### Required Elements
 
 - activity metadata and KPI summary
-- route map using Mapy.cz and stored GPS points
+- route map based on stored GPS points
 - pace for running or speed for cycling
-- heart rate where available
-- elevation
-- slope
-- hover-linked marker on the map driven by the graph
-- running interval and pace-zone analysis equivalent to the current app
+- heart rate when available
+- elevation when available
+- slope when available
+- hover-linked active marker on the map driven by graph focus
+- running interval and pace-zone analysis for running activities
 
-The activity detail page should preserve the current behavior and formulas from the existing application unless a later design decision explicitly replaces them.
+The activity detail page must preserve the current analytical intent of the legacy application unless a later design decision explicitly replaces that behavior.
 
-The graph should use distance as the shared x-axis and show:
-
-- pace or speed
-- heart rate
-- elevation
-- slope
+### Detail Payload Requirements
 
 The backend detail payload must include:
 
 - metadata and KPI values
-- map bounds and polyline
-- distance-aligned series for pace or speed, heart rate, elevation, and slope
+- map bounds and route polyline when GPS is present
+- distance-aligned series for pace or speed
+- distance-aligned heart-rate series when present
+- distance-aligned elevation series when present
+- distance-aligned slope series when derivable
 - running interval-analysis output when applicable
 
-### Detail-Series Definitions
+### Canonical Derived Series
 
-For v1, the following derived series should be treated as the canonical activity-detail behavior:
+For v1, these are the canonical activity-detail derivations:
 
-- `distance_km` is derived from stream distance values in meters
+- `distance_km` comes from stream distance values in meters
 - moving-average heart rate uses a centered moving average with `range_points = 10`
-- moving-average speed uses `velocity_smooth * 3.6` and a centered moving average with `range_points = 10`
-- running pace is derived from stream `time` and `distance` using a centered window with `range_points = 20`
-- derived running pace values are capped at `16 min/km` to avoid unstable values at very low movement
-- pace should be available in both numeric `min/km` form and display-ready `MM:SS /km` form
+- moving-average speed uses `velocity_smooth * 3.6` with `range_points = 10`
+- running pace uses stream `time` and `distance` with a centered window of `range_points = 20`
+- running pace values are capped at `16 min/km`
+- running pace must be available both as numeric `min/km` and display-ready `MM:SS /km`
 - slope uses altitude change over a 30-point window divided by horizontal distance and converted to percent
-- slope values are clamped to the range `[-45, 45]`
+- slope values are clamped to `[-45, 45]`
 
-The current pace derivation uses a symmetric local window:
+Current pace derivation behavior to preserve:
 
 - `start_index = max(0, i - range_points)`
 - `end_index = min(len(stream) - 1, i + range_points)`
-- `pace_min_per_km = (delta_time_minutes / delta_distance_km)`
+- `pace_min_per_km = delta_time_minutes / delta_distance_km`
 
-If `delta_distance` is zero, the derived pace should be treated as infinite and displayed as `0:00` in legacy-compatible formatted output.
+If `delta_distance` is zero, pace should be treated as infinite and legacy-compatible formatted output should render `0:00`.
 
-### Running Pace and Heart-Rate Zones
+## Running Zones and Interval Analysis
 
-For running activities, v1 must preserve the current user-relative pace and heart-rate zone model because the interval analysis and detail graph depend on it.
-
-Current zone labels:
+### Zone Labels
 
 - `100m`
 - `5km`
@@ -322,7 +342,7 @@ Current zone labels:
 - `Slow Jogging`
 - `Walk`
 
-Current zone anchor formulas are:
+### Zone Anchors
 
 - `bpm_max = 220 - 0.7 * age`
 - `100m pace = 60 / (1.15 * speed_max)`, `100m bpm = 1.00 * bpm_max`
@@ -334,18 +354,16 @@ Current zone anchor formulas are:
 - `Slow Jogging pace = 60 / (0.50 * speed_max)`, `Slow Jogging bpm = 0.60 * bpm_max`
 - `Walk pace = 60 / 4.8`, `Walk bpm = 0.40 * bpm_max`
 
-Zone boundaries are derived from the midpoints between adjacent zone anchors:
+### Zone Boundary Rules
 
-- pace ranges use half-way points between neighboring target pace values
-- heart-rate ranges use half-way points between neighboring target bpm values
-- pace zone matching uses `lower <= pace < upper`
-- heart-rate zone matching uses `lower <= bpm < upper`
+- pace ranges use midpoints between adjacent pace anchors
+- heart-rate ranges use midpoints between adjacent bpm anchors
+- pace-zone matching uses `lower <= pace < upper`
+- heart-rate-zone matching uses `lower <= bpm < upper`
 
-### Running Interval Analysis Output
+### Interval Analysis Output
 
-For running activities, the backend should expose interval-analysis output derived from the distance-aligned pace and heart-rate series.
-
-The current implementation groups consecutive data points into intervals whenever both of these remain unchanged:
+For running activities, interval segmentation should group consecutive data points while both remain unchanged:
 
 - detected pace zone
 - detected heart-rate zone
@@ -358,85 +376,68 @@ Each interval contains:
 - `zones.zone_pace`
 - `zones.zone_heart_rate`
 
-The backend should also expose per-zone summary KPIs computed from the grouped intervals:
+Per-zone summaries must include:
 
 - average pace within the zone
 - average heart rate within the zone
 - total distance accumulated within the zone
 
-The current app also derives a simple textual running analysis:
+### Running Analysis Summary
 
-- select up to two dominant pace zones whose accumulated distance passes a minimum threshold
+The backend should preserve a simple textual or structured analysis output derived from dominant pace zones:
+
+- select up to two dominant pace zones whose accumulated distance passes the threshold for that zone
 - thresholds are `0.5 km` for `100m` and `5km`, `1.0 km` for `10km`, `2.1 km` for `Half-Marathon`, `4.2 km` for `Marathon`, and `0 km` for jogging and walking zones
 - prioritize race-oriented zones before jogging and walking zones
 - compute a compliance score for the dominant zone as the percentage of zone distance whose heart-rate zone is at or below the associated pace-zone target
 
-This score is currently used as explanatory activity feedback, not as a scientific training prescription. The new backend should preserve it as explicit derived output so the frontend and future insight features can reuse it.
+This is explanatory feedback, not prescriptive coaching.
 
-### Missing Data Behavior
+## Missing Data Behavior
 
-The activity detail page must degrade gracefully when some imported streams are missing.
+- The activity detail page must still load when core activity metadata exists.
+- Missing heart-rate data must hide heart-rate KPIs and related graph content without failing the page.
+- Missing GPS data must hide the route map and hover-linked marker behavior.
+- Missing altitude data must hide elevation and slope visualizations.
+- Slope must only be computed when both altitude and distance streams are available.
+- If an activity is only partially imported, valid local data must remain readable.
 
-V1 rules:
+The UI should omit unavailable widgets rather than showing placeholder errors.
 
-- the activity detail page should still load when core activity metadata exists
-- missing heart-rate data must hide heart-rate KPIs and heart-rate graph content without failing the page
-- missing GPS data must hide the route map and hover-linked marker behavior
-- missing altitude data must hide elevation and slope visualizations
-- slope must only be computed when both altitude and distance stream data are available
-- if an activity is only partially imported, existing valid local data must remain readable
+## Calendar Requirements
 
-The UI should prefer omission of unavailable widgets over placeholder errors.
+### Monthly View Behavior
 
-## Calendar Screen Requirements
-
-The calendar screen should use a compact visual language similar to the attached reference image: a clean monthly grid with one aggregate circular marker per day rather than a stacked event list as the primary encoding.
-
-Calendar v1 behavior:
-
-- render a month view with one visible cell per day
+- render one visible cell per day
 - aggregate all activities in a day into one daily summary marker
-- compute the daily marker from the sum of all activities on that calendar day
-- allow clicking the day marker or cell to drill into the activities for that day
+- use the sum of same-day activities as the daily total
+- allow drilling into the activities for the selected day
 
-Daily aggregation inputs:
+### Daily Marker Rules
 
-- total distance for the day as the sum of activity distances
-- activity count for the day
-- dominant sport color based on the day’s activity mix
+- use one circular marker as the primary daily encoding
+- marker diameter scales with total daily distance in kilometers
+- days with greater total distance must render larger circles
+- days with no activities should have no marker or a minimal empty state
 
-Daily marker encoding:
-
-- use a circular marker as the primary daily visual
-- marker diameter must scale with the total distance completed that day
-- larger total daily kilometers must produce a larger circle
-- days with no activities should show no marker or only a minimal empty placeholder state
-
-Daily sport colors:
+### Daily Color Rules
 
 - running days use yellow
 - cycling days use orange
-- if a day mixes supported sport types, use the color of the sport with the greater distance share for that day
-
-Calendar distance sizing rule:
-
-- size is based on total daily distance in kilometers, not activity count
-- all same-day activities must be summed before sizing the marker
-- the exact size scale may be tuned in implementation, but it must remain monotonic and visually readable across low and high volume days
+- mixed-sport days use the color of the sport contributing the greater distance share
 
 The calendar should feel closer to a Strava-style training overview than to a traditional enterprise calendar widget.
 
 ## Sync Model
 
 - First login enqueues a full historical import.
-- Users can enter the app while import is running and see sync progress.
-- Daily refresh imports only new activities.
-- New data invalidates affected cache entries and recomputes summaries.
-- Duplicate activities must be upserted by Strava activity id rather than duplicated locally.
-- Token expiry during sync should trigger token refresh and retry.
-- Temporary Strava API failures should retry with backoff before the sync job is marked failed.
-- Partial import failure for one activity must not corrupt already persisted valid activity data.
-- Deletions and later historical edits in Strava remain out of scope for v1 and do not need to be reconciled locally.
+- Users can use the app while import is running and see sync progress.
+- Daily refresh imports only newly available activities.
+- Manual refresh is incremental only and must not trigger a full reimport.
+- New data invalidates affected cache entries and recomputes summaries as needed.
+- Deletions and later historical edits in Strava remain out of scope for v1.
+- If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
+- If Strava activity streams return `404`, import the activity and continue without streams.
 
 ```mermaid
 sequenceDiagram
@@ -456,30 +457,12 @@ sequenceDiagram
     Worker->>DB: Store activities, streams, summaries
 ```
 
-## Development Workflow
-
-- Use Docker as the standard local virtualization environment.
-- Build, run, and test the full stack through simple `make`-style commands.
-- The command surface should stay short and predictable.
-- Every code change must be followed by a successful build validation.
-- Use Poetry as the Python dependency and virtual-environment manager for backend and worker services.
-
-Expected commands:
-
-- `make build` builds the Docker images
-- `make up` starts frontend, backend, worker, database, and Redis
-- `make test` runs the automated test suite inside Docker
-- `make down` stops the local stack
-
-Normal validation should happen through Docker, not by relying on partially manual host setup.
-
-When host-level Python commands are documented for backend or worker work, they should use Poetry rather than direct `pip` or ad hoc virtualenv commands.
-
 ## Data Model
 
-Core entities:
+### Core Entities
 
 - `users`
+- `user_profiles`
 - `oauth_tokens`
 - `activities`
 - `activity_streams`
@@ -488,36 +471,19 @@ Core entities:
 - `activity_best_efforts`
 - `sync_jobs`
 - `sync_checkpoints`
-- `user_profiles`
 
-Activity-related persistence should support both raw imported data and locally derived analytics. At minimum, the new schema should be able to store:
+### Persistence Expectations
+
+The schema must support:
 
 - imported activity metadata
-- imported activity streams required for local rendering
-- activity-level derived KPI values such as normalized distance and difficulty inputs
-- derived activity-detail series when precomputation is beneficial
-- running interval-analysis results when precomputation is beneficial
+- imported streams needed for local rendering
+- activity-level derived KPI inputs and normalized fields
+- derived detail series when precomputation is beneficial
+- interval-analysis outputs when precomputation is beneficial
+- Strava athlete identity and analytics profile inputs such as age or birthday, `speed_max`, and optional future overrides
 
-User-related persistence should support the analytics model and future overrides. At minimum, the system should be able to store:
-
-- Strava athlete identity
-- birthday or age input needed for age-based calculations
-- `speed_max`
-- optional future override fields such as user-defined max heart rate
-
-```mermaid
-erDiagram
-    USERS ||--o{ OAUTH_TOKENS : has
-    USERS ||--o{ ACTIVITIES : owns
-    USERS ||--o{ PERIOD_SUMMARIES : aggregates
-    USERS ||--o{ BEST_EFFORTS : records
-    USERS ||--o{ SYNC_JOBS : runs
-    USERS ||--o{ SYNC_CHECKPOINTS : tracks
-    ACTIVITIES ||--o| ACTIVITY_STREAMS : has
-    ACTIVITIES ||--o{ ACTIVITY_BEST_EFFORTS : yields
-```
-
-Key indexes:
+### Key Indexes
 
 - `activities(user_id, start_date_utc desc)`
 - `activities(user_id, sport_type, start_date_utc desc)`
@@ -526,7 +492,7 @@ Key indexes:
 
 ## API Requirements
 
-The backend should expose:
+The backend must expose:
 
 - auth endpoints for Strava login and callback
 - current-user profile endpoint
@@ -537,30 +503,4 @@ The backend should expose:
 - activity detail endpoint
 - best-efforts endpoint
 
-The backend should also be designed so it can be extended later with user-scoped LLM and insight features without major architectural rework. This means:
-
-- keep read APIs structured and reusable for machine-consumable access
-- expose analytics through stable service boundaries instead of embedding logic only in controllers or frontend code
-- keep derived metrics and summaries available in backend-readable form
-- make it possible to add future insight-oriented endpoints over local user data
-
-Future extensibility should support:
-
-- natural-language querying over the user's own imported activity data
-- explanation-style insights about what the user is doing well
-- explanation-style insights about patterns that appear weak or inconsistent
-- evidence-backed reasoning based on stored activity history, summaries, trends, and best efforts
-
-The intended future direction is observational insights, not prescriptive coaching. The system should be prepared to answer questions such as:
-
-- what have I improved recently
-- what am I consistently doing well
-- where am I underperforming compared with my own patterns
-- which workouts or periods were less effective and why
-- how my recent training compares with earlier periods or goals
-
-## Delivery Notes
-
-- Preserve the analytical intent of the current app, especially on the activity detail page.
-- Redesign navigation and UI freely as long as the information set remains available.
-- Use local data, precomputed summaries, and cache to keep reads fast.
+The backend should remain extensible for future user-scoped insight features by keeping analytics and read models accessible through stable backend service boundaries.
