@@ -36,6 +36,7 @@ class Activity(TimestampMixin, Base):
     average_speed_kph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     max_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
     average_heartrate_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     max_heartrate_bpm: Mapped[int | None]
     average_cadence: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))

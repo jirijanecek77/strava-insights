@@ -64,6 +64,7 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         average_speed_kph=Decimal("13.32"),
         max_speed_mps=Decimal("4.5000"),
         average_heartrate_bpm=Decimal("150.00"),
+        heart_rate_drift_bpm=Decimal("3.00"),
         max_heartrate_bpm=170,
         average_cadence=Decimal("84.00"),
         average_pace_seconds_per_km=Decimal("270.00"),
@@ -201,12 +202,14 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         assert activities_response.json()["items"][0]["name"] == "Morning Run"
         assert activities_response.json()["items"][0]["summary_metric_display"] == "4:30"
         assert activities_response.json()["items"][0]["summary_metric_kind"] == "pace"
+        assert activities_response.json()["items"][0]["heart_rate_drift_bpm"] == "3.00"
 
         activity_detail_response = client.get("/activities/5")
         assert activity_detail_response.status_code == 200
         assert activity_detail_response.json()["map"]["bounds"]["max_lat"] == 50.1
         assert activity_detail_response.json()["kpis"]["summary_metric_display"] == "4:30"
         assert activity_detail_response.json()["kpis"]["summary_metric_kind"] == "pace"
+        assert activity_detail_response.json()["kpis"]["heart_rate_drift_bpm"] == "3.00"
         assert activity_detail_response.json()["series"]["pace_display"][0] == "4:00"
         assert activity_detail_response.json()["series"]["altitude_meters"][0] == 200
 

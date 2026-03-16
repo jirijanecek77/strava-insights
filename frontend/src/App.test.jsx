@@ -91,6 +91,7 @@ describe("App", () => {
                             summary_metric_display: "5:00 min/km",
                             total_elevation_gain_meters: 120,
                             average_heartrate_bpm: 150,
+                            heart_rate_drift_bpm: 6.5,
                             difficulty_score: 7.5,
                         },
                         map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
@@ -129,6 +130,7 @@ describe("App", () => {
                                 summary_metric_display: "5:00 /km",
                                 total_elevation_gain_meters: 120,
                                 average_heartrate_bpm: 150,
+                                heart_rate_drift_bpm: 6.5,
                                 difficulty_score: 7.5,
                             },
                         ],
@@ -218,6 +220,8 @@ describe("App", () => {
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
         expect(screen.getByText(/^distance$/i)).toBeInTheDocument();
         expect(screen.getByText(/^moving time$/i)).toBeInTheDocument();
+        expect(screen.getByText(/^hr drift$/i)).toBeInTheDocument();
+        expect(screen.getAllByText("+6.5 bpm").length).toBeGreaterThan(0);
         expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^elevation$/i)).toBeInTheDocument();
         expect(screen.getByText(/^average hr$/i)).toBeInTheDocument();
@@ -284,6 +288,7 @@ describe("App", () => {
                                 activity_count: 2,
                                 total_distance_meters: 25000,
                                 total_moving_time_seconds: 7200,
+                                average_heart_rate_drift_bpm: 2.5,
                             },
                             {
                                 sport_type: "Run",
@@ -292,6 +297,7 @@ describe("App", () => {
                                 activity_count: 4,
                                 total_distance_meters: 41000,
                                 total_moving_time_seconds: 12600,
+                                average_heart_rate_drift_bpm: 4.25,
                             },
                             {
                                 sport_type: "Run",
@@ -300,6 +306,7 @@ describe("App", () => {
                                 activity_count: 3,
                                 total_distance_meters: 33000,
                                 total_moving_time_seconds: 9900,
+                                average_heart_rate_drift_bpm: 3.1,
                             },
                         ],
                     }),
@@ -314,6 +321,7 @@ describe("App", () => {
         expect(graph).toBeInTheDocument();
         expect(screen.getByText(/^km$/i)).toBeInTheDocument();
         expect(screen.getByText(/^sessions$/i)).toBeInTheDocument();
+        expect(screen.getByText(/^hr drift$/i)).toBeInTheDocument();
     });
 
     it("lets the user choose which two monthly periods to compare", async () => {

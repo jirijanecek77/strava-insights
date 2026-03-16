@@ -88,6 +88,9 @@ class ActivityRepositoryStub:
     def get_by_strava_id(self, _user_id: int, strava_activity_id: int):
         return self.by_id.get(strava_activity_id)
 
+    def get_by_id(self, activity_id: int):
+        return next((activity for activity in self.by_id.values() if activity.id == activity_id), None)
+
     def list_existing_strava_ids_for_user(self, _user_id: int, strava_activity_ids: list[int]):
         return {strava_activity_id for strava_activity_id in strava_activity_ids if strava_activity_id in self.existing_strava_ids}
 
@@ -215,12 +218,12 @@ class StravaClientStub:
         assert activity_id == 100
         self.stream_calls.append(activity_id)
         return {
-            "time": {"data": [0, 1]},
-            "distance": {"data": [0, 10]},
+            "time": {"data": [0, 60, 120, 180]},
+            "distance": {"data": [0, 250, 750, 1250]},
             "latlng": {"data": [[50.0, 14.0], [50.1, 14.1]]},
             "altitude": {"data": [200, 201]},
-            "velocity_smooth": {"data": [3.5, 3.6]},
-            "heartrate": {"data": [145, 146]},
+            "velocity_smooth": {"data": [3.5, 3.6, 3.7, 3.8]},
+            "heartrate": {"data": [145, 146, 150, 152]},
         }
 
 
@@ -255,7 +258,8 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     assert service.activities.by_id[100].average_pace_display == "4:30"
     assert service.activities.by_id[100].summary_metric_display == "4:30 /km"
     assert service.activities.by_id[100].difficulty_score is not None
-    assert service.activity_streams.by_activity_id[1].heartrate_stream == {"data": [145, 146]}
+    assert service.activities.by_id[100].heart_rate_drift_bpm == 5
+    assert service.activity_streams.by_activity_id[1].heartrate_stream == {"data": [145, 146, 150, 152]}
     assert service.read_model_builder.user_ids == [1]
     assert service.cache_invalidator.user_ids == [1]
 

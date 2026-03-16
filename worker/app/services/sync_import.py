@@ -25,6 +25,7 @@ from app.services.activity_summary import (
     summary_metric_display,
 )
 from app.services.cache_invalidator import UserCacheInvalidator
+from app.services.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.services.read_model_builder import ReadModelBuilder
 from app.strava_client import StravaActivityStreamNotFoundError, StravaApiClient
 
@@ -204,7 +205,15 @@ class BaseImportService:
         activity_stream.altitude_stream = payload.get("altitude")
         activity_stream.velocity_smooth_stream = payload.get("velocity_smooth")
         activity_stream.heartrate_stream = payload.get("heartrate")
-        return self.activity_streams.save(activity_stream)
+        saved_stream = self.activity_streams.save(activity_stream)
+        activity = self.activities.get_by_id(activity_id)
+        if activity is not None:
+            activity.heart_rate_drift_bpm = calculate_heart_rate_drift_bpm(
+                distance_stream_meters=(saved_stream.distance_stream or {}).get("data", []),
+                heartrate_stream_bpm=(saved_stream.heartrate_stream or {}).get("data", []),
+            )
+            self.activities.save(activity)
+        return saved_stream
 
     @staticmethod
     def _parse_datetime(value: str | None) -> datetime | None:

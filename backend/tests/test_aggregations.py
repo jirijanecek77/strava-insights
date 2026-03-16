@@ -13,6 +13,7 @@ def test_aggregate_period_summaries_uses_weighted_period_metrics() -> None:
             distance_meters=Decimal("10000"),
             moving_time_seconds=2700,
             total_elevation_gain_meters=Decimal("100"),
+            heart_rate_drift_bpm=Decimal("3.00"),
             difficulty_score=Decimal("1.2500"),
         ),
         ActivityAggregateInput(
@@ -21,6 +22,7 @@ def test_aggregate_period_summaries_uses_weighted_period_metrics() -> None:
             distance_meters=Decimal("5000"),
             moving_time_seconds=1500,
             total_elevation_gain_meters=Decimal("50"),
+            heart_rate_drift_bpm=Decimal("5.00"),
             difficulty_score=Decimal("0.5000"),
         ),
     ]
@@ -32,6 +34,7 @@ def test_aggregate_period_summaries_uses_weighted_period_metrics() -> None:
     assert summary.total_distance_meters == Decimal("15000.00")
     assert summary.total_moving_time_seconds == 4200
     assert summary.average_pace_seconds_per_km == Decimal("280.00")
+    assert summary.average_heart_rate_drift_bpm == Decimal("4.00")
     assert summary.total_difficulty_score == Decimal("1.7500")
 
 
@@ -43,6 +46,7 @@ def test_aggregate_period_summaries_supports_week_period() -> None:
             distance_meters=Decimal("10000"),
             moving_time_seconds=2700,
             total_elevation_gain_meters=Decimal("100"),
+            heart_rate_drift_bpm=Decimal("3.00"),
             difficulty_score=Decimal("1.2500"),
         )
     ]
@@ -55,8 +59,8 @@ def test_aggregate_period_summaries_supports_week_period() -> None:
 def test_compare_periods_returns_numeric_deltas() -> None:
     summaries = aggregate_period_summaries(
         [
-            ActivityAggregateInput("Run", date(2026, 3, 1), Decimal("10000"), 2700, Decimal("100"), Decimal("1.0")),
-            ActivityAggregateInput("Run", date(2026, 2, 1), Decimal("8000"), 2400, Decimal("50"), Decimal("0.5")),
+            ActivityAggregateInput("Run", date(2026, 3, 1), Decimal("10000"), 2700, Decimal("100"), Decimal("3.0"), Decimal("1.0")),
+            ActivityAggregateInput("Run", date(2026, 2, 1), Decimal("8000"), 2400, Decimal("50"), Decimal("2.0"), Decimal("0.5")),
         ],
         period_type="month",
     )
@@ -83,8 +87,8 @@ def test_derive_activity_best_efforts_finds_shortest_segment_times() -> None:
 def test_summarize_window_builds_rolling_period_metrics() -> None:
     summary = summarize_window(
         [
-            ActivityAggregateInput("Run", date(2026, 3, 1), Decimal("10000"), 2700, Decimal("100"), Decimal("1.0")),
-            ActivityAggregateInput("Run", date(2026, 3, 2), Decimal("5000"), 1500, Decimal("50"), Decimal("0.5")),
+            ActivityAggregateInput("Run", date(2026, 3, 1), Decimal("10000"), 2700, Decimal("100"), Decimal("3.0"), Decimal("1.0")),
+            ActivityAggregateInput("Run", date(2026, 3, 2), Decimal("5000"), 1500, Decimal("50"), Decimal("5.0"), Decimal("0.5")),
         ],
         sport_type="Run",
         window_type="rolling_30d",
@@ -93,3 +97,4 @@ def test_summarize_window_builds_rolling_period_metrics() -> None:
 
     assert summary is not None
     assert summary.average_pace_seconds_per_km == Decimal("280.00")
+    assert summary.average_heart_rate_drift_bpm == Decimal("4.00")

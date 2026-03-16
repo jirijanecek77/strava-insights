@@ -83,6 +83,7 @@ class Activity(Base):
     average_speed_kph: Mapped[float | None] = mapped_column(Numeric(10, 2))
     max_speed_mps: Mapped[float | None] = mapped_column(Numeric(10, 4))
     average_heartrate_bpm: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    heart_rate_drift_bpm: Mapped[float | None] = mapped_column(Numeric(6, 2))
     max_heartrate_bpm: Mapped[int | None]
     average_cadence: Mapped[float | None] = mapped_column(Numeric(6, 2))
     average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
@@ -120,6 +121,7 @@ class PeriodSummary(Base):
     total_moving_time_seconds: Mapped[int] = mapped_column(nullable=False, default=0)
     average_speed_mps: Mapped[float | None] = mapped_column(Numeric(10, 4))
     average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
+    average_heart_rate_drift_bpm: Mapped[float | None] = mapped_column(Numeric(10, 2))
     total_elevation_gain_meters: Mapped[float | None] = mapped_column(Numeric(12, 2))
     total_difficulty_score: Mapped[float | None] = mapped_column(Numeric(12, 4))
 

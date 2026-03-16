@@ -46,6 +46,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
+- [x] Added heart-rate drift as an activity KPI derived from stored streams and exposed in activity list/detail payloads.
 
 ### Completed Frontend Work
 

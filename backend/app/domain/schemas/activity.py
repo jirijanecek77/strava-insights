@@ -15,6 +15,7 @@ class ActivityListRow(BaseModel):
     summary_metric_kind: str | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
+    heart_rate_drift_bpm: Decimal | None = None
     difficulty_score: Decimal | None = None
 
 
@@ -29,6 +30,7 @@ class ActivityKpis(BaseModel):
     summary_metric_kind: str | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
+    heart_rate_drift_bpm: Decimal | None = None
     difficulty_score: Decimal | None = None
 
 

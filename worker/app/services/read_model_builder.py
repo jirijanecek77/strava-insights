@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.models import ActivityBestEffort, BestEffort, PeriodSummary
+from app.services.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.repositories import (
     ActivityBestEffortRepository,
     ActivityRepository,
@@ -39,6 +40,7 @@ class AggregateInput:
     distance_meters: Decimal
     moving_time_seconds: int
     total_elevation_gain_meters: Decimal | None
+    heart_rate_drift_bpm: Decimal | None
     difficulty_score: Decimal | None
 
 
@@ -53,6 +55,7 @@ class ReadModelBuilder:
 
     def rebuild_for_user(self, user_id: int) -> None:
         activities = self.activities.list_for_user(user_id)
+        self._refresh_activity_heart_rate_drift(activities)
         self.period_summaries.replace_for_user(
             user_id=user_id,
             summaries=self._build_period_summaries(user_id, activities),
@@ -64,6 +67,18 @@ class ReadModelBuilder:
             efforts=activity_best_efforts,
         )
 
+    def _refresh_activity_heart_rate_drift(self, activities: list) -> None:
+        streams = {stream.activity_id: stream for stream in self.activity_streams.get_by_activity_ids([activity.id for activity in activities])}
+        for activity in activities:
+            stream = streams.get(activity.id)
+            if stream is None:
+                continue
+            activity.heart_rate_drift_bpm = calculate_heart_rate_drift_bpm(
+                distance_stream_meters=(stream.distance_stream or {}).get("data", []),
+                heartrate_stream_bpm=(stream.heartrate_stream or {}).get("data", []),
+            )
+            self.activities.save(activity)
+
     def _build_period_summaries(self, user_id: int, activities: list) -> list[PeriodSummary]:
         aggregate_inputs = [
             AggregateInput(
@@ -74,6 +89,7 @@ class ReadModelBuilder:
                 total_elevation_gain_meters=None
                 if activity.total_elevation_gain_meters is None
                 else Decimal(str(activity.total_elevation_gain_meters)),
+                heart_rate_drift_bpm=None if activity.heart_rate_drift_bpm is None else Decimal(str(activity.heart_rate_drift_bpm)),
                 difficulty_score=None if activity.difficulty_score is None else Decimal(str(activity.difficulty_score)),
             )
             for activity in activities
@@ -100,9 +116,11 @@ class ReadModelBuilder:
             total_distance = sum((item.distance_meters for item in items), Decimal("0"))
             total_moving_time = sum(item.moving_time_seconds for item in items)
             total_elevation = sum((item.total_elevation_gain_meters or Decimal("0") for item in items), Decimal("0"))
+            drift_values = [item.heart_rate_drift_bpm for item in items if item.heart_rate_drift_bpm is not None]
             total_difficulty = sum((item.difficulty_score or Decimal("0") for item in items), Decimal("0"))
             average_speed_mps = None
             average_pace_seconds_per_km = None
+            average_heart_rate_drift_bpm = None
             if total_distance > 0 and total_moving_time > 0:
                 if sport_type == RUN_SPORT:
                     average_pace_seconds_per_km = _quantize(
@@ -111,6 +129,8 @@ class ReadModelBuilder:
                     )
                 elif sport_type in RIDE_SPORTS:
                     average_speed_mps = _quantize(total_distance / Decimal(total_moving_time), "0.0001")
+            if drift_values:
+                average_heart_rate_drift_bpm = _quantize(sum(drift_values, Decimal("0")) / Decimal(len(drift_values)), "0.01")
 
             summaries.append(
                 PeriodSummary(
@@ -123,6 +143,7 @@ class ReadModelBuilder:
                     total_moving_time_seconds=total_moving_time,
                     average_speed_mps=average_speed_mps,
                     average_pace_seconds_per_km=average_pace_seconds_per_km,
+                    average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
                     total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
                     total_difficulty_score=_quantize(total_difficulty, "0.0001"),
                 )

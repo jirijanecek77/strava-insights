@@ -52,6 +52,7 @@ class ActivityReadService:
                     summary_metric_kind=_summary_metric_kind(item),
                     total_elevation_gain_meters=item.total_elevation_gain_meters,
                     average_heartrate_bpm=item.average_heartrate_bpm,
+                    heart_rate_drift_bpm=item.heart_rate_drift_bpm,
                     difficulty_score=item.difficulty_score,
                 )
                 for item in items
@@ -91,6 +92,11 @@ class ActivityReadService:
                 summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
+                heart_rate_drift_bpm=(
+                    activity.heart_rate_drift_bpm
+                    if activity.heart_rate_drift_bpm is not None
+                    else analytics["heart_rate_drift_bpm"]
+                ),
                 difficulty_score=activity.difficulty_score,
             ),
             map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),

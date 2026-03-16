@@ -34,6 +34,7 @@ def prepare_test_database() -> Generator[None, None, None]:
     with TEST_ENGINE.begin() as connection:
         connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{TEST_SCHEMA}"'))
         connection.execute(text(f'SET search_path TO "{TEST_SCHEMA}"'))
+        Base.metadata.drop_all(bind=connection)
         Base.metadata.create_all(bind=connection)
     session = TestSessionLocal()
     try:

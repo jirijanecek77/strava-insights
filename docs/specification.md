@@ -221,6 +221,7 @@ Activity summary surfaces and detail headers must expose:
 - running pace for running activities or speed for cycling activities
 - total elevation gain
 - average heart rate when available
+- heart-rate drift in bpm when heart-rate and distance streams are available
 
 Formatting rules:
 

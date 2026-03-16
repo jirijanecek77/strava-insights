@@ -714,7 +714,7 @@ function ActivitiesView({
                             </div>
                             <div className="activity-row-kpis">
                                 <span>{activity.distance_km ?? "?"} km</span>
-                                <span>{formatSummaryMetricDisplay(activity.summary_metric_display, activity.summary_metric_kind)}</span>
+                                <span>{activity.start_date_local ? formatDateLabel(activity.start_date_local) : "Unknown date"}</span>
                             </div>
                         </button>
                     ))}
@@ -776,6 +776,7 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                             value={detail.kpis.total_elevation_gain_meters != null ? `${detail.kpis.total_elevation_gain_meters} m` : "n/a"}/>
                 <MetricTile label="Average HR"
                             value={detail.kpis.average_heartrate_bpm != null ? `${detail.kpis.average_heartrate_bpm} bpm` : "n/a"}/>
+                <MetricTile label="HR Drift" value={formatHeartRateDrift(detail.kpis.heart_rate_drift_bpm)}/>
             </div>
             <div className="detail-grid">
                 <div className="detail-card detail-card-wide">
@@ -879,6 +880,7 @@ function BestEffortsView({items, selectedSport, onSelectActivity}) {
         : selectedSport === "Run"
             ? "Running marks"
             : "All-sport marks";
+    const groupedItems = groupBestEffortsBySport(items);
     return (
         <section className="panel">
             <div className="panel-header">
@@ -887,22 +889,28 @@ function BestEffortsView({items, selectedSport, onSelectActivity}) {
                     <h2>{heading}</h2>
                 </div>
             </div>
-            <div className="best-effort-grid">
-                {items.length === 0 ? <EmptyState text="No best efforts stored yet."/> : null}
-                {items.map((item) => (
-                    <button
-                        key={item.effort_code}
-                        className="best-effort-card"
-                        disabled={item.activity_id == null}
-                        onClick={() => onSelectActivity(item.activity_id)}
-                        type="button"
-                    >
-                        <strong>{formatLabel(item.effort_code)}</strong>
-                        <span>{formatDuration(item.best_time_seconds)}</span>
-                        <p>{formatDistanceMeters(item.distance_meters)}</p>
-                        <p className="sidebar-subtle">{formatSportLabel(item.sport_type)}</p>
-                        <small>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Imported best mark"}</small>
-                    </button>
+            {items.length === 0 ? <EmptyState text="No best efforts stored yet."/> : null}
+            <div className="best-effort-groups">
+                {groupedItems.map(([sportType, sportItems]) => (
+                    <section key={sportType} className="best-effort-group">
+                        <div className="best-effort-group-label">{formatSportLabel(sportType)}</div>
+                        <div className="best-effort-row">
+                            {sportItems.map((item) => (
+                                <button
+                                    key={`${item.sport_type}-${item.effort_code}`}
+                                    className="best-effort-card"
+                                    disabled={item.activity_id == null}
+                                    onClick={() => onSelectActivity(item.activity_id)}
+                                    type="button"
+                                >
+                                    <strong>{formatLabel(item.effort_code)}</strong>
+                                    <span>{formatDuration(item.best_time_seconds)}</span>
+                                    <p>{formatDistanceMeters(item.distance_meters)}</p>
+                                    <small>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Imported best mark"}</small>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
                 ))}
             </div>
         </section>
@@ -1048,6 +1056,10 @@ function TrendList({items}) {
           <span className="trend-legend-swatch sessions"/>
           Sessions
         </span>
+                <span className="trend-legend-item">
+          <span className="trend-legend-swatch hr-drift"/>
+          HR Drift
+        </span>
             </div>
             <div aria-label="Trend graph" className="trend-chart" role="img">
                 <ResponsiveContainer height="100%" width="100%">
@@ -1084,6 +1096,14 @@ function TrendList({items}) {
                             orientation="right"
                             yAxisId="sessions"
                         />
+                        <YAxis
+                            axisLine={false}
+                            dataKey="hrDrift"
+                            domain={["dataMin", "dataMax"]}
+                            hide
+                            orientation="right"
+                            yAxisId="hrDrift"
+                        />
                         <Tooltip content={<TrendChartTooltip/>} cursor={{fill: "rgba(252, 76, 2, 0.08)"}}/>
                         <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]}/>
                         <Line
@@ -1093,6 +1113,15 @@ function TrendList({items}) {
                             strokeWidth={2}
                             type="monotone"
                             yAxisId="sessions"
+                        />
+                        <Line
+                            connectNulls
+                            dataKey="hrDrift"
+                            dot={{fill: "#2f9e44", r: 4, stroke: "#ffffff", strokeWidth: 2}}
+                            stroke="#2f9e44"
+                            strokeWidth={2}
+                            type="monotone"
+                            yAxisId="hrDrift"
                         />
                         <Brush
                             dataKey="axisLabel"
@@ -1120,6 +1149,7 @@ function TrendChartTooltip({active, payload}) {
             <strong>{formatDateLabel(point.periodStart)}</strong>
             <span>{formatNumber(point.distanceKm)} km</span>
             <span>{point.sessions} sessions</span>
+            {point.hrDrift != null ? <span>{formatHeartRateDrift(point.hrDrift)} hr drift</span> : null}
         </div>
     );
 }
@@ -1717,12 +1747,23 @@ function aggregateTrendItems(items) {
             timestamp: new Date(key).getTime(),
             distanceKm: 0,
             sessions: 0,
+            hrDriftTotal: 0,
+            hrDriftCount: 0,
         };
         current.distanceKm += Number(item.total_distance_meters ?? 0) / 1000;
         current.sessions += Number(item.activity_count ?? 0);
+        if (item.average_heart_rate_drift_bpm != null) {
+            current.hrDriftTotal += Number(item.average_heart_rate_drift_bpm);
+            current.hrDriftCount += 1;
+        }
         byDate.set(key, current);
     });
-    return Array.from(byDate.values()).sort((left, right) => left.timestamp - right.timestamp);
+    return Array.from(byDate.values())
+        .map((point) => ({
+            ...point,
+            hrDrift: point.hrDriftCount > 0 ? point.hrDriftTotal / point.hrDriftCount : null,
+        }))
+        .sort((left, right) => left.timestamp - right.timestamp);
 }
 
 function buildComparisonPeriodOptions(items, periodType) {
@@ -1800,6 +1841,19 @@ function formatSummaryMetricDisplay(value, kind) {
     return `${value} km/h`;
   }
   return value;
+}
+
+function formatHeartRateDrift(value) {
+    if (value == null) {
+        return "n/a";
+    }
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+        return "n/a";
+    }
+    const formatted = formatNumber(Math.abs(numericValue));
+    const sign = numericValue > 0 ? "+" : numericValue < 0 ? "-" : "";
+    return `${sign}${formatted} bpm`;
 }
 
 function formatSpeedMaxAsPace(value) {
@@ -1908,6 +1962,28 @@ function formatSportLabel(value) {
         return "E-Bike";
     }
     return formatLabel(value);
+}
+
+function groupBestEffortsBySport(items) {
+    const sportOrder = new Map([
+        ["Run", 0],
+        ["Ride", 1],
+        ["EBikeRide", 2],
+    ]);
+    const grouped = new Map();
+    items.forEach((item) => {
+        const current = grouped.get(item.sport_type) ?? [];
+        current.push(item);
+        grouped.set(item.sport_type, current);
+    });
+    return [...grouped.entries()].sort((left, right) => {
+        const leftOrder = sportOrder.get(left[0]) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = sportOrder.get(right[0]) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+        }
+        return left[0].localeCompare(right[0]);
+    });
 }
 
 function buildCalendarWeeks(calendarMonth, activities) {

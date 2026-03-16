@@ -9,6 +9,7 @@ from app.application.analytics.detail_series import (
     moving_average_speed_kph,
 )
 from app.application.analytics.difficulty import calculate_activity_difficulty
+from app.application.analytics.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.application.analytics.running_zones import build_running_zones, resolve_running_zone
 from app.application.analytics.service import ActivityDetailAnalyticsService
 
@@ -55,6 +56,7 @@ def test_activity_detail_service_builds_running_intervals_and_compliance() -> No
     )
 
     assert payload["pace_display"][0] == "4:00"
+    assert payload["heart_rate_drift_bpm"] == Decimal("3.00")
     assert payload["zones"]
     assert payload["intervals"]
     assert payload["zone_summary"]
@@ -71,3 +73,11 @@ def test_activity_difficulty_matches_spec_formula() -> None:
         user_max_bpm=Decimal("194.80"),
     )
     assert difficulty is not None
+
+
+def test_heart_rate_drift_uses_first_and_second_half_averages() -> None:
+    drift = calculate_heart_rate_drift_bpm(
+        distance_stream_meters=[0, 250, 750, 1250],
+        heartrate_stream_bpm=[145, 146, 150, 152],
+    )
+    assert drift == Decimal("5.00")
