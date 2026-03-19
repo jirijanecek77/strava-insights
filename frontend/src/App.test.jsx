@@ -24,7 +24,8 @@ describe("App", () => {
         render(<App/>);
 
         expect(await screen.findByRole("heading", {name: /local-first review for your strava history/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /continue with strava/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /log in with strava/i})).toBeInTheDocument();
+        expect(screen.queryByText(/authenticate once, import your archive/i)).not.toBeInTheDocument();
     });
 
     it("renders dashboard data and activity detail from the backend payloads", async () => {
@@ -1180,8 +1181,8 @@ describe("App", () => {
 
         const aerobicPaceInput = await screen.findByLabelText("Aerobic Threshold Pace (min/km)");
         expect(screen.getByLabelText("Effective From")).toHaveValue("2026-03-01");
-        expect(screen.getByLabelText("Threshold Period")).toHaveValue("2026-03-01");
-        expect(screen.getByRole("button", {name: /add new time period/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /create new period/i})).toBeInTheDocument();
+        expect(screen.getByText(/old periods stay in history automatically/i)).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
@@ -1254,15 +1255,14 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /settings/i}));
-        expect(await screen.findByLabelText("Threshold Period")).toHaveValue("2026-03-01");
+        expect(await screen.findByText("2026-03-01")).toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole("button", {name: /add new time period/i}));
+        fireEvent.click(screen.getByRole("button", {name: /create new period/i}));
 
-        expect(screen.getByLabelText("Threshold Period")).toHaveValue("");
         expect(screen.getByLabelText("Effective From")).toHaveValue("");
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
         expect(screen.getByLabelText("Anaerobic Threshold Pace (min/km)")).toHaveValue("4:18");
-        expect(screen.getByText(/saving creates a new dated threshold snapshot\./i)).toBeInTheDocument();
+        expect(screen.getByText("New period draft")).toBeInTheDocument();
     });
 
     it("ignores repeated save clicks while the profile request is in flight", async () => {

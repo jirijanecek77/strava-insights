@@ -436,7 +436,6 @@ export default function App() {
                             onStartNewThresholdProfile={() => {
                                 setProfileForm((current) => ({...current, effectiveFrom: ""}));
                             }}
-                            onSelectThresholdProfile={(item) => setProfileForm(buildProfileFormFromItem(item))}
                             onLogout={handleLogout}
                             onRefreshSync={handleRefreshSync}
                             onSaveProfile={handleSaveProfile}
@@ -469,19 +468,24 @@ function LandingScreen({authBusy, errorMessage, onLogin}) {
                 <div className="landing-copy">
                     <p className="eyebrow">Strava Insights</p>
                     <h1>Local-first review for your Strava history.</h1>
-                    <p className="copy">
-                        Authenticate once, import your archive into PostgreSQL, and review calendar, best
-                        efforts, comparisons, and backend-driven activity analytics.
-                    </p>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
                     <button className="primary-button" disabled={authBusy} onClick={onLogin} type="button">
-                        {authBusy ? "Opening Strava..." : "Continue with Strava"}
+                        {authBusy ? "Opening Strava..." : "Log In with Strava"}
                     </button>
                 </div>
-                <div className="landing-metrics">
-                    <MetricTile label="Comparison Windows" value="Week / Month / Year / 30d"/>
-                    <MetricTile label="Read Model" value="Cached + DB-backed"/>
-                    <MetricTile label="Activity Detail" value="Pace, slope, HR, thresholds"/>
+                <div aria-hidden="true" className="landing-art">
+                    <div className="landing-art-sun"/>
+                    <div className="landing-art-hill landing-art-hill-back"/>
+                    <div className="landing-art-hill landing-art-hill-front"/>
+                    <div className="landing-art-road">
+                        <span className="landing-art-road-line"/>
+                        <span className="landing-art-road-line"/>
+                        <span className="landing-art-road-line"/>
+                    </div>
+                    <div className="landing-art-badge">
+                        <span className="landing-art-badge-dot"/>
+                        <strong>Run. Ride. Improve.</strong>
+                    </div>
                 </div>
             </section>
         </main>
@@ -1085,18 +1089,15 @@ function SettingsView({
                           user,
                           onChangeProfileField,
                           onStartNewThresholdProfile,
-                          onSelectThresholdProfile,
                           onLogout,
                           onRefreshSync,
                           onSaveProfile
                       }) {
-    const selectedThresholdProfile =
-        profileHistory.find((item) => item.effective_from === profileForm.effectiveFrom) ?? null;
-    const isDraftThresholdProfile = selectedThresholdProfile == null;
+    const latestThresholdProfile = profileHistory[0] ?? null;
 
     return (
         <section className="panel-grid">
-            <article className="panel settings-panel">
+            <article className="panel settings-panel panel-span-two">
                 <div className="panel-header">
                     <div>
                         <p className="eyebrow">Profile</p>
@@ -1107,69 +1108,46 @@ function SettingsView({
                     <div className="settings-row"><span>Strava Athlete</span><strong>{user.strava_athlete_id}</strong>
                     </div>
                 </div>
+                <div className="profile-account-actions">
+                    <button className="ghost-button inline-button logout-button" onClick={onLogout} type="button">Log out</button>
+                </div>
                 <section className="settings-section">
                     <div className="settings-section-header">
                         <div>
-                            <p className="eyebrow">Threshold Timeline</p>
-                            <h3>Select or add a time period</h3>
+                            <p className="eyebrow">Thresholds</p>
+                            <h3>Current values</h3>
                         </div>
-                        <span className={`threshold-status-pill${isDraftThresholdProfile ? " is-draft" : ""}`}>
-                            {isDraftThresholdProfile ? "New period draft" : "Saved period selected"}
-                        </span>
                     </div>
                     <p className="settings-helper-text">
-                        Choose an existing effective date to review or edit it. Start a new time period when your thresholds changed.
+                        Old periods stay in history automatically. This screen edits the current thresholds, or lets you create the next period from them.
                     </p>
-                    <div className="profile-period-toolbar">
-                        <label className="control-chip threshold-period-select">
-                            <span>Threshold Period</span>
-                            <select
-                                aria-label="Threshold Period"
-                                value={selectedThresholdProfile?.effective_from ?? ""}
-                                onChange={(event) => {
-                                    if (!event.target.value) {
-                                        onStartNewThresholdProfile();
-                                        return;
-                                    }
-                                    const profile = profileHistory.find((item) => item.effective_from === event.target.value);
-                                    if (profile) {
-                                        onSelectThresholdProfile(profile);
-                                    }
-                                }}
-                            >
-                                <option value="">New Time Period</option>
-                                {profileHistory.map((item) => (
-                                    <option key={item.effective_from} value={item.effective_from}>
-                                        {formatThresholdPeriodOption(item)}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
+                    <div className="profile-period-toolbar simple">
+                        <div className={`threshold-selected-summary${!latestThresholdProfile || profileForm.effectiveFrom !== latestThresholdProfile.effective_from ? " is-draft" : ""}`}>
+                            <strong>
+                                {!latestThresholdProfile || profileForm.effectiveFrom !== latestThresholdProfile.effective_from
+                                    ? "New period draft"
+                                    : latestThresholdProfile?.effective_from ?? "No saved thresholds"}
+                            </strong>
+                            <span>
+                                {!latestThresholdProfile || profileForm.effectiveFrom !== latestThresholdProfile.effective_from
+                                    ? "Set a new effective date and save to create the next threshold period."
+                                    : formatThresholdSnapshotSummary(latestThresholdProfile)}
+                            </span>
+                        </div>
                         <button className="ghost-button inline-button" onClick={onStartNewThresholdProfile} type="button">
-                            Add New Time Period
+                            Create New Period
                         </button>
                     </div>
-                    {selectedThresholdProfile ? (
-                        <div className="threshold-selected-summary">
-                            <strong>{selectedThresholdProfile.effective_from}</strong>
-                            <span>{formatThresholdSnapshotSummary(selectedThresholdProfile)}</span>
-                        </div>
-                    ) : (
-                        <div className="threshold-selected-summary is-draft">
-                            <strong>New time period</strong>
-                            <span>Pick an effective date, then save these threshold values as a new dated snapshot.</span>
-                        </div>
-                    )}
                 </section>
                 <section className="settings-section">
                     <div className="settings-section-header">
                         <div>
                             <p className="eyebrow">Threshold Values</p>
-                            <h3>Edit the values for this period</h3>
+                            <h3>Edit pace and heart rate</h3>
                         </div>
                     </div>
                     <p className="settings-helper-text">
-                        The effective date controls when these values start applying to activity analysis.
+                        Change the values below, then save them for the current effective date or as a new period.
                     </p>
                     <div className="threshold-form-grid">
                         <div className="threshold-metric-card threshold-date-card">
@@ -1246,14 +1224,8 @@ function SettingsView({
                         <button className="primary-button" disabled={profileBusy} onClick={onSaveProfile} type="button">
                             {profileBusy ? "Saving..." : "Save Profile"}
                         </button>
-                        <p className="settings-helper-text profile-save-note">
-                            {isDraftThresholdProfile
-                                ? "Saving creates a new dated threshold snapshot."
-                                : "Saving updates the currently selected threshold period."}
-                        </p>
                     </div>
                 </section>
-                <button className="ghost-button inline-button" onClick={onLogout} type="button">Log out</button>
             </article>
             <article className="panel settings-panel">
                 <div className="panel-header">
@@ -2279,10 +2251,6 @@ function formatThresholdSnapshotSummary(item) {
         item.aet_pace_min_per_km == null ? "AeT pace n/a" : `AeT ${formatPaceField(item.aet_pace_min_per_km)}`,
         item.ant_pace_min_per_km == null ? "AnT pace n/a" : `AnT ${formatPaceField(item.ant_pace_min_per_km)}`,
     ].join(" | ");
-}
-
-function formatThresholdPeriodOption(item) {
-    return `${item.effective_from} | ${formatThresholdSnapshotSummary(item)}`;
 }
 
 function generateRequestId() {

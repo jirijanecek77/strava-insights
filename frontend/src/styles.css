@@ -120,7 +120,7 @@ button {
 }
 
 .landing-copy,
-.landing-metrics,
+.landing-art,
 .workspace,
 .trend-list,
 .activity-list,
@@ -299,6 +299,11 @@ button {
     margin-bottom: 0;
 }
 
+.profile-account-actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
 .panel-span-two {
     grid-column: span 2;
 }
@@ -320,6 +325,101 @@ button {
 .detail-analysis-grid {
     display: grid;
     gap: 1rem;
+}
+
+.landing-copy {
+    align-content: center;
+}
+
+.landing-art {
+    align-items: end;
+    background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0) 38%),
+        linear-gradient(180deg, #f7f4ee 0%, #ece7df 48%, #e6e1d8 100%);
+    border: 1px solid rgba(111, 107, 98, 0.12);
+    border-radius: 28px;
+    display: grid;
+    min-height: 22rem;
+    overflow: hidden;
+    padding: 1.5rem;
+    position: relative;
+}
+
+.landing-art-sun {
+    background: radial-gradient(circle, #e6dfd2 0%, #d8d0c2 65%, rgba(216, 208, 194, 0) 66%);
+    border-radius: 999px;
+    height: 8rem;
+    position: absolute;
+    right: 2.5rem;
+    top: 2rem;
+    width: 8rem;
+}
+
+.landing-art-hill {
+    border-radius: 999px 999px 0 0;
+    bottom: -2rem;
+    position: absolute;
+}
+
+.landing-art-hill-back {
+    background: linear-gradient(180deg, #d4cec3 0%, #bdb4a6 100%);
+    height: 12rem;
+    left: -1rem;
+    width: 75%;
+}
+
+.landing-art-hill-front {
+    background: linear-gradient(180deg, #b7aea1 0%, #9f9587 100%);
+    height: 10rem;
+    right: -2rem;
+    width: 68%;
+}
+
+.landing-art-road {
+    align-content: start;
+    background: linear-gradient(180deg, #f7f3ee 0%, #ece6de 100%);
+    border-radius: 999px 999px 0 0;
+    bottom: -1rem;
+    display: grid;
+    gap: 1rem;
+    justify-items: center;
+    left: 50%;
+    padding-top: 2.2rem;
+    position: absolute;
+    transform: translateX(-50%);
+    width: 7rem;
+    z-index: 2;
+}
+
+.landing-art-road-line {
+    background: rgba(111, 107, 98, 0.45);
+    border-radius: 999px;
+    display: block;
+    height: 1.5rem;
+    width: 0.35rem;
+}
+
+.landing-art-badge {
+    align-items: center;
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(85, 78, 67, 0.08);
+    display: inline-flex;
+    gap: 0.6rem;
+    justify-self: start;
+    padding: 0.7rem 1rem;
+    position: relative;
+    z-index: 3;
+}
+
+.landing-art-badge-dot {
+    background: #8f8578;
+    border-radius: 999px;
+    display: inline-block;
+    height: 0.7rem;
+    width: 0.7rem;
 }
 
 .comparison-grid {
@@ -457,27 +557,8 @@ button {
     grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.threshold-period-select {
-    min-width: 0;
-}
-
-.threshold-status-pill {
-    align-items: center;
-    background: rgba(29, 122, 243, 0.08);
-    border: 1px solid rgba(29, 122, 243, 0.14);
-    border-radius: 999px;
-    color: #1d7af3;
-    display: inline-flex;
-    font-size: 0.76rem;
-    font-weight: 700;
-    padding: 0.45rem 0.8rem;
-    white-space: nowrap;
-}
-
-.threshold-status-pill.is-draft {
-    background: rgba(252, 76, 2, 0.08);
-    border-color: rgba(252, 76, 2, 0.14);
-    color: var(--accent);
+.profile-period-toolbar.simple {
+    align-items: start;
 }
 
 .threshold-selected-summary,
@@ -515,8 +596,10 @@ button {
     grid-column: 1 / -1;
 }
 
-.profile-save-note {
-    align-self: center;
+.logout-button {
+    justify-self: start;
+    min-width: 10rem;
+    width: auto;
 }
 
 .metric-row,

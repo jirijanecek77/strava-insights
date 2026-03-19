@@ -1,28 +1,87 @@
 # Strava Insights
 
-### This implementation was built completely with agentic AI assistance.
+> This project was fully implemented through collaboration with agentic AI coding agents. It is a practical demonstration of shipping a complete product with AI-assisted software delivery.
 
-Strava Insights is a split-stack application for exploring imported Strava activity data without calling the Strava API
-on normal dashboard requests.
+Strava Insights is a web application for athletes who want a clearer view of their training history than the standard Strava experience provides. It imports your Strava data into a local application database, then serves dashboards, comparisons, and activity analysis from that local dataset so the app stays fast and usable without depending on live Strava API reads during everyday use.
 
-The current implementation is organized as:
+## Who It Is For
 
-- `frontend`: React + Vite web UI
-- `backend`: FastAPI read/auth API
-- `worker`: Celery background sync and read-model work
-- `postgres`: persisted application data
-- `redis`: cache and Celery broker/backend
+Strava Insights is designed for runners and cyclists who want to:
 
-## Current Features
+- understand training progression over time
+- compare current performance with previous weeks, months, and years
+- review individual activities in more detail
+- track best efforts across key distances
+- use their own threshold settings to interpret effort and intensity
 
-- Strava OAuth login and session-based authentication
-- Dashboard overview with period-to-period comparisons
-- Trend Series chart with brush-based range selection
-- Activity list with scrollable browsing
-- Activity detail page with synced charts and route selection
-- Best efforts view
-- Profile settings
-- Sync status and manual incremental refresh
+## What Customers Can Do With It
+
+### Get a training dashboard that explains change
+
+The dashboard summarizes key metrics such as distance, moving time, activity count, pace, and speed, then compares them across meaningful windows:
+
+- this week vs previous week
+- this month vs previous month
+- this year vs previous year
+- rolling 30 days vs previous rolling 30 days
+
+### Explore trends without waiting on Strava
+
+Because activity data is imported and stored locally, normal app screens do not need live Strava API calls. That makes the experience better suited for repeated analysis, historical browsing, and responsive dashboards.
+
+### Browse training on a calendar
+
+The calendar gives a visual training overview by day, using activity volume and dominant sport to make patterns easy to spot.
+
+### Review every activity in detail
+
+Each activity page can show:
+
+- route map based on stored GPS data
+- distance, moving time, elevation, pace, or speed
+- heart-rate and elevation charts when available
+- slope and terrain-derived analysis when available
+- linked charts and route focus for deeper inspection
+
+### Analyze effort, not just totals
+
+For running activities, the app can use configured aerobic and anaerobic thresholds to interpret:
+
+- pace distribution
+- heart-rate distribution
+- agreement or mismatch between pace and heart rate
+- sustained threshold blocks
+
+For cycling activities, it can summarize:
+
+- speed distribution
+- terrain split across climbing, flat, and descending sections
+- cadence and heart-rate patterns when the data exists
+
+### Track best efforts
+
+The app keeps a dedicated best-efforts view for supported sports so athletes can quickly see standout performances across their imported history.
+
+### Stay synced in the background
+
+First login starts a historical import. After that, the system supports incremental syncs, daily refresh behavior, visible sync progress, and manual refresh without forcing a full reimport.
+
+## Why This Product Is Different
+
+- It is built for athlete insight, not generic reporting.
+- It avoids live Strava reads on normal dashboard and analysis pages.
+- It keeps imported data available for richer derived metrics and faster repeat usage.
+- It combines dashboard summaries, day-level training views, and deep single-activity analysis in one place.
+
+## Supported Scope
+
+Current v1 scope includes:
+
+- Strava OAuth login
+- multi-user data isolation
+- running, ride, and e-bike ride support
+- dashboard, calendar, activity list, activity detail, best efforts, profile/settings, and sync status views
+- locally rendered activity analytics based on imported activity metadata and streams
 
 ## Docker Run
 
@@ -178,15 +237,9 @@ poetry run celery -A app.celery_app.celery_app beat --loglevel=info
 - Backend: `docker compose run --rm backend pytest`
 - Worker: `docker compose run --rm worker pytest`
 
-## Notes
-
-- Python dependency management for `backend` and `worker` uses Poetry.
-- Docker Compose is the default validation path for meaningful changes.
-- Product and architecture rules are documented in `docs/specification.md` and `docs/implementation_plan.md`.
-
 ## Production Deployment
 
-The repository now includes a production deployment path for a single-host VPS:
+The repository includes a production deployment path for a single-host VPS:
 
 - `docker-compose.prod.yml`
 - `frontend/Dockerfile.prod`
