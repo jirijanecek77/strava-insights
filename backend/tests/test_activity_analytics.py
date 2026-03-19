@@ -64,6 +64,7 @@ def test_activity_detail_service_builds_threshold_running_analysis() -> None:
         heartrate_stream_bpm=[150, 151, 152, 153, 154, 155],
         altitude_stream_meters=[200, 201, 202, 203, 204, 205],
         velocity_smooth_stream_mps=[4.0, 4.1, 4.2, 4.3, 4.4, 4.5],
+        average_cadence=84,
         aet_heart_rate_bpm=148,
         ant_heart_rate_bpm=158,
         aet_pace_min_per_km=4.8,
@@ -89,12 +90,41 @@ def test_activity_detail_service_omits_running_analysis_without_complete_thresho
         heartrate_stream_bpm=[150, 151, 152, 153],
         altitude_stream_meters=[200, 201, 202, 203],
         velocity_smooth_stream_mps=[4.0, 4.1, 4.2, 4.3],
+        average_cadence=84,
         aet_heart_rate_bpm=148,
         ant_heart_rate_bpm=None,
         aet_pace_min_per_km=4.8,
         ant_pace_min_per_km=4.1,
     )
 
+    assert payload["running_analysis"] is None
+
+
+def test_activity_detail_service_builds_cycling_analysis() -> None:
+    service = ActivityDetailAnalyticsService()
+
+    payload = service.build(
+        sport_type="Ride",
+        start_date_utc=datetime(2026, 3, 9, 6, 0, tzinfo=UTC),
+        time_stream=[0, 60, 120, 180, 240, 300],
+        distance_stream_meters=[0, 300, 650, 1000, 1300, 1600],
+        heartrate_stream_bpm=[132, 138, 144, 152, 167, 170],
+        altitude_stream_meters=[200, 203, 210, 214, 212, 206],
+        velocity_smooth_stream_mps=[6.5, 6.2, 5.8, 5.4, 7.2, 8.0],
+        average_cadence=88,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+        aet_pace_min_per_km=None,
+        ant_pace_min_per_km=None,
+    )
+
+    assert payload["cycling_analysis"] is not None
+    assert payload["cycling_analysis"]["speed_distribution"][0]["code"] == "below_steady"
+    assert payload["cycling_analysis"]["heart_rate_distribution"][0]["label"] == "Below AeT"
+    assert payload["cycling_analysis"]["climbing_summary"]["climbing_distance_km"] >= 0
+    assert payload["cycling_analysis"]["average_cadence"] == 88.0
+    assert payload["cycling_analysis"]["activity_evaluation"]
+    assert payload["cycling_analysis"]["further_training_suggestion"]
     assert payload["running_analysis"] is None
 
 

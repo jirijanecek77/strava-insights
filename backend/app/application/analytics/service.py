@@ -8,6 +8,7 @@ from app.application.analytics.detail_series import (
     moving_average_heartrate,
     moving_average_speed_kph,
 )
+from app.application.analytics.cycling_analysis import build_cycling_analysis
 from app.application.analytics.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.application.analytics.running_analysis import build_running_analysis
 
@@ -23,6 +24,7 @@ class ActivityDetailAnalyticsService:
         heartrate_stream_bpm: list[float] | None,
         altitude_stream_meters: list[float] | None,
         velocity_smooth_stream_mps: list[float] | None,
+        average_cadence: float | None,
         aet_heart_rate_bpm: int | None,
         ant_heart_rate_bpm: int | None,
         aet_pace_min_per_km: float | None,
@@ -49,20 +51,34 @@ class ActivityDetailAnalyticsService:
             else []
         )
 
+        heart_rate_drift_bpm = calculate_heart_rate_drift_bpm(
+            distance_stream_meters=distance_stream_meters,
+            heartrate_stream_bpm=heartrate_stream_bpm,
+        )
         result = {
             "distance_km": distance_km,
             "altitude_meters": altitude_stream_meters or [],
             "moving_average_heartrate": heartrate_ma,
-            "heart_rate_drift_bpm": calculate_heart_rate_drift_bpm(
-                distance_stream_meters=distance_stream_meters,
-                heartrate_stream_bpm=heartrate_stream_bpm,
-            ),
+            "heart_rate_drift_bpm": heart_rate_drift_bpm,
             "moving_average_speed_kph": speed_ma_kph,
             "pace_minutes_per_km": pace_minutes_per_km,
             "pace_display": pace_display,
             "slope_percent": slope_percent,
             "running_analysis": None,
+            "cycling_analysis": None,
         }
+
+        if sport_type in {"Ride", "EBikeRide"} and speed_ma_kph:
+            result["cycling_analysis"] = build_cycling_analysis(
+                distance_km=distance_km,
+                speed_kph=speed_ma_kph,
+                slope_percent=slope_percent,
+                heart_rate_bpm=heartrate_ma,
+                average_cadence=average_cadence,
+                heart_rate_drift_bpm=float(heart_rate_drift_bpm) if heart_rate_drift_bpm is not None else None,
+                aet_heart_rate_bpm=float(aet_heart_rate_bpm) if aet_heart_rate_bpm is not None else None,
+                ant_heart_rate_bpm=float(ant_heart_rate_bpm) if ant_heart_rate_bpm is not None else None,
+            )
 
         if (
             sport_type != "Run"

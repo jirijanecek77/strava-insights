@@ -59,6 +59,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Added editable profile inputs for explicit running threshold fields.
 - [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
+- [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
 
 ### Completed Validation and Hardening Work
 
@@ -74,6 +75,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Normalized activity summary metric payloads so the frontend can render pace and speed consistently.
 - [x] Isolated backend pytest runs from the development dataset.
 - [x] Removed dead frontend helpers and stale backend-only code paths with no production call sites.
+- [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
 
 ## Remaining Work
 

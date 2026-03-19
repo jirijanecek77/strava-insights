@@ -214,6 +214,7 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         assert activity_detail_response.json()["running_analysis"]["pace_distribution"][0]["label"] == "Below AeT"
         assert activity_detail_response.json()["running_analysis"]["activity_evaluation"]
         assert activity_detail_response.json()["running_analysis"]["further_training_suggestion"]
+        assert activity_detail_response.json()["cycling_analysis"] is None
 
         best_efforts_response = client.get("/best-efforts")
         assert best_efforts_response.status_code == 200

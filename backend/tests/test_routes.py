@@ -113,6 +113,7 @@ class ActivityReadServiceStub:
                 moving_time_display="45:00",
                 summary_metric_display="4:30",
                 summary_metric_kind="pace",
+                average_cadence=None,
                 heart_rate_drift_bpm="3.00",
             ),
             map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
@@ -125,7 +126,9 @@ class ActivityReadServiceStub:
                 pace_display=["5:00", "4:48"],
                 slope_percent=[0.0, 1.0],
             ),
+            thresholds=None,
             running_analysis=None,
+            cycling_analysis=None,
         )
 
 

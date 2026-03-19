@@ -744,6 +744,8 @@ function ActivitiesView({
 
 function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
     const routePoints = detail.map?.polyline ?? [];
+    const isRun = detail.sport_type === "Run";
+    const isRide = detail.sport_type === "Ride" || detail.sport_type === "EBikeRide";
     const paceOrSpeed = detail.series.pace_minutes_per_km.length
         ? detail.series.pace_minutes_per_km
         : detail.series.moving_average_speed_kph;
@@ -778,13 +780,19 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                             value={detail.kpis.distance_km != null ? `${detail.kpis.distance_km} km` : "n/a"}/>
                 <MetricTile label="Moving Time" value={detail.kpis.moving_time_display ?? "n/a"}/>
                 <MetricTile
-                    label="Pace"
+                    label={detail.kpis.summary_metric_kind === "speed" ? "Speed" : "Pace"}
                     value={formatSummaryMetricDisplay(detail.kpis.summary_metric_display, detail.kpis.summary_metric_kind)}
                 />
                 <MetricTile label="Elevation"
                             value={detail.kpis.total_elevation_gain_meters != null ? `${detail.kpis.total_elevation_gain_meters} m` : "n/a"}/>
                 <MetricTile label="Average HR"
                             value={detail.kpis.average_heartrate_bpm != null ? `${detail.kpis.average_heartrate_bpm} bpm` : "n/a"}/>
+                {isRide ? (
+                    <MetricTile
+                        label="Cadence"
+                        value={detail.kpis.average_cadence != null ? `${formatNumber(detail.kpis.average_cadence)} rpm` : "n/a"}
+                    />
+                ) : null}
                 <MetricTile label="HR Drift" value={formatHeartRateDrift(detail.kpis.heart_rate_drift_bpm)}/>
             </div>
             <div className="detail-grid">
@@ -797,7 +805,7 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     accent="orange"
                     activeIndex={resolvedActiveIndex}
                     distanceValues={detail.series.distance_km}
-                    label="Pace"
+                    label={detail.series.pace_minutes_per_km.length ? "Pace" : "Speed"}
                     altitudeValues={detail.series.altitude_meters}
                     onSelectIndex={onSelectSeriesIndex}
                     referenceValue={paceReferenceValue}
@@ -831,12 +839,17 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
             </div>
             <div className="detail-analysis-grid">
                 <div className="detail-card">
-                    <p className="eyebrow">Running Analysis</p>
-                    {detail.running_analysis ? (
+                    <p className="eyebrow">{isRide ? "Cycling Analysis" : "Running Analysis"}</p>
+                    {isRun && detail.running_analysis ? (
                         <RunningAnalysisCard analysis={detail.running_analysis}/>
-                    ) : (
+                    ) : null}
+                    {isRun && !detail.running_analysis ? (
                         <EmptyState compact text="Add AeT and AnT pace and heart-rate thresholds in Settings to unlock running analysis."/>
-                    )}
+                    ) : null}
+                    {isRide && detail.cycling_analysis ? <CyclingAnalysisCard analysis={detail.cycling_analysis}/> : null}
+                    {isRide && !detail.cycling_analysis ? (
+                        <EmptyState compact text="Cycling analysis needs ride speed data. Add heart-rate thresholds in Settings to unlock HR-based ride intensity metrics."/>
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -927,7 +940,61 @@ const RUNNING_ANALYSIS_TOOLTIPS = {
     longest_above_ant: "The longest continuous stretch where pace or heart rate stayed above AnT, showing your longest hard-intensity segment.",
 };
 
-function MetricHelpLabel({label, tooltipKey}) {
+const CYCLING_ANALYSIS_TOOLTIPS = {
+    speed_bands: "Shows how ride distance was distributed across slower, steady, and faster-than-steady speed segments relative to your own session average.",
+    hr_bands: "Shows how your heart rate was distributed across Below AeT, AeT to AnT, and Above AnT bands during the ride.",
+    climbing_share: "Shows how much of the ride distance was spent climbing, flat, or descending based on the local slope profile.",
+    longest_aerobic_block: "The longest continuous section where heart rate stayed below AeT, indicating your longest steady aerobic segment.",
+    longest_above_ant: "The longest continuous section where heart rate stayed above AnT, indicating your longest hard cardiovascular segment.",
+    average_cadence: "Shows the average pedaling cadence recorded for the ride in revolutions per minute.",
+};
+
+function CyclingAnalysisCard({analysis}) {
+    return (
+        <div className="settings-list">
+            <div className="settings-row">
+                <MetricHelpLabel label="Speed Bands" tooltipKey="speed_bands" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                <strong>{formatBandDistribution(analysis.speed_distribution)}</strong>
+            </div>
+            {analysis.heart_rate_distribution ? (
+                <div className="settings-row">
+                    <MetricHelpLabel label="HR Bands" tooltipKey="hr_bands" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                    <strong>{formatBandDistribution(analysis.heart_rate_distribution)}</strong>
+                </div>
+            ) : null}
+            <div className="settings-row">
+                <MetricHelpLabel label="Climbing Share" tooltipKey="climbing_share" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                <strong>{formatClimbingSummary(analysis.climbing_summary)}</strong>
+            </div>
+            {analysis.steady_aerobic_block ? (
+                <div className="settings-row">
+                    <MetricHelpLabel label="Longest Aerobic Block" tooltipKey="longest_aerobic_block" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                    <strong>{formatDistanceKm(analysis.steady_aerobic_block.distance_km)}</strong>
+                </div>
+            ) : null}
+            {analysis.above_threshold_block ? (
+                <div className="settings-row">
+                    <MetricHelpLabel label="Longest Above AnT" tooltipKey="longest_above_ant" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                    <strong>{formatDistanceKm(analysis.above_threshold_block.distance_km)}</strong>
+                </div>
+            ) : null}
+            <div className="settings-row">
+                <MetricHelpLabel label="Average Cadence" tooltipKey="average_cadence" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/>
+                <strong>{analysis.average_cadence != null ? `${formatNumber(analysis.average_cadence)} rpm` : "n/a"}</strong>
+            </div>
+            <div className="settings-row">
+                <span>Activity Evaluation</span>
+                <span className="running-analysis-copy">{analysis.activity_evaluation}</span>
+            </div>
+            <div className="settings-row">
+                <span>Further Training Suggestion</span>
+                <span className="running-analysis-copy">{analysis.further_training_suggestion}</span>
+            </div>
+        </div>
+    );
+}
+
+function MetricHelpLabel({label, tooltipKey, tooltipMap = RUNNING_ANALYSIS_TOOLTIPS}) {
     const [open, setOpen] = useState(false);
     const tooltipId = `tooltip-${tooltipKey}`;
     return (
@@ -947,7 +1014,7 @@ function MetricHelpLabel({label, tooltipKey}) {
             </button>
             {open ? (
                 <span className="info-tooltip-panel" id={tooltipId} role="tooltip">
-                    {RUNNING_ANALYSIS_TOOLTIPS[tooltipKey]}
+                    {tooltipMap[tooltipKey]}
                 </span>
             ) : null}
         </span>
@@ -2320,4 +2387,11 @@ function formatDistanceKm(value) {
         return "n/a";
     }
     return `${formatNumber(numeric)} km`;
+}
+
+function formatClimbingSummary(summary) {
+    if (!summary) {
+        return "n/a";
+    }
+    return `Climb ${formatPercentage(summary.climbing_share_percent)} | Flat ${formatPercentage(summary.flat_share_percent)} | Down ${formatPercentage(summary.descending_share_percent)}`;
 }

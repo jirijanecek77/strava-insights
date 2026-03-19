@@ -183,3 +183,20 @@ poetry run celery -A app.celery_app.celery_app beat --loglevel=info
 - Python dependency management for `backend` and `worker` uses Poetry.
 - Docker Compose is the default validation path for meaningful changes.
 - Product and architecture rules are documented in `docs/specification.md` and `docs/implementation_plan.md`.
+
+## Production Deployment
+
+The repository now includes a production deployment path for a single-host VPS:
+
+- `docker-compose.prod.yml`
+- `frontend/Dockerfile.prod`
+- `backend/Dockerfile.prod`
+- `worker/Dockerfile.prod`
+- `deploy/Caddyfile`
+
+Recommended host shape for v1:
+
+- one small Hetzner VPS
+- `2 vCPU`, `4 GB RAM`, `40 GB SSD` minimum
+
+See [docs/deployment.md](docs/deployment.md) for the full setup.

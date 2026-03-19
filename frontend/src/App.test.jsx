@@ -523,6 +523,134 @@ describe("App", () => {
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
     });
 
+    it("renders cycling analysis for ride activity details", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10,
+                }));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities/21")) {
+                return Promise.resolve(jsonResponse({
+                    id: 21,
+                    sport_type: "Ride",
+                    name: "Morning Ride",
+                    description: null,
+                    start_date_local: "2026-03-05T08:30:00",
+                    kpis: {
+                        distance_km: 42,
+                        moving_time_display: "1:45:00",
+                        summary_metric_display: "24.0 km/h",
+                        summary_metric_kind: "speed",
+                        total_elevation_gain_meters: 520,
+                        average_heartrate_bpm: 148,
+                        average_cadence: 88,
+                        heart_rate_drift_bpm: 4.2,
+                    },
+                    map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
+                    series: {
+                        distance_km: [0, 20, 42],
+                        altitude_meters: [220, 410, 260],
+                        moving_average_heartrate: [136, 149, 168],
+                        moving_average_speed_kph: [22, 24, 31],
+                        pace_minutes_per_km: [],
+                        pace_display: [],
+                        slope_percent: [0.5, 3.2, -2.1],
+                    },
+                    thresholds: {
+                        aet_heart_rate_bpm: 145,
+                        ant_heart_rate_bpm: 168,
+                        aet_pace_min_per_km: null,
+                        ant_pace_min_per_km: null,
+                    },
+                    running_analysis: null,
+                    cycling_analysis: {
+                        speed_distribution: [
+                            {code: "below_steady", label: "Below Steady", distance_km: 10, share_percent: 24},
+                            {code: "steady_speed", label: "Steady Speed", distance_km: 24, share_percent: 57},
+                            {code: "above_steady", label: "Above Steady", distance_km: 8, share_percent: 19},
+                        ],
+                        heart_rate_distribution: [
+                            {code: "below_aet", label: "Below AeT", distance_km: 14, share_percent: 33},
+                            {code: "between_aet_ant", label: "AeT to AnT", distance_km: 22, share_percent: 52},
+                            {code: "above_ant", label: "Above AnT", distance_km: 6, share_percent: 15},
+                        ],
+                        climbing_summary: {
+                            climbing_distance_km: 16,
+                            climbing_share_percent: 38,
+                            flat_distance_km: 18,
+                            flat_share_percent: 43,
+                            descending_distance_km: 8,
+                            descending_share_percent: 19,
+                        },
+                        steady_aerobic_block: {start_distance_km: 0, end_distance_km: 12, distance_km: 12},
+                        above_threshold_block: {start_distance_km: 31, end_distance_km: 36, distance_km: 5},
+                        average_cadence: 88,
+                        activity_evaluation: "This looked like a hilly ride with meaningful high-cardiac-load segments on the climbs.",
+                        further_training_suggestion: "Follow this with an easier spin or recovery day so the harder cardiovascular load has room to absorb.",
+                    },
+                }));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({
+                    items: [
+                        {
+                            id: 21,
+                            sport_type: "Ride",
+                            name: "Morning Ride",
+                            start_date_local: "2026-03-05T08:30:00",
+                            distance_km: 42,
+                            moving_time_display: "1:45:00",
+                            summary_metric_display: "24.0 km/h",
+                            summary_metric_kind: "speed",
+                            total_elevation_gain_meters: 520,
+                            average_heartrate_bpm: 148,
+                            heart_rate_drift_bpm: 4.2,
+                        },
+                    ],
+                }));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /activities/i}));
+        fireEvent.click(screen.getByRole("button", {name: /morning ride/i}));
+
+        expect(await screen.findByRole("heading", {name: /morning ride/i})).toBeInTheDocument();
+        expect(screen.getByText(/cycling analysis/i)).toBeInTheDocument();
+        expect(screen.getByText(/speed bands/i)).toBeInTheDocument();
+        expect(screen.getByText(/average cadence/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/88 rpm/i).length).toBeGreaterThan(0);
+        expect(screen.getByText(/hilly ride with meaningful high-cardiac-load segments/i)).toBeInTheDocument();
+        expect(screen.getByLabelText("km/h chart")).toBeInTheDocument();
+    });
+
     it("shows cycling best efforts when the ride filter is selected", async () => {
         vi.spyOn(global, "fetch").mockImplementation((input) => {
             const url = String(input);

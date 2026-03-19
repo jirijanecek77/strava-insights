@@ -30,6 +30,7 @@ class ActivityKpis(BaseModel):
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
     heart_rate_drift_bpm: Decimal | None = None
+    average_cadence: Decimal | None = None
 
 
 class ActivitySeries(BaseModel):
@@ -80,11 +81,44 @@ class RunningAnalysisResponse(BaseModel):
     further_training_suggestion: str
 
 
+class CyclingBandSummary(BaseModel):
+    code: str
+    label: str
+    distance_km: float
+    share_percent: float
+
+
+class CyclingClimbingSummary(BaseModel):
+    climbing_distance_km: float
+    climbing_share_percent: float
+    flat_distance_km: float
+    flat_share_percent: float
+    descending_distance_km: float
+    descending_share_percent: float
+
+
+class CyclingBlockSummary(BaseModel):
+    start_distance_km: float
+    end_distance_km: float
+    distance_km: float
+
+
+class CyclingAnalysisResponse(BaseModel):
+    speed_distribution: list[CyclingBandSummary]
+    heart_rate_distribution: list[CyclingBandSummary] | None = None
+    climbing_summary: CyclingClimbingSummary
+    steady_aerobic_block: CyclingBlockSummary | None = None
+    above_threshold_block: CyclingBlockSummary | None = None
+    average_cadence: float | None = None
+    activity_evaluation: str
+    further_training_suggestion: str
+
+
 class ActivityDetailThresholds(BaseModel):
-    aet_heart_rate_bpm: float
-    ant_heart_rate_bpm: float
-    aet_pace_min_per_km: float
-    ant_pace_min_per_km: float
+    aet_heart_rate_bpm: float | None = None
+    ant_heart_rate_bpm: float | None = None
+    aet_pace_min_per_km: float | None = None
+    ant_pace_min_per_km: float | None = None
 
 
 class ActivityDetailResponse(BaseModel):
@@ -98,3 +132,4 @@ class ActivityDetailResponse(BaseModel):
     series: ActivitySeries
     thresholds: ActivityDetailThresholds | None = None
     running_analysis: RunningAnalysisResponse | None = None
+    cycling_analysis: CyclingAnalysisResponse | None = None

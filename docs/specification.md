@@ -274,6 +274,7 @@ Implementation rule:
 - slope when available
 - hover-linked active marker on the map driven by graph focus
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
+- cycling analysis for ride and e-bike ride activities using available speed, heart-rate, cadence, and terrain data
 - threshold-based running analysis for running activities when user thresholds are configured
 
 The activity detail page may replace legacy running-analysis behavior when a clearer product-specific model is chosen.
@@ -289,6 +290,7 @@ The backend detail payload must include:
 - distance-aligned elevation series when present
 - distance-aligned slope series when derivable
 - configured AeT and AnT threshold values when available for the user and activity
+- cycling-analysis output when applicable
 - running threshold-analysis output when applicable
 
 ### Canonical Derived Series
@@ -358,6 +360,23 @@ The running-analysis UI should:
 - show compact question-mark help affordances beside each metric label
 - use those tooltips to explain what each metric means and how to read it
 - keep evaluation and further-training guidance as separate summary points rather than mixing them into metric-level help
+
+## Cycling Analysis
+
+For ride and e-bike ride activities, the backend should return a structured cycling-analysis payload when speed data is available.
+
+The first cycling-analysis version should use only currently stored data:
+
+- ride speed distribution using session-relative speed bands
+- heart-rate distribution across `below_aet`, `between_aet_ant`, and `above_ant` when HR thresholds and HR data are available
+- climbing, flat, and descending distance share from slope-derived terrain classification
+- longest continuous aerobic heart-rate block when HR thresholds and HR data are available
+- longest continuous above-threshold heart-rate block when HR thresholds and HR data are available
+- average cadence when available on the activity
+- a concise activity evaluation sentence
+- a concise further-training suggestion sentence
+
+Cycling speed should not be treated as a physiological threshold proxy in the way running pace is.
 
 ## Missing Data Behavior
 

@@ -35,12 +35,23 @@ Primary command surface:
 - `make test`
 - `make down`
 
+Optional production deployment command surface:
+
+- `make build-prod`
+- `make up-prod`
+- `make down-prod`
+- `make logs-prod`
+
 Windows fallback when `make` is unavailable:
 
 - `.\make.ps1 build`
 - `.\make.ps1 up`
 - `.\make.ps1 test`
 - `.\make.ps1 down`
+- `.\make.ps1 build-prod`
+- `.\make.ps1 up-prod`
+- `.\make.ps1 down-prod`
+- `.\make.ps1 logs-prod`
 
 ## Validation Expectations
 
@@ -55,3 +66,4 @@ Windows fallback when `make` is unavailable:
 
 - The legacy Flask/Dash application remains in place during the rebuild.
 - The new application lives in `frontend`, `backend`, and `worker`.
+- Single-host production deployment guidance lives in [deployment.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/deployment.md).

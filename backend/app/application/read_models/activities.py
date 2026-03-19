@@ -74,6 +74,7 @@ class ActivityReadService:
             heartrate_stream_bpm=(stream.heartrate_stream or {}).get("data", []) if stream and stream.heartrate_stream else [],
             altitude_stream_meters=(stream.altitude_stream or {}).get("data", []) if stream and stream.altitude_stream else [],
             velocity_smooth_stream_mps=(stream.velocity_smooth_stream or {}).get("data", []) if stream and stream.velocity_smooth_stream else [],
+            average_cadence=float(activity.average_cadence) if activity.average_cadence is not None else None,
             aet_heart_rate_bpm=None if profile is None else profile.aet_heart_rate_bpm,
             ant_heart_rate_bpm=None if profile is None else profile.ant_heart_rate_bpm,
             aet_pace_min_per_km=None if profile is None else profile.aet_pace_min_per_km,
@@ -83,18 +84,43 @@ class ActivityReadService:
         latlng = (stream.latlng_stream or {}).get("data", []) if stream and stream.latlng_stream else []
         thresholds = (
             ActivityDetailThresholds(
-                aet_heart_rate_bpm=float(profile.aet_heart_rate_bpm),
-                ant_heart_rate_bpm=float(profile.ant_heart_rate_bpm),
-                aet_pace_min_per_km=float(profile.aet_pace_min_per_km),
-                ant_pace_min_per_km=float(profile.ant_pace_min_per_km),
+                aet_heart_rate_bpm=(
+                    float(profile.aet_heart_rate_bpm)
+                    if profile.aet_heart_rate_bpm is not None
+                    else None
+                ),
+                ant_heart_rate_bpm=(
+                    float(profile.ant_heart_rate_bpm)
+                    if profile.ant_heart_rate_bpm is not None
+                    else None
+                ),
+                aet_pace_min_per_km=(
+                    float(profile.aet_pace_min_per_km)
+                    if profile.aet_pace_min_per_km is not None and activity.sport_type == "Run"
+                    else None
+                ),
+                ant_pace_min_per_km=(
+                    float(profile.ant_pace_min_per_km)
+                    if profile.ant_pace_min_per_km is not None and activity.sport_type == "Run"
+                    else None
+                ),
             )
             if (
-                activity.sport_type == "Run"
-                and profile is not None
-                and profile.aet_heart_rate_bpm is not None
-                and profile.ant_heart_rate_bpm is not None
-                and profile.aet_pace_min_per_km is not None
-                and profile.ant_pace_min_per_km is not None
+                profile is not None
+                and (
+                    (
+                        activity.sport_type == "Run"
+                        and profile.aet_heart_rate_bpm is not None
+                        and profile.ant_heart_rate_bpm is not None
+                        and profile.aet_pace_min_per_km is not None
+                        and profile.ant_pace_min_per_km is not None
+                    )
+                    or (
+                        activity.sport_type in {"Ride", "EBikeRide"}
+                        and profile.aet_heart_rate_bpm is not None
+                        and profile.ant_heart_rate_bpm is not None
+                    )
+                )
             )
             else None
         )
@@ -111,6 +137,7 @@ class ActivityReadService:
                 summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
+                average_cadence=activity.average_cadence,
                 heart_rate_drift_bpm=(
                     activity.heart_rate_drift_bpm
                     if activity.heart_rate_drift_bpm is not None
@@ -129,6 +156,7 @@ class ActivityReadService:
             ),
             thresholds=thresholds,
             running_analysis=analytics["running_analysis"],
+            cycling_analysis=analytics["cycling_analysis"],
         )
 
 
