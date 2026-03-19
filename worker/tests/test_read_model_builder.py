@@ -15,7 +15,6 @@ class ActivityStub:
         distance_meters: str,
         moving_time_seconds: int,
         total_elevation_gain_meters: str | None,
-        difficulty_score: str | None,
     ) -> None:
         self.id = activity_id
         self.sport_type = sport_type
@@ -24,7 +23,6 @@ class ActivityStub:
         self.distance_meters = Decimal(distance_meters)
         self.moving_time_seconds = moving_time_seconds
         self.total_elevation_gain_meters = None if total_elevation_gain_meters is None else Decimal(total_elevation_gain_meters)
-        self.difficulty_score = None if difficulty_score is None else Decimal(difficulty_score)
 
 
 class ActivityStreamStub:
@@ -32,6 +30,7 @@ class ActivityStreamStub:
         self.activity_id = activity_id
         self.distance_stream = {"data": distance_data}
         self.time_stream = {"data": time_data}
+        self.heartrate_stream = None
 
 
 class ActivityRepositoryStub:
@@ -40,6 +39,9 @@ class ActivityRepositoryStub:
 
     def list_for_user(self, _user_id: int):
         return self.activities
+
+    def save(self, activity):
+        return activity
 
 
 class ActivityStreamRepositoryStub:
@@ -90,7 +92,6 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
                 distance_meters="10000",
                 moving_time_seconds=2700,
                 total_elevation_gain_meters="100",
-                difficulty_score="1.25",
             ),
             ActivityStub(
                 activity_id=2,
@@ -100,7 +101,6 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
                 distance_meters="30000",
                 moving_time_seconds=3600,
                 total_elevation_gain_meters="250",
-                difficulty_score="0.50",
             ),
         ]
     )

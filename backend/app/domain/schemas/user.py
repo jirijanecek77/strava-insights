@@ -1,4 +1,3 @@
-from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
@@ -16,12 +15,14 @@ class CurrentUserResponse(BaseModel):
 class UserProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    birthday: date | None = None
-    speed_max: Decimal | None = None
-    max_heart_rate_override: int | None = None
+    aet_heart_rate_bpm: int | None = None
+    ant_heart_rate_bpm: int | None = None
+    aet_pace_min_per_km: Decimal | None = None
+    ant_pace_min_per_km: Decimal | None = None
 
 
 class UpdateUserProfileRequest(BaseModel):
-    birthday: date | None = None
-    speed_max: Decimal | None = None
-    max_heart_rate_override: int | None = None
+    aet_heart_rate_bpm: int | None = None
+    ant_heart_rate_bpm: int | None = None
+    aet_pace_min_per_km: Decimal | None = None
+    ant_pace_min_per_km: Decimal | None = None

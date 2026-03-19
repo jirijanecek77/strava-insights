@@ -17,7 +17,5 @@ class ActivityStream(TimestampMixin, Base):
     altitude_stream: Mapped[dict | None] = mapped_column(JSONB)
     velocity_smooth_stream: Mapped[dict | None] = mapped_column(JSONB)
     heartrate_stream: Mapped[dict | None] = mapped_column(JSONB)
-    derived_series: Mapped[dict | None] = mapped_column(JSONB)
-    interval_analysis: Mapped[dict | None] = mapped_column(JSONB)
 
     activity = relationship("Activity", back_populates="stream")

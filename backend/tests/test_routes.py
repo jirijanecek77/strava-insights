@@ -64,7 +64,6 @@ class DashboardReadServiceStub:
             average_speed_mps=None,
             average_pace_seconds_per_km="240.00",
             total_elevation_gain_meters="300.00",
-            total_difficulty_score="4.0000",
         )
         comparison = PeriodComparisonSchema(current=period, previous=None)
         return DashboardResponse(month=[comparison], year=[comparison])
@@ -126,10 +125,7 @@ class ActivityReadServiceStub:
                 pace_display=["5:00", "4:48"],
                 slope_percent=[0.0, 1.0],
             ),
-            intervals=[],
-            zone_summary={},
-            compliance=None,
-            zones=[],
+            running_analysis=None,
         )
 
 
@@ -178,9 +174,10 @@ def test_me_profile_returns_empty_payload_when_profile_missing(client) -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "birthday": None,
-        "speed_max": None,
-        "max_heart_rate_override": None,
+        "aet_heart_rate_bpm": None,
+        "ant_heart_rate_bpm": None,
+        "aet_pace_min_per_km": None,
+        "ant_pace_min_per_km": None,
     }
 
 
@@ -208,9 +205,10 @@ def test_me_profile_can_be_updated(client, db_session) -> None:
         response = client.put(
             "/me/profile",
             json={
-                "birthday": "1990-01-01",
-                "speed_max": "15.50",
-                "max_heart_rate_override": None,
+                "aet_heart_rate_bpm": 145,
+                "ant_heart_rate_bpm": 168,
+                "aet_pace_min_per_km": "5.40",
+                "ant_pace_min_per_km": "4.30",
             },
         )
     finally:
@@ -218,9 +216,10 @@ def test_me_profile_can_be_updated(client, db_session) -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "birthday": "1990-01-01",
-        "speed_max": "15.50",
-        "max_heart_rate_override": None,
+        "aet_heart_rate_bpm": 145,
+        "ant_heart_rate_bpm": 168,
+        "aet_pace_min_per_km": "5.40",
+        "ant_pace_min_per_km": "4.30",
     }
 
 

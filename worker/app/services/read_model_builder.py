@@ -41,7 +41,6 @@ class AggregateInput:
     moving_time_seconds: int
     total_elevation_gain_meters: Decimal | None
     heart_rate_drift_bpm: Decimal | None
-    difficulty_score: Decimal | None
 
 
 class ReadModelBuilder:
@@ -90,7 +89,6 @@ class ReadModelBuilder:
                 if activity.total_elevation_gain_meters is None
                 else Decimal(str(activity.total_elevation_gain_meters)),
                 heart_rate_drift_bpm=None if activity.heart_rate_drift_bpm is None else Decimal(str(activity.heart_rate_drift_bpm)),
-                difficulty_score=None if activity.difficulty_score is None else Decimal(str(activity.difficulty_score)),
             )
             for activity in activities
         ]
@@ -117,7 +115,6 @@ class ReadModelBuilder:
             total_moving_time = sum(item.moving_time_seconds for item in items)
             total_elevation = sum((item.total_elevation_gain_meters or Decimal("0") for item in items), Decimal("0"))
             drift_values = [item.heart_rate_drift_bpm for item in items if item.heart_rate_drift_bpm is not None]
-            total_difficulty = sum((item.difficulty_score or Decimal("0") for item in items), Decimal("0"))
             average_speed_mps = None
             average_pace_seconds_per_km = None
             average_heart_rate_drift_bpm = None
@@ -145,7 +142,6 @@ class ReadModelBuilder:
                     average_pace_seconds_per_km=average_pace_seconds_per_km,
                     average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
                     total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
-                    total_difficulty_score=_quantize(total_difficulty, "0.0001"),
                 )
             )
         return summaries

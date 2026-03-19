@@ -128,7 +128,7 @@ The application must support:
 - progression over time
 - pace or speed trends
 - elevation trends
-- training load or difficulty trends
+- training-load-oriented trends
 - best efforts
 - monthly, yearly, and rolling comparisons
 - single-activity analysis
@@ -234,26 +234,6 @@ Formatting rules:
 
 If heart-rate data is missing, the API must return a nullable value and the frontend must omit or soften that KPI without failing the page.
 
-## Derived Difficulty Metric
-
-The current application uses a local heuristic to rank effort. Preserve it as a reusable derived metric in v1.
-
-Formula:
-
-- `d_distance_km = distance_km / 15`
-- `d_total_elevation_gain = total_elevation_gain / 150`
-- `d_average_heartrate = average_heartrate / user.max_bpm`
-- `d_average_speed = 6 - abs(user.speed_max - average_speed_kmh)`
-- `difficulty = d_distance_km * d_total_elevation_gain * d_average_heartrate * d_average_speed`
-
-Definitions:
-
-- `average_speed_kmh = average_speed * 3.6`
-- `user.max_bpm` comes from the user profile
-- `user.speed_max` comes from the user profile
-
-This metric is a product-specific heuristic, not a scientific training score.
-
 ## Best Efforts
 
 ### Functional Scope
@@ -293,9 +273,10 @@ Implementation rule:
 - elevation when available
 - slope when available
 - hover-linked active marker on the map driven by graph focus
-- running interval and pace-zone analysis for running activities
+- average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
+- threshold-based running analysis for running activities when user thresholds are configured
 
-The activity detail page must preserve the current analytical intent of the legacy application unless a later design decision explicitly replaces that behavior.
+The activity detail page may replace legacy running-analysis behavior when a clearer product-specific model is chosen.
 
 ### Detail Payload Requirements
 
@@ -307,7 +288,8 @@ The backend detail payload must include:
 - distance-aligned heart-rate series when present
 - distance-aligned elevation series when present
 - distance-aligned slope series when derivable
-- running interval-analysis output when applicable
+- configured AeT and AnT threshold values when available for the user and activity
+- running threshold-analysis output when applicable
 
 ### Canonical Derived Series
 
@@ -330,69 +312,52 @@ Current pace derivation behavior to preserve:
 
 If `delta_distance` is zero, pace should be treated as infinite and legacy-compatible formatted output should render `0:00`.
 
-## Running Zones and Interval Analysis
+## Running Threshold Analysis
 
-### Zone Labels
+### Profile Inputs
 
-- `100m`
-- `5km`
-- `10km`
-- `Half-Marathon`
-- `Marathon`
-- `Active Jogging`
-- `Slow Jogging`
-- `Walk`
+Running threshold analysis should use explicit user-configured thresholds when available:
 
-### Zone Anchors
+- `aet_heart_rate_bpm`
+- `ant_heart_rate_bpm`
+- `aet_pace_min_per_km`
+- `ant_pace_min_per_km`
 
-- `bpm_max = 220 - 0.7 * age`
-- `100m pace = 60 / (1.15 * speed_max)`, `100m bpm = 1.00 * bpm_max`
-- `5km pace = 60 / (0.90 * speed_max)`, `5km bpm = 0.95 * bpm_max`
-- `10km pace = 60 / (0.85 * speed_max)`, `10km bpm = 0.90 * bpm_max`
-- `Half-Marathon pace = 60 / (0.80 * speed_max)`, `Half-Marathon bpm = 0.85 * bpm_max`
-- `Marathon pace = 60 / (0.75 * speed_max)`, `Marathon bpm = 0.80 * bpm_max`
-- `Active Jogging pace = 60 / (0.70 * speed_max)`, `Active Jogging bpm = 0.75 * bpm_max`
-- `Slow Jogging pace = 60 / (0.50 * speed_max)`, `Slow Jogging bpm = 0.60 * bpm_max`
-- `Walk pace = 60 / 4.8`, `Walk bpm = 0.40 * bpm_max`
+### Band Rules
 
-### Zone Boundary Rules
+For pace and heart rate independently, classify each aligned running detail point into:
 
-- pace ranges use midpoints between adjacent pace anchors
-- heart-rate ranges use midpoints between adjacent bpm anchors
-- pace-zone matching uses `lower <= pace < upper`
-- heart-rate-zone matching uses `lower <= bpm < upper`
+- `below_aet`
+- `between_aet_ant`
+- `above_ant`
 
-### Interval Analysis Output
+Rules:
 
-For running activities, interval segmentation should group consecutive data points while both remain unchanged:
+- `below_aet` means value is below the configured aerobic threshold
+- `between_aet_ant` means value is at or above `AeT` and below `AnT`
+- `above_ant` means value is at or above `AnT`
 
-- detected pace zone
-- detected heart-rate zone
+### Running Analysis Output
 
-Each interval contains:
+For running activities with complete threshold inputs and heart-rate plus pace series, the backend should return a structured threshold-analysis payload that includes:
 
-- `distance_km[]`
-- `pace[]`
-- `heart_rate[]`
-- `zones.zone_pace`
-- `zones.zone_heart_rate`
+- pace distribution across the three bands
+- heart-rate distribution across the three bands
+- pace-vs-heart-rate agreement share
+- mismatch shares where pace intensity is higher than heart-rate intensity and vice versa
+- longest continuous block where both pace and heart rate stay in `AeT -> AnT`
+- longest continuous block where pace or heart rate is above `AnT`
+- a short explanatory interpretation sentence
+- a concise activity evaluation sentence
+- a concise further-training suggestion sentence
 
-Per-zone summaries must include:
+This is descriptive feedback, not prescriptive coaching.
 
-- average pace within the zone
-- average heart rate within the zone
-- total distance accumulated within the zone
+The running-analysis UI should:
 
-### Running Analysis Summary
-
-The backend should preserve a simple textual or structured analysis output derived from dominant pace zones:
-
-- select up to two dominant pace zones whose accumulated distance passes the threshold for that zone
-- thresholds are `0.5 km` for `100m` and `5km`, `1.0 km` for `10km`, `2.1 km` for `Half-Marathon`, `4.2 km` for `Marathon`, and `0 km` for jogging and walking zones
-- prioritize race-oriented zones before jogging and walking zones
-- compute a compliance score for the dominant zone as the percentage of zone distance whose heart-rate zone is at or below the associated pace-zone target
-
-This is explanatory feedback, not prescriptive coaching.
+- show compact question-mark help affordances beside each metric label
+- use those tooltips to explain what each metric means and how to read it
+- keep evaluation and further-training guidance as separate summary points rather than mixing them into metric-level help
 
 ## Missing Data Behavior
 
@@ -481,8 +446,8 @@ The schema must support:
 - imported streams needed for local rendering
 - activity-level derived KPI inputs and normalized fields
 - derived detail series when precomputation is beneficial
-- interval-analysis outputs when precomputation is beneficial
-- Strava athlete identity and analytics profile inputs such as age or birthday, `speed_max`, and optional future overrides
+- threshold-analysis outputs when precomputation is beneficial
+- explicit running threshold inputs for activity-detail analysis
 
 ### Key Indexes
 

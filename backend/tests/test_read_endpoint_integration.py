@@ -42,7 +42,13 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         profile_picture_url=None,
         is_active=True,
     )
-    profile = UserProfile(user_id=1, birthday=date(1990, 1, 1), speed_max=Decimal("15.50"), max_heart_rate_override=None)
+    profile = UserProfile(
+        user_id=1,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+        aet_pace_min_per_km=Decimal("5.20"),
+        ant_pace_min_per_km=Decimal("4.30"),
+    )
     activity = Activity(
         id=5,
         user_id=1,
@@ -70,7 +76,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         average_pace_seconds_per_km=Decimal("270.00"),
         average_pace_display="4:30",
         summary_metric_display="4:30 /km",
-        difficulty_score=Decimal("1.2500"),
         start_latlng=[50.0, 14.0],
     )
     stream = ActivityStream(
@@ -81,8 +86,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         altitude_stream={"data": [200, 201, 202, 203, 204, 205]},
         velocity_smooth_stream={"data": [4.0, 4.1, 4.2, 4.3, 4.4, 4.5]},
         heartrate_stream={"data": [150, 151, 152, 153, 154, 155]},
-        derived_series=None,
-        interval_analysis=None,
     )
     best_effort = BestEffort(
         user_id=1,
@@ -105,7 +108,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("240.00"),
             total_elevation_gain_meters=Decimal("300.00"),
-            total_difficulty_score=Decimal("4.0000"),
         ),
         PeriodSummary(
             user_id=1,
@@ -118,7 +120,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("270.00"),
             total_elevation_gain_meters=Decimal("200.00"),
-            total_difficulty_score=Decimal("2.0000"),
         ),
         PeriodSummary(
             user_id=1,
@@ -131,7 +132,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("262.50"),
             total_elevation_gain_meters=Decimal("800.00"),
-            total_difficulty_score=Decimal("8.0000"),
         ),
         PeriodSummary(
             user_id=1,
@@ -144,7 +144,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("283.33"),
             total_elevation_gain_meters=Decimal("600.00"),
-            total_difficulty_score=Decimal("6.0000"),
         ),
         PeriodSummary(
             user_id=1,
@@ -157,7 +156,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("260.00"),
             total_elevation_gain_meters=Decimal("180.00"),
-            total_difficulty_score=Decimal("2.4000"),
         ),
         PeriodSummary(
             user_id=1,
@@ -170,7 +168,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             average_speed_mps=None,
             average_pace_seconds_per_km=Decimal("280.00"),
             total_elevation_gain_meters=Decimal("90.00"),
-            total_difficulty_score=Decimal("1.1000"),
         ),
     ]
 
@@ -212,6 +209,11 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         assert activity_detail_response.json()["kpis"]["heart_rate_drift_bpm"] == "3.00"
         assert activity_detail_response.json()["series"]["pace_display"][0] == "4:00"
         assert activity_detail_response.json()["series"]["altitude_meters"][0] == 200
+        assert activity_detail_response.json()["thresholds"]["aet_heart_rate_bpm"] == 145.0
+        assert activity_detail_response.json()["thresholds"]["ant_pace_min_per_km"] == 4.3
+        assert activity_detail_response.json()["running_analysis"]["pace_distribution"][0]["label"] == "Below AeT"
+        assert activity_detail_response.json()["running_analysis"]["activity_evaluation"]
+        assert activity_detail_response.json()["running_analysis"]["further_training_suggestion"]
 
         best_efforts_response = client.get("/best-efforts")
         assert best_efforts_response.status_code == 200

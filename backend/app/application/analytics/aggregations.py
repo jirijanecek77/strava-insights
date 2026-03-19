@@ -19,7 +19,6 @@ class ActivityAggregateInput:
     moving_time_seconds: int
     total_elevation_gain_meters: Decimal | None
     heart_rate_drift_bpm: Decimal | None
-    difficulty_score: Decimal | None
 
 
 @dataclass(slots=True)
@@ -34,7 +33,6 @@ class PeriodSummaryResult:
     average_pace_seconds_per_km: Decimal | None
     average_heart_rate_drift_bpm: Decimal | None
     total_elevation_gain_meters: Decimal | None
-    total_difficulty_score: Decimal | None
 
 
 def _period_start(period_type: str, activity_date: date) -> date:
@@ -66,11 +64,6 @@ def aggregate_period_summaries(
             Decimal("0"),
         )
         drift_values = [activity.heart_rate_drift_bpm for activity in grouped_activities if activity.heart_rate_drift_bpm is not None]
-        total_difficulty = sum(
-            (activity.difficulty_score or Decimal("0") for activity in grouped_activities),
-            Decimal("0"),
-        )
-
         average_speed_mps: Decimal | None = None
         average_pace_seconds_per_km: Decimal | None = None
         average_heart_rate_drift_bpm: Decimal | None = None
@@ -97,7 +90,6 @@ def aggregate_period_summaries(
                 average_pace_seconds_per_km=average_pace_seconds_per_km,
                 average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
                 total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
-                total_difficulty_score=_quantize(total_difficulty, "0.0001"),
             )
         )
 
@@ -131,8 +123,6 @@ def summarize_window(
     total_moving_time = sum(activity.moving_time_seconds for activity in filtered)
     total_elevation = sum((activity.total_elevation_gain_meters or Decimal("0") for activity in filtered), Decimal("0"))
     drift_values = [activity.heart_rate_drift_bpm for activity in filtered if activity.heart_rate_drift_bpm is not None]
-    total_difficulty = sum((activity.difficulty_score or Decimal("0") for activity in filtered), Decimal("0"))
-
     average_speed_mps: Decimal | None = None
     average_pace_seconds_per_km: Decimal | None = None
     average_heart_rate_drift_bpm: Decimal | None = None
@@ -158,7 +148,6 @@ def summarize_window(
         average_pace_seconds_per_km=average_pace_seconds_per_km,
         average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
         total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
-        total_difficulty_score=_quantize(total_difficulty, "0.0001"),
     )
 
 

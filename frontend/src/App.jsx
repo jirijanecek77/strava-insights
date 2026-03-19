@@ -58,9 +58,10 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileBusy, setProfileBusy] = useState(false);
     const [profileForm, setProfileForm] = useState({
-        birthday: "",
-        maxHeartRateOverride: "",
-        maxPace: "",
+        aerobicThresholdHeartRate: "",
+        anaerobicThresholdHeartRate: "",
+        aerobicThresholdPace: "",
+        anaerobicThresholdPace: "",
     });
 
     const activityQuery = useMemo(
@@ -233,9 +234,10 @@ export default function App() {
                     return;
                 }
                 setProfileForm({
-                    birthday: payload.birthday ?? "",
-                    maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
-                    maxPace: formatSpeedMaxAsPace(payload.speed_max),
+                    aerobicThresholdHeartRate: payload.aet_heart_rate_bpm == null ? "" : String(payload.aet_heart_rate_bpm),
+                    anaerobicThresholdHeartRate: payload.ant_heart_rate_bpm == null ? "" : String(payload.ant_heart_rate_bpm),
+                    aerobicThresholdPace: formatPaceField(payload.aet_pace_min_per_km),
+                    anaerobicThresholdPace: formatPaceField(payload.ant_pace_min_per_km),
                 });
             })
             .catch((error) => {
@@ -300,24 +302,31 @@ export default function App() {
 
     async function handleSaveProfile() {
         try {
-            const parsedSpeedMax = parsePaceToSpeedMax(profileForm.maxPace);
-            if (profileForm.maxPace.trim() && parsedSpeedMax == null) {
-                setErrorMessage("Max aerobic pace must use mm:ss or decimal minutes.");
+            const parsedAetPace = parsePaceInput(profileForm.aerobicThresholdPace);
+            const parsedAntPace = parsePaceInput(profileForm.anaerobicThresholdPace);
+            if (profileForm.aerobicThresholdPace.trim() && parsedAetPace == null) {
+                setErrorMessage("Aerobic threshold pace must use mm:ss or decimal minutes.");
+                return;
+            }
+            if (profileForm.anaerobicThresholdPace.trim() && parsedAntPace == null) {
+                setErrorMessage("Anaerobic threshold pace must use mm:ss or decimal minutes.");
                 return;
             }
             setProfileBusy(true);
             const payload = await fetchJson("/me/profile", {
                 method: "PUT",
                 body: JSON.stringify({
-                    birthday: profileForm.birthday || null,
-                    max_heart_rate_override: profileForm.maxHeartRateOverride ? Number(profileForm.maxHeartRateOverride) : null,
-                    speed_max: profileForm.maxPace.trim() ? parsedSpeedMax : null,
+                    aet_heart_rate_bpm: profileForm.aerobicThresholdHeartRate ? Number(profileForm.aerobicThresholdHeartRate) : null,
+                    ant_heart_rate_bpm: profileForm.anaerobicThresholdHeartRate ? Number(profileForm.anaerobicThresholdHeartRate) : null,
+                    aet_pace_min_per_km: profileForm.aerobicThresholdPace.trim() ? parsedAetPace : null,
+                    ant_pace_min_per_km: profileForm.anaerobicThresholdPace.trim() ? parsedAntPace : null,
                 }),
             });
             setProfileForm({
-                birthday: payload.birthday ?? "",
-                maxHeartRateOverride: payload.max_heart_rate_override == null ? "" : String(payload.max_heart_rate_override),
-                maxPace: formatSpeedMaxAsPace(payload.speed_max),
+                aerobicThresholdHeartRate: payload.aet_heart_rate_bpm == null ? "" : String(payload.aet_heart_rate_bpm),
+                anaerobicThresholdHeartRate: payload.ant_heart_rate_bpm == null ? "" : String(payload.ant_heart_rate_bpm),
+                aerobicThresholdPace: formatPaceField(payload.aet_pace_min_per_km),
+                anaerobicThresholdPace: formatPaceField(payload.ant_pace_min_per_km),
             });
             setErrorMessage("");
         } catch (error) {
@@ -460,7 +469,7 @@ function LandingScreen({authBusy, errorMessage, onLogin}) {
                 <div className="landing-metrics">
                     <MetricTile label="Comparison Windows" value="Week / Month / Year / 30d"/>
                     <MetricTile label="Read Model" value="Cached + DB-backed"/>
-                    <MetricTile label="Activity Detail" value="Pace, slope, HR, zones"/>
+                    <MetricTile label="Activity Detail" value="Pace, slope, HR, thresholds"/>
                 </div>
             </section>
         </main>
@@ -790,12 +799,11 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     distanceValues={detail.series.distance_km}
                     label="Pace"
                     altitudeValues={detail.series.altitude_meters}
-                    intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
                     referenceValue={paceReferenceValue}
+                    thresholds={detail.thresholds}
                     valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"}
                     values={paceOrSpeed}
-                    zones={detail.zones}
                 />
                 <DetailChart
                     accent="red"
@@ -803,12 +811,11 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     distanceValues={detail.series.distance_km}
                     label="Heart Rate"
                     altitudeValues={detail.series.altitude_meters}
-                    intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
                     referenceValue={heartRateReferenceValue}
+                    thresholds={detail.thresholds}
                     valueKind="heart_rate"
                     values={detail.series.moving_average_heartrate}
-                    zones={detail.zones}
                 />
                 <DetailChart
                     accent="green"
@@ -816,24 +823,19 @@ function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
                     distanceValues={detail.series.distance_km}
                     label="Slope"
                     altitudeValues={detail.series.altitude_meters}
-                    intervals={detail.intervals}
                     onSelectIndex={onSelectSeriesIndex}
                     referenceValue={slopeReferenceValue}
                     valueKind="slope"
                     values={detail.series.slope_percent}
-                    zones={detail.zones}
                 />
             </div>
             <div className="detail-analysis-grid">
                 <div className="detail-card">
                     <p className="eyebrow">Running Analysis</p>
-                    {detail.compliance ? (
-                        <>
-                            <strong>{detail.compliance.analysis_text ?? "Compliance summary available."}</strong>
-                            <p className="sidebar-subtle">{detail.compliance.score_text ?? ""}</p>
-                        </>
+                    {detail.running_analysis ? (
+                        <RunningAnalysisCard analysis={detail.running_analysis}/>
                     ) : (
-                        <EmptyState compact text="No running compliance summary available for this activity."/>
+                        <EmptyState compact text="Add AeT and AnT pace and heart-rate thresholds in Settings to unlock running analysis."/>
                     )}
                 </div>
             </div>
@@ -848,11 +850,10 @@ function DetailChart({
                          values,
                          distanceValues,
                          altitudeValues,
-                         intervals,
                          onSelectIndex,
                          referenceValue,
-                         valueKind,
-                         zones
+                         thresholds,
+                         valueKind
                      }) {
     return (
         <div className="detail-card">
@@ -862,15 +863,94 @@ function DetailChart({
                 activeIndex={activeIndex}
                 altitudeValues={altitudeValues}
                 distanceValues={distanceValues}
-                intervals={intervals}
                 label={label}
                 onSelectIndex={onSelectIndex}
                 referenceValue={referenceValue}
+                thresholds={thresholds}
                 valueKind={valueKind}
                 values={values}
-                zones={zones}
             />
         </div>
+    );
+}
+
+function RunningAnalysisCard({analysis}) {
+    return (
+        <div className="settings-list">
+            <div className="settings-row">
+                <MetricHelpLabel label="Pace Bands" tooltipKey="pace_bands"/>
+                <strong>{formatBandDistribution(analysis.pace_distribution)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="HR Bands" tooltipKey="hr_bands"/>
+                <strong>{formatBandDistribution(analysis.heart_rate_distribution)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="Agreement" tooltipKey="agreement"/>
+                <strong>{formatPercentage(analysis.agreement.matching_share_percent)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="Pace Above HR" tooltipKey="pace_above_hr"/>
+                <strong>{formatPercentage(analysis.agreement.pace_higher_share_percent)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="HR Above Pace" tooltipKey="hr_above_pace"/>
+                <strong>{formatPercentage(analysis.agreement.heart_rate_higher_share_percent)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="Longest AeT to AnT" tooltipKey="longest_aet_to_ant"/>
+                <strong>{formatDistanceKm(analysis.steady_threshold_block.distance_km)}</strong>
+            </div>
+            <div className="settings-row">
+                <MetricHelpLabel label="Longest Above AnT" tooltipKey="longest_above_ant"/>
+                <strong>{formatDistanceKm(analysis.above_threshold_block.distance_km)}</strong>
+            </div>
+            <div className="settings-row">
+                <span>Activity Evaluation</span>
+                <span className="running-analysis-copy">{analysis.activity_evaluation}</span>
+            </div>
+            <div className="settings-row">
+                <span>Further Training Suggestion</span>
+                <span className="running-analysis-copy">{analysis.further_training_suggestion}</span>
+            </div>
+        </div>
+    );
+}
+
+const RUNNING_ANALYSIS_TOOLTIPS = {
+    pace_bands: "Shows how your running pace was distributed across Below AeT, AeT to AnT, and Above AnT bands during the activity.",
+    hr_bands: "Shows how your heart rate was distributed across the same threshold bands, so you can compare internal effort with pace output.",
+    agreement: "Measures how often pace intensity and heart-rate intensity landed in the same threshold band at the same point of the run.",
+    pace_above_hr: "Highlights sections where pace looked harder than heart-rate response, which can happen early in a run or in favorable conditions.",
+    hr_above_pace: "Highlights sections where heart rate looked harder than pace output, which can point to fatigue, heat, hills, or drift.",
+    longest_aet_to_ant: "The longest continuous stretch where both pace and heart rate stayed in the AeT to AnT range, indicating steady threshold work.",
+    longest_above_ant: "The longest continuous stretch where pace or heart rate stayed above AnT, showing your longest hard-intensity segment.",
+};
+
+function MetricHelpLabel({label, tooltipKey}) {
+    const [open, setOpen] = useState(false);
+    const tooltipId = `tooltip-${tooltipKey}`;
+    return (
+        <span className="metric-help-label">
+            <span>{label}</span>
+            <button
+                aria-describedby={open ? tooltipId : undefined}
+                aria-label={`${label} explanation`}
+                className="info-tooltip-trigger"
+                onBlur={() => setOpen(false)}
+                onFocus={() => setOpen(true)}
+                onMouseEnter={() => setOpen(true)}
+                onMouseLeave={() => setOpen(false)}
+                type="button"
+            >
+                ?
+            </button>
+            {open ? (
+                <span className="info-tooltip-panel" id={tooltipId} role="tooltip">
+                    {RUNNING_ANALYSIS_TOOLTIPS[tooltipKey]}
+                </span>
+            ) : null}
+        </span>
     );
 }
 
@@ -943,34 +1023,47 @@ function SettingsView({
                 </div>
                 <div className="settings-form">
                     <label className="control-chip">
-                        <span>Birthday</span>
+                        <span>Aerobic Threshold HR (bpm)</span>
                         <input
-                            aria-label="Birthday"
-                            type="date"
-                            value={profileForm.birthday}
-                            onChange={(event) => onChangeProfileField("birthday", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Max Aerobic Pace (min/km)</span>
-                        <input
-                            aria-label="Max Aerobic Pace (min/km)"
-                            inputMode="text"
-                            placeholder="3:45"
-                            type="text"
-                            value={profileForm.maxPace}
-                            onChange={(event) => onChangeProfileField("maxPace", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Max HR Override</span>
-                        <input
-                            aria-label="Max HR Override"
+                            aria-label="Aerobic Threshold HR (bpm)"
                             inputMode="numeric"
                             step="1"
                             type="number"
-                            value={profileForm.maxHeartRateOverride}
-                            onChange={(event) => onChangeProfileField("maxHeartRateOverride", event.target.value)}
+                            value={profileForm.aerobicThresholdHeartRate}
+                            onChange={(event) => onChangeProfileField("aerobicThresholdHeartRate", event.target.value)}
+                        />
+                    </label>
+                    <label className="control-chip">
+                        <span>Anaerobic Threshold HR (bpm)</span>
+                        <input
+                            aria-label="Anaerobic Threshold HR (bpm)"
+                            inputMode="numeric"
+                            step="1"
+                            type="number"
+                            value={profileForm.anaerobicThresholdHeartRate}
+                            onChange={(event) => onChangeProfileField("anaerobicThresholdHeartRate", event.target.value)}
+                        />
+                    </label>
+                    <label className="control-chip">
+                        <span>Aerobic Threshold Pace (min/km)</span>
+                        <input
+                            aria-label="Aerobic Threshold Pace (min/km)"
+                            inputMode="text"
+                            placeholder="5:20"
+                            type="text"
+                            value={profileForm.aerobicThresholdPace}
+                            onChange={(event) => onChangeProfileField("aerobicThresholdPace", event.target.value)}
+                        />
+                    </label>
+                    <label className="control-chip">
+                        <span>Anaerobic Threshold Pace (min/km)</span>
+                        <input
+                            aria-label="Anaerobic Threshold Pace (min/km)"
+                            inputMode="text"
+                            placeholder="4:15"
+                            type="text"
+                            value={profileForm.anaerobicThresholdPace}
+                            onChange={(event) => onChangeProfileField("anaerobicThresholdPace", event.target.value)}
                         />
                     </label>
                 </div>
@@ -1180,13 +1273,12 @@ function MiniLineChart({
                            activeIndex,
                            altitudeValues,
                            distanceValues,
-                           intervals,
                            label,
                            onSelectIndex,
                            referenceValue,
+                           thresholds,
                            valueKind,
-                           values,
-                           zones
+                           values
                        }) {
     if (!values?.length) {
         return <EmptyState compact text="No series available."/>;
@@ -1239,13 +1331,9 @@ function MiniLineChart({
         }),
         [numericDistances],
     );
-    const intervalBands = useMemo(
-        () => buildIntervalBands({intervals, xMax, xMin, zones}),
-        [intervals, xMax, xMin, zones],
-    );
-    const thresholdBands = useMemo(
-        () => buildThresholdBands({maxValue, minValue, valueKind, xMax, xMin, zones}),
-        [maxValue, minValue, valueKind, xMax, xMin, zones],
+    const thresholdGuides = useMemo(
+        () => buildThresholdGuides({maxValue, minValue, thresholds, valueKind, xMax, xMin}),
+        [maxValue, minValue, thresholds, valueKind, xMax, xMin],
     );
     const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, chartData.length - 1);
     const activePoint = useMemo(
@@ -1305,23 +1393,11 @@ function MiniLineChart({
                         content={() => null}
                         cursor={{stroke: "rgba(29, 122, 243, 0.28)", strokeDasharray: "4 4"}}
                     />
-                    {intervalBands.map((band, index) => (
+                    {thresholdGuides.bands.map((band) => (
                         <ReferenceArea
-                            key={`interval-band-${index}`}
+                            key={`threshold-band-${valueKind}-${band.code}`}
                             fill={band.color}
-                            fillOpacity={0.12}
-                            ifOverflow="extendDomain"
-                            x1={band.x1}
-                            x2={band.x2}
-                            y1={minValue}
-                            y2={maxValue}
-                        />
-                    ))}
-                    {thresholdBands.map((band, index) => (
-                        <ReferenceArea
-                            key={`threshold-band-${index}`}
-                            fill={band.color}
-                            fillOpacity={0.16}
+                            fillOpacity={0.1}
                             ifOverflow="extendDomain"
                             x1={xMin}
                             x2={xMax}
@@ -1357,6 +1433,17 @@ function MiniLineChart({
                             y={referenceValue}
                         />
                     ) : null}
+                    {thresholdGuides.lines.map((line) => (
+                        <ReferenceLine
+                            ifOverflow="extendDomain"
+                            key={`threshold-line-${valueKind}-${line.label}`}
+                            label={{fill: line.color, fontSize: 10, position: "insideTopRight", value: line.label}}
+                            stroke={line.color}
+                            strokeDasharray="3 4"
+                            strokeWidth={1}
+                            y={line.value}
+                        />
+                    ))}
                     {activePoint && Number.isFinite(activePoint.distance) ? (
                         <ReferenceLine stroke="rgba(29, 122, 243, 0.32)" strokeDasharray="4 4"
                                        x={activePoint.distance}/>
@@ -1856,15 +1943,15 @@ function formatHeartRateDrift(value) {
     return `${sign}${formatted} bpm`;
 }
 
-function formatSpeedMaxAsPace(value) {
-  const numericValue = Number(value);
+function formatPaceField(value) {
+    const numericValue = Number(value);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
         return "";
     }
-    return formatPaceMinutes(60 / numericValue);
+    return formatPaceMinutes(numericValue);
 }
 
-function parsePaceToSpeedMax(value) {
+function parsePaceInput(value) {
     if (!value?.trim()) {
         return null;
     }
@@ -1880,13 +1967,13 @@ function parsePaceToSpeedMax(value) {
         if (totalMinutes <= 0) {
             return null;
         }
-        return Number((60 / totalMinutes).toFixed(2));
+        return Number(totalMinutes.toFixed(2));
     }
     const numericValue = Number(normalized);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
         return null;
     }
-    return Number((60 / numericValue).toFixed(2));
+    return Number(numericValue.toFixed(2));
 }
 
 function labelForValueKind(kind) {
@@ -2029,58 +2116,6 @@ function buildCalendarSummary(dayActivities) {
     };
 }
 
-function buildIntervalBands({intervals, xMax, xMin, zones}) {
-    if (!intervals?.length || !zones?.length) {
-        return [];
-    }
-    const zoneColorMap = new Map(zones.map((zone) => [zone.name, zone.color]));
-    return intervals
-        .map((interval) => {
-            const distances = interval.distance_km ?? [];
-            if (!distances.length) {
-                return null;
-            }
-            const start = Math.min(...distances);
-            const end = Math.max(...distances, start + 0.05);
-            const color = zoneColorMap.get(interval.zones?.zone_pace) ?? "#cfd5db";
-            return {
-                color,
-                x1: Math.max(start, xMin),
-                x2: Math.max(Math.min(end, xMax), start + 0.02),
-            };
-        })
-        .filter(Boolean);
-}
-
-function buildThresholdBands({maxValue, minValue, valueKind, xMax, xMin, zones}) {
-    if (!zones?.length || (valueKind !== "pace" && valueKind !== "heart_rate")) {
-        return [];
-    }
-    const metricKey = valueKind === "pace" ? "range_zone_pace" : "range_zone_bpm";
-    const usableZones = zones.filter((zone) => zone?.[metricKey] != null);
-    if (!usableZones.length) {
-        return [];
-    }
-    return usableZones
-        .map((zone) => {
-            const lower = Number(zone[metricKey].lower);
-            const upper = Number(zone[metricKey].upper);
-            if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
-                return null;
-            }
-            const clampedLower = Math.max(minValue, Math.min(maxValue, lower));
-            const clampedUpper = Math.max(minValue, Math.min(maxValue, upper));
-            return {
-                color: zone.color,
-                x1: xMin,
-                x2: xMax,
-                y1: clampedLower,
-                y2: clampedUpper,
-            };
-        })
-        .filter(Boolean);
-}
-
 function expandChartDomain(minValue, maxValue) {
     if (minValue === maxValue) {
         const padding = minValue === 0 ? 1 : Math.abs(minValue) * 0.08;
@@ -2219,4 +2254,70 @@ function scaleCalendarBubbleSize(totalDistanceKm, dominantSport) {
 
 function roundNumber(value) {
     return Math.round(value * 10) / 10;
+}
+
+export function buildThresholdGuides({maxValue, minValue, thresholds, valueKind, xMax, xMin}) {
+    if (!thresholds || (valueKind !== "pace" && valueKind !== "heart_rate")) {
+        return {bands: [], lines: []};
+    }
+
+    const rawAet = valueKind === "pace" ? Number(thresholds.aet_pace_min_per_km) : Number(thresholds.aet_heart_rate_bpm);
+    const rawAnt = valueKind === "pace" ? Number(thresholds.ant_pace_min_per_km) : Number(thresholds.ant_heart_rate_bpm);
+    if (!Number.isFinite(rawAet) || !Number.isFinite(rawAnt)) {
+        return {bands: [], lines: []};
+    }
+
+    const aet = Math.max(minValue, Math.min(maxValue, rawAet));
+    const ant = Math.max(minValue, Math.min(maxValue, rawAnt));
+    const bandColors = {
+        above_ant: "rgba(220, 38, 38, 0.18)",
+        below_aet: "rgba(37, 99, 235, 0.16)",
+        between_aet_ant: "rgba(245, 158, 11, 0.16)",
+    };
+    const lines = [
+        {color: "rgba(37, 99, 235, 0.8)", label: "AeT", value: aet},
+        {color: "rgba(220, 38, 38, 0.8)", label: "AnT", value: ant},
+    ];
+
+    if (valueKind === "pace") {
+        return {
+            bands: [
+                {code: "above_ant", color: bandColors.above_ant, x1: xMin, x2: xMax, y1: minValue, y2: ant},
+                {code: "between_aet_ant", color: bandColors.between_aet_ant, x1: xMin, x2: xMax, y1: ant, y2: aet},
+                {code: "below_aet", color: bandColors.below_aet, x1: xMin, x2: xMax, y1: aet, y2: maxValue},
+            ],
+            lines,
+        };
+    }
+
+    return {
+        bands: [
+            {code: "below_aet", color: bandColors.below_aet, x1: xMin, x2: xMax, y1: minValue, y2: aet},
+            {code: "between_aet_ant", color: bandColors.between_aet_ant, x1: xMin, x2: xMax, y1: aet, y2: ant},
+            {code: "above_ant", color: bandColors.above_ant, x1: xMin, x2: xMax, y1: ant, y2: maxValue},
+        ],
+        lines,
+    };
+}
+
+function formatBandDistribution(items) {
+    return (items ?? [])
+        .map((item) => `${item.label} ${formatPercentage(item.share_percent)}`)
+        .join(" | ");
+}
+
+function formatPercentage(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return "n/a";
+    }
+    return `${formatNumber(numeric)}%`;
+}
+
+function formatDistanceKm(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return "n/a";
+    }
+    return `${formatNumber(numeric)} km`;
 }

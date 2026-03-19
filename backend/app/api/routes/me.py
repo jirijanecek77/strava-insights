@@ -60,9 +60,10 @@ def update_user_profile_details(
 
     profile = UserProfileRepository(db_session).upsert_for_user(
         user_id=user.id,
-        birthday=payload.birthday,
-        speed_max=payload.speed_max,
-        max_heart_rate_override=payload.max_heart_rate_override,
+        aet_heart_rate_bpm=payload.aet_heart_rate_bpm,
+        ant_heart_rate_bpm=payload.ant_heart_rate_bpm,
+        aet_pace_min_per_km=payload.aet_pace_min_per_km,
+        ant_pace_min_per_km=payload.ant_pace_min_per_km,
     )
     db_session.commit()
     return UserProfileResponse.model_validate(profile)

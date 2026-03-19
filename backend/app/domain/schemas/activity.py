@@ -16,7 +16,6 @@ class ActivityListRow(BaseModel):
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
     heart_rate_drift_bpm: Decimal | None = None
-    difficulty_score: Decimal | None = None
 
 
 class ActivityListResponse(BaseModel):
@@ -31,7 +30,6 @@ class ActivityKpis(BaseModel):
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
     heart_rate_drift_bpm: Decimal | None = None
-    difficulty_score: Decimal | None = None
 
 
 class ActivitySeries(BaseModel):
@@ -49,6 +47,46 @@ class ActivityMap(BaseModel):
     bounds: dict[str, float] | None = None
 
 
+class RunningBandSummary(BaseModel):
+    code: str
+    label: str
+    distance_km: float
+    share_percent: float
+
+
+class RunningAgreementSummary(BaseModel):
+    matching_distance_km: float
+    matching_share_percent: float
+    pace_higher_distance_km: float
+    pace_higher_share_percent: float
+    heart_rate_higher_distance_km: float
+    heart_rate_higher_share_percent: float
+
+
+class RunningBlockSummary(BaseModel):
+    start_distance_km: float
+    end_distance_km: float
+    distance_km: float
+
+
+class RunningAnalysisResponse(BaseModel):
+    pace_distribution: list[RunningBandSummary]
+    heart_rate_distribution: list[RunningBandSummary]
+    agreement: RunningAgreementSummary
+    steady_threshold_block: RunningBlockSummary
+    above_threshold_block: RunningBlockSummary
+    interpretation: str
+    activity_evaluation: str
+    further_training_suggestion: str
+
+
+class ActivityDetailThresholds(BaseModel):
+    aet_heart_rate_bpm: float
+    ant_heart_rate_bpm: float
+    aet_pace_min_per_km: float
+    ant_pace_min_per_km: float
+
+
 class ActivityDetailResponse(BaseModel):
     id: int
     sport_type: str
@@ -58,7 +96,5 @@ class ActivityDetailResponse(BaseModel):
     kpis: ActivityKpis
     map: ActivityMap | None = None
     series: ActivitySeries
-    intervals: list[dict]
-    zone_summary: dict
-    compliance: dict | None = None
-    zones: list[dict]
+    thresholds: ActivityDetailThresholds | None = None
+    running_analysis: RunningAnalysisResponse | None = None

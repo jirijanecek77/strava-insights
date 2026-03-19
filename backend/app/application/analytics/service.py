@@ -1,5 +1,4 @@
-from datetime import date, datetime, UTC
-from decimal import Decimal
+from datetime import datetime
 
 from app.application.analytics.detail_series import (
     calculate_pace_minutes_per_km,
@@ -10,18 +9,7 @@ from app.application.analytics.detail_series import (
     moving_average_speed_kph,
 )
 from app.application.analytics.heart_rate_drift import calculate_heart_rate_drift_bpm
-from app.application.analytics.interval_analysis import (
-    build_running_compliance,
-    group_running_intervals,
-    summarize_running_intervals,
-)
-from app.application.analytics.running_zones import bpm_max_for_age, build_running_zones
-
-
-def _calculate_age(birthday: date, reference_date: date) -> int:
-    return reference_date.year - birthday.year - (
-        (reference_date.month, reference_date.day) < (birthday.month, birthday.day)
-    )
+from app.application.analytics.running_analysis import build_running_analysis
 
 
 class ActivityDetailAnalyticsService:
@@ -35,8 +23,10 @@ class ActivityDetailAnalyticsService:
         heartrate_stream_bpm: list[float] | None,
         altitude_stream_meters: list[float] | None,
         velocity_smooth_stream_mps: list[float] | None,
-        birthday: date | None,
-        speed_max: Decimal | None,
+        aet_heart_rate_bpm: int | None,
+        ant_heart_rate_bpm: int | None,
+        aet_pace_min_per_km: float | None,
+        ant_pace_min_per_km: float | None,
     ) -> dict:
         distance_km = meters_to_kilometers(distance_stream_meters or []) if distance_stream_meters else []
         heartrate_ma = (
@@ -71,40 +61,27 @@ class ActivityDetailAnalyticsService:
             "pace_minutes_per_km": pace_minutes_per_km,
             "pace_display": pace_display,
             "slope_percent": slope_percent,
-            "intervals": [],
-            "zone_summary": {},
-            "compliance": None,
-            "zones": [],
+            "running_analysis": None,
         }
 
-        if sport_type != "Run" or not pace_minutes_per_km or not heartrate_ma or birthday is None or speed_max is None:
+        if (
+            sport_type != "Run"
+            or not pace_minutes_per_km
+            or not heartrate_ma
+            or aet_heart_rate_bpm is None
+            or ant_heart_rate_bpm is None
+            or aet_pace_min_per_km is None
+            or ant_pace_min_per_km is None
+        ):
             return result
 
-        reference_date = (start_date_utc or datetime.now(UTC)).date()
-        age = _calculate_age(birthday, reference_date)
-        zones = build_running_zones(age=age, speed_max=float(speed_max))
-        intervals = group_running_intervals(
+        result["running_analysis"] = build_running_analysis(
             distance_km=distance_km,
-            paces=pace_minutes_per_km,
-            heart_rates=heartrate_ma,
-            zones=zones,
+            pace_minutes_per_km=pace_minutes_per_km,
+            heart_rate_bpm=heartrate_ma,
+            aet_pace_min_per_km=float(aet_pace_min_per_km),
+            ant_pace_min_per_km=float(ant_pace_min_per_km),
+            aet_heart_rate_bpm=float(aet_heart_rate_bpm),
+            ant_heart_rate_bpm=float(ant_heart_rate_bpm),
         )
-        zone_summary = summarize_running_intervals(intervals)
-        compliance = build_running_compliance(zone_summary, activity_distance_km=max(distance_km) if distance_km else 0.0)
-
-        result["zones"] = [
-            {
-                "name": zone.name,
-                "pace": zone.pace,
-                "bpm": zone.bpm,
-                "color": zone.color,
-                "range_zone_pace": {"lower": zone.range_zone_pace.lower, "upper": zone.range_zone_pace.upper},
-                "range_zone_bpm": {"lower": zone.range_zone_bpm.lower, "upper": zone.range_zone_bpm.upper},
-            }
-            for zone in zones
-        ]
-        result["intervals"] = intervals
-        result["zone_summary"] = zone_summary
-        result["compliance"] = compliance
-        result["bpm_max"] = bpm_max_for_age(age)
         return result

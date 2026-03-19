@@ -1,6 +1,6 @@
 import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
 
-import App, {parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
+import App, {buildThresholdGuides, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
 
 function jsonResponse(body, status = 200) {
     return {
@@ -92,7 +92,6 @@ describe("App", () => {
                             total_elevation_gain_meters: 120,
                             average_heartrate_bpm: 150,
                             heart_rate_drift_bpm: 6.5,
-                            difficulty_score: 7.5,
                         },
                         map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
                         series: {
@@ -104,15 +103,37 @@ describe("App", () => {
                             pace_display: ["5:12", "5:00", "4:54"],
                             slope_percent: [0.5, 1.2, -0.3],
                         },
-                        intervals: [{zone: "tempo", duration_seconds: 900}],
-                        zone_summary: {},
-                        compliance: {analysis_text: "Mostly tempo work.", score_text: "Score 8/10"},
-                        zones: [{
-                            name: "10km",
-                            color: "#f4d44d",
-                            range_zone_pace: {lower: 4.8, upper: 5.1},
-                            range_zone_bpm: {lower: 148, upper: 160}
-                        }],
+                        thresholds: {
+                            aet_heart_rate_bpm: 145,
+                            ant_heart_rate_bpm: 168,
+                            aet_pace_min_per_km: 5.4,
+                            ant_pace_min_per_km: 4.3,
+                        },
+                        running_analysis: {
+                            pace_distribution: [
+                                {code: "below_aet", label: "Below AeT", distance_km: 2.5, share_percent: 25},
+                                {code: "between_aet_ant", label: "AeT to AnT", distance_km: 6.0, share_percent: 60},
+                                {code: "above_ant", label: "Above AnT", distance_km: 1.5, share_percent: 15},
+                            ],
+                            heart_rate_distribution: [
+                                {code: "below_aet", label: "Below AeT", distance_km: 1.5, share_percent: 15},
+                                {code: "between_aet_ant", label: "AeT to AnT", distance_km: 7.0, share_percent: 70},
+                                {code: "above_ant", label: "Above AnT", distance_km: 1.5, share_percent: 15},
+                            ],
+                            agreement: {
+                                matching_distance_km: 8.0,
+                                matching_share_percent: 80,
+                                pace_higher_distance_km: 1.0,
+                                pace_higher_share_percent: 10,
+                                heart_rate_higher_distance_km: 1.0,
+                                heart_rate_higher_share_percent: 10,
+                            },
+                            steady_threshold_block: {start_distance_km: 2, end_distance_km: 7, distance_km: 5},
+                            above_threshold_block: {start_distance_km: 8.5, end_distance_km: 10, distance_km: 1.5},
+                            interpretation: "Pace and heart rate aligned well, with most work sitting at aet to ant.",
+                            activity_evaluation: "This looked like a controlled steady run with most of the work staying in the AeT to AnT range.",
+                            further_training_suggestion: "A similar threshold session is reasonable next time if recovery stays good; otherwise use an easy aerobic day.",
+                        },
                     }),
                 );
             }
@@ -131,7 +152,6 @@ describe("App", () => {
                                 total_elevation_gain_meters: 120,
                                 average_heartrate_bpm: 150,
                                 heart_rate_drift_bpm: 6.5,
-                                difficulty_score: 7.5,
                             },
                         ],
                     }),
@@ -228,7 +248,17 @@ describe("App", () => {
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
-        expect(screen.getByText(/mostly tempo work/i)).toBeInTheDocument();
+        expect(screen.getByText(/activity evaluation/i)).toBeInTheDocument();
+        const activityEvaluationText = screen.getByText(/controlled steady run/i);
+        expect(activityEvaluationText).toBeInTheDocument();
+        expect(activityEvaluationText.tagName).toBe("SPAN");
+        expect(screen.getByText(/further training suggestion/i)).toBeInTheDocument();
+        const trainingSuggestionText = screen.getByText(/similar threshold session is reasonable next time/i);
+        expect(trainingSuggestionText).toBeInTheDocument();
+        expect(trainingSuggestionText.tagName).toBe("SPAN");
+        expect(screen.getByText(/80%/i)).toBeInTheDocument();
+        fireEvent.mouseEnter(screen.getByRole("button", {name: /pace bands explanation/i}));
+        expect(await screen.findByText(/shows how your running pace was distributed/i)).toBeInTheDocument();
         expect(screen.getByLabelText("min/km chart")).toBeInTheDocument();
         expect(screen.getByLabelText("bpm chart")).toBeInTheDocument();
         expect(screen.getByLabelText("% chart")).toBeInTheDocument();
@@ -469,7 +499,6 @@ describe("App", () => {
                         summary_metric_display: "5:00 min/km",
                         total_elevation_gain_meters: 120,
                         average_heartrate_bpm: 150,
-                        difficulty_score: 7.5,
                     },
                     map: {polyline: [[50.1, 14.4], [50.11, 14.42]]},
                     series: {
@@ -481,10 +510,8 @@ describe("App", () => {
                         pace_display: ["5:12", "5:00", "4:54"],
                         slope_percent: [0.5, 1.2, -0.3],
                     },
-                    intervals: [],
-                    zone_summary: {},
-                    compliance: {analysis_text: "Mostly tempo work.", score_text: "Score 8/10"},
-                    zones: [],
+                    thresholds: null,
+                    running_analysis: null,
                 }),
             );
 
@@ -826,9 +853,10 @@ describe("App", () => {
             if (url.includes("/me/profile")) {
                 return Promise.resolve(
                     jsonResponse({
-                        birthday: "",
-                        speed_max: null,
-                        max_heart_rate_override: null,
+                        aet_heart_rate_bpm: null,
+                        ant_heart_rate_bpm: null,
+                        aet_pace_min_per_km: null,
+                        ant_pace_min_per_km: null,
                     }),
                 );
             }
@@ -915,16 +943,18 @@ describe("App", () => {
             .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
             .mockResolvedValueOnce(
                 jsonResponse({
-                    birthday: "1990-01-01",
-                    speed_max: "15.50",
-                    max_heart_rate_override: null,
+                    aet_heart_rate_bpm: 145,
+                    ant_heart_rate_bpm: 168,
+                    aet_pace_min_per_km: "5.40",
+                    ant_pace_min_per_km: "4.30",
                 }),
             )
             .mockResolvedValueOnce(
                 jsonResponse({
-                    birthday: "1990-01-01",
-                    speed_max: "16.20",
-                    max_heart_rate_override: 188,
+                    aet_heart_rate_bpm: 148,
+                    ant_heart_rate_bpm: 170,
+                    aet_pace_min_per_km: "5.20",
+                    ant_pace_min_per_km: "4.10",
                 }),
             );
 
@@ -932,14 +962,17 @@ describe("App", () => {
 
         fireEvent.click(await screen.findByRole("button", {name: /settings/i}));
 
-        const paceInput = await screen.findByLabelText("Max Aerobic Pace (min/km)");
+        const aerobicPaceInput = await screen.findByLabelText("Aerobic Threshold Pace (min/km)");
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
-        expect(paceInput).toHaveValue("3:52");
+        expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
+        expect(screen.getByLabelText("Aerobic Threshold Pace (min/km)")).toHaveValue("5:24");
         expect(screen.queryByText(/session model/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/profile image/i)).not.toBeInTheDocument();
-        fireEvent.change(paceInput, {target: {value: "3:42"}});
-        fireEvent.change(screen.getByLabelText("Max HR Override"), {target: {value: "188"}});
+        fireEvent.change(aerobicPaceInput, {target: {value: "5:20"}});
+        fireEvent.change(screen.getByLabelText("Aerobic Threshold HR (bpm)"), {target: {value: "148"}});
+        fireEvent.change(screen.getByLabelText("Anaerobic Threshold HR (bpm)"), {target: {value: "170"}});
+        fireEvent.change(screen.getByLabelText("Anaerobic Threshold Pace (min/km)"), {target: {value: "4:10"}});
         fireEvent.click(screen.getByRole("button", {name: /save profile/i}));
 
         await waitFor(() => {
@@ -947,9 +980,10 @@ describe("App", () => {
                 expect.stringContaining("/me/profile"),
                 expect.objectContaining({
                     body: JSON.stringify({
-                        birthday: "1990-01-01",
-                        max_heart_rate_override: 188,
-                        speed_max: 16.22,
+                        aet_heart_rate_bpm: 148,
+                        ant_heart_rate_bpm: 170,
+                        aet_pace_min_per_km: 5.33,
+                        ant_pace_min_per_km: 4.17,
                     }),
                     method: "PUT",
                 }),
@@ -981,5 +1015,43 @@ describe("activity detail chart baselines", () => {
                 values: [5.2, 5.0, 4.9],
             }),
         ).toBe(5);
+    });
+
+    it("builds threshold bands for pace and heart rate while preserving pace axis semantics", () => {
+        const thresholds = {
+            aet_heart_rate_bpm: 145,
+            ant_heart_rate_bpm: 168,
+            aet_pace_min_per_km: 5.4,
+            ant_pace_min_per_km: 4.3,
+        };
+
+        const paceGuides = buildThresholdGuides({
+            maxValue: 6.2,
+            minValue: 4.0,
+            thresholds,
+            valueKind: "pace",
+            xMax: 10,
+            xMin: 0,
+        });
+        expect(paceGuides.lines.map((line) => line.label)).toEqual(["AeT", "AnT"]);
+        expect(paceGuides.bands.map((band) => band.code)).toEqual(["above_ant", "between_aet_ant", "below_aet"]);
+        expect(paceGuides.bands[0].y1).toBe(4.0);
+        expect(paceGuides.bands[0].y2).toBe(4.3);
+        expect(paceGuides.bands[2].y1).toBe(5.4);
+        expect(paceGuides.bands[2].y2).toBe(6.2);
+
+        const heartRateGuides = buildThresholdGuides({
+            maxValue: 180,
+            minValue: 130,
+            thresholds,
+            valueKind: "heart_rate",
+            xMax: 10,
+            xMin: 0,
+        });
+        expect(heartRateGuides.bands.map((band) => band.code)).toEqual(["below_aet", "between_aet_ant", "above_ant"]);
+        expect(heartRateGuides.bands[0].y1).toBe(130);
+        expect(heartRateGuides.bands[0].y2).toBe(145);
+        expect(heartRateGuides.bands[2].y1).toBe(168);
+        expect(heartRateGuides.bands[2].y2).toBe(180);
     });
 });

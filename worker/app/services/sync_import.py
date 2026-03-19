@@ -15,11 +15,9 @@ from app.repositories import (
 )
 from app.security import TokenCipher
 from app.services.activity_summary import (
-    difficulty_score,
     distance_km,
     format_moving_time,
     format_pace,
-    max_bpm_for_profile,
     pace_seconds_per_km,
     speed_kph,
     summary_metric_display,
@@ -176,23 +174,6 @@ class BaseImportService:
         )
         start_latlng = payload.get("start_latlng")
         activity.start_latlng = list(start_latlng) if start_latlng else None
-        profile = self.user_profiles.get_for_user(user_id)
-        speed_max_value = None if profile is None or profile.speed_max is None else Decimal(str(profile.speed_max))
-        max_bpm_value = None
-        if profile is not None:
-            max_bpm_value = max_bpm_for_profile(
-                birthday=profile.birthday,
-                activity_date=activity.start_date_utc,
-                max_heart_rate_override=profile.max_heart_rate_override,
-            )
-        activity.difficulty_score = difficulty_score(
-            distance_km_value=activity.distance_km,
-            total_elevation_gain_meters=activity.total_elevation_gain_meters,
-            average_heartrate_bpm=activity.average_heartrate_bpm,
-            average_speed_kph_value=activity.average_speed_kph,
-            speed_max=speed_max_value,
-            max_bpm=max_bpm_value,
-        )
         return self.activities.save(activity)
 
     def _upsert_stream(self, *, activity_id: int, payload: dict) -> ActivityStream:

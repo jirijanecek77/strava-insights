@@ -20,9 +20,10 @@ class UserProfile(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    birthday: Mapped[date | None]
-    speed_max: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    max_heart_rate_override: Mapped[int | None]
+    aet_heart_rate_bpm: Mapped[int | None]
+    ant_heart_rate_bpm: Mapped[int | None]
+    aet_pace_min_per_km: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    ant_pace_min_per_km: Mapped[float | None] = mapped_column(Numeric(5, 2))
 
 
 class SyncJob(Base):
@@ -89,7 +90,6 @@ class Activity(Base):
     average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    difficulty_score: Mapped[float | None] = mapped_column(Numeric(12, 4))
     start_latlng: Mapped[dict | None] = mapped_column(JSON)
 
 
@@ -104,8 +104,6 @@ class ActivityStream(Base):
     altitude_stream: Mapped[dict | None] = mapped_column(JSON)
     velocity_smooth_stream: Mapped[dict | None] = mapped_column(JSON)
     heartrate_stream: Mapped[dict | None] = mapped_column(JSON)
-    derived_series: Mapped[dict | None] = mapped_column(JSON)
-    interval_analysis: Mapped[dict | None] = mapped_column(JSON)
 
 
 class PeriodSummary(Base):
@@ -123,7 +121,6 @@ class PeriodSummary(Base):
     average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
     average_heart_rate_drift_bpm: Mapped[float | None] = mapped_column(Numeric(10, 2))
     total_elevation_gain_meters: Mapped[float | None] = mapped_column(Numeric(12, 2))
-    total_difficulty_score: Mapped[float | None] = mapped_column(Numeric(12, 4))
 
 
 class BestEffort(Base):

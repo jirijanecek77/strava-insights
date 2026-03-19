@@ -42,7 +42,6 @@ class Activity(TimestampMixin, Base):
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    difficulty_score: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
     start_latlng: Mapped[dict | None] = mapped_column(JSONB)
 
     user = relationship("User", back_populates="activities")

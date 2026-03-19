@@ -14,22 +14,25 @@ class UserProfileRepository:
         self,
         *,
         user_id: int,
-        birthday,
-        speed_max,
-        max_heart_rate_override,
+        aet_heart_rate_bpm,
+        ant_heart_rate_bpm,
+        aet_pace_min_per_km,
+        ant_pace_min_per_km,
     ) -> UserProfile:
         profile = self.get_for_user(user_id)
         if profile is None:
             profile = UserProfile(
                 user_id=user_id,
-                birthday=birthday,
-                speed_max=speed_max,
-                max_heart_rate_override=max_heart_rate_override,
+                aet_heart_rate_bpm=aet_heart_rate_bpm,
+                ant_heart_rate_bpm=ant_heart_rate_bpm,
+                aet_pace_min_per_km=aet_pace_min_per_km,
+                ant_pace_min_per_km=ant_pace_min_per_km,
             )
             self.session.add(profile)
         else:
-            profile.birthday = birthday
-            profile.speed_max = speed_max
-            profile.max_heart_rate_override = max_heart_rate_override
+            profile.aet_heart_rate_bpm = aet_heart_rate_bpm
+            profile.ant_heart_rate_bpm = ant_heart_rate_bpm
+            profile.aet_pace_min_per_km = aet_pace_min_per_km
+            profile.ant_pace_min_per_km = ant_pace_min_per_km
         self.session.flush()
         return profile

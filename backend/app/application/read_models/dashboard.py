@@ -169,5 +169,4 @@ class DashboardReadService:
             moving_time_seconds=activity.moving_time_seconds,
             total_elevation_gain_meters=activity.total_elevation_gain_meters,
             heart_rate_drift_bpm=activity.heart_rate_drift_bpm,
-            difficulty_score=activity.difficulty_score,
         )

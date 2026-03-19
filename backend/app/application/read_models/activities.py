@@ -7,6 +7,7 @@ from app.api.dependencies import get_db_session
 from app.application.analytics.service import ActivityDetailAnalyticsService
 from app.domain.schemas.activity import (
     ActivityDetailResponse,
+    ActivityDetailThresholds,
     ActivityKpis,
     ActivityListResponse,
     ActivityListRow,
@@ -53,7 +54,6 @@ class ActivityReadService:
                     total_elevation_gain_meters=item.total_elevation_gain_meters,
                     average_heartrate_bpm=item.average_heartrate_bpm,
                     heart_rate_drift_bpm=item.heart_rate_drift_bpm,
-                    difficulty_score=item.difficulty_score,
                 )
                 for item in items
             ]
@@ -74,11 +74,30 @@ class ActivityReadService:
             heartrate_stream_bpm=(stream.heartrate_stream or {}).get("data", []) if stream and stream.heartrate_stream else [],
             altitude_stream_meters=(stream.altitude_stream or {}).get("data", []) if stream and stream.altitude_stream else [],
             velocity_smooth_stream_mps=(stream.velocity_smooth_stream or {}).get("data", []) if stream and stream.velocity_smooth_stream else [],
-            birthday=None if profile is None else profile.birthday,
-            speed_max=None if profile is None else profile.speed_max,
+            aet_heart_rate_bpm=None if profile is None else profile.aet_heart_rate_bpm,
+            ant_heart_rate_bpm=None if profile is None else profile.ant_heart_rate_bpm,
+            aet_pace_min_per_km=None if profile is None else profile.aet_pace_min_per_km,
+            ant_pace_min_per_km=None if profile is None else profile.ant_pace_min_per_km,
         )
 
         latlng = (stream.latlng_stream or {}).get("data", []) if stream and stream.latlng_stream else []
+        thresholds = (
+            ActivityDetailThresholds(
+                aet_heart_rate_bpm=float(profile.aet_heart_rate_bpm),
+                ant_heart_rate_bpm=float(profile.ant_heart_rate_bpm),
+                aet_pace_min_per_km=float(profile.aet_pace_min_per_km),
+                ant_pace_min_per_km=float(profile.ant_pace_min_per_km),
+            )
+            if (
+                activity.sport_type == "Run"
+                and profile is not None
+                and profile.aet_heart_rate_bpm is not None
+                and profile.ant_heart_rate_bpm is not None
+                and profile.aet_pace_min_per_km is not None
+                and profile.ant_pace_min_per_km is not None
+            )
+            else None
+        )
         return ActivityDetailResponse(
             id=activity.id,
             sport_type=activity.sport_type,
@@ -97,7 +116,6 @@ class ActivityReadService:
                     if activity.heart_rate_drift_bpm is not None
                     else analytics["heart_rate_drift_bpm"]
                 ),
-                difficulty_score=activity.difficulty_score,
             ),
             map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),
             series=ActivitySeries(
@@ -109,10 +127,8 @@ class ActivityReadService:
                 pace_display=analytics["pace_display"],
                 slope_percent=analytics["slope_percent"],
             ),
-            intervals=analytics["intervals"],
-            zone_summary=analytics["zone_summary"],
-            compliance=analytics["compliance"],
-            zones=analytics["zones"],
+            thresholds=thresholds,
+            running_analysis=analytics["running_analysis"],
         )
 
 

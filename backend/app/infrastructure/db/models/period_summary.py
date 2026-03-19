@@ -32,6 +32,5 @@ class PeriodSummary(TimestampMixin, Base):
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     total_elevation_gain_meters: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
-    total_difficulty_score: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
 
     user = relationship("User", back_populates="period_summaries")

@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.application.analytics.detail_series import (
@@ -8,9 +8,8 @@ from app.application.analytics.detail_series import (
     moving_average,
     moving_average_speed_kph,
 )
-from app.application.analytics.difficulty import calculate_activity_difficulty
 from app.application.analytics.heart_rate_drift import calculate_heart_rate_drift_bpm
-from app.application.analytics.running_zones import build_running_zones, resolve_running_zone
+from app.application.analytics.running_analysis import build_running_analysis
 from app.application.analytics.service import ActivityDetailAnalyticsService
 
 
@@ -32,15 +31,29 @@ def test_slope_is_clamped_and_padded_like_legacy_code() -> None:
     assert max(slopes) == 45.0
 
 
-def test_running_zone_model_uses_midpoint_boundaries() -> None:
-    zones = build_running_zones(age=30, speed_max=15.0)
-    marathon_zone = next(zone for zone in zones if zone.name == "Marathon")
-    assert round(marathon_zone.pace, 2) == round(60 / (0.75 * 15.0), 2)
-    resolved = resolve_running_zone(zones, pace=marathon_zone.pace, heart_rate=marathon_zone.bpm)
-    assert resolved == {"zone_pace": "Marathon", "zone_heart_rate": "Marathon"}
+def test_running_analysis_builds_threshold_distributions_and_agreement() -> None:
+    analysis = build_running_analysis(
+        distance_km=[0.0, 1.0, 2.0, 3.0, 4.0],
+        pace_minutes_per_km=[6.2, 6.0, 5.2, 4.9, 4.3],
+        heart_rate_bpm=[138, 140, 151, 159, 171],
+        aet_pace_min_per_km=5.8,
+        ant_pace_min_per_km=4.8,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+    )
+
+    assert analysis is not None
+    assert analysis["pace_distribution"][0]["code"] == "below_aet"
+    assert analysis["pace_distribution"][1]["distance_km"] == 2.0
+    assert analysis["heart_rate_distribution"][2]["distance_km"] == 1.0
+    assert analysis["agreement"]["matching_distance_km"] == 4.0
+    assert analysis["steady_threshold_block"]["distance_km"] == 2.0
+    assert analysis["above_threshold_block"]["distance_km"] == 1.0
+    assert analysis["activity_evaluation"]
+    assert analysis["further_training_suggestion"]
 
 
-def test_activity_detail_service_builds_running_intervals_and_compliance() -> None:
+def test_activity_detail_service_builds_threshold_running_analysis() -> None:
     service = ActivityDetailAnalyticsService()
 
     payload = service.build(
@@ -51,28 +64,38 @@ def test_activity_detail_service_builds_running_intervals_and_compliance() -> No
         heartrate_stream_bpm=[150, 151, 152, 153, 154, 155],
         altitude_stream_meters=[200, 201, 202, 203, 204, 205],
         velocity_smooth_stream_mps=[4.0, 4.1, 4.2, 4.3, 4.4, 4.5],
-        birthday=date(1990, 1, 1),
-        speed_max=Decimal("15.50"),
+        aet_heart_rate_bpm=148,
+        ant_heart_rate_bpm=158,
+        aet_pace_min_per_km=4.8,
+        ant_pace_min_per_km=4.1,
     )
 
     assert payload["pace_display"][0] == "4:00"
     assert payload["heart_rate_drift_bpm"] == Decimal("3.00")
-    assert payload["zones"]
-    assert payload["intervals"]
-    assert payload["zone_summary"]
-    assert payload["compliance"] is not None
+    assert payload["running_analysis"] is not None
+    assert payload["running_analysis"]["agreement"]["matching_distance_km"] >= 0
+    assert payload["running_analysis"]["activity_evaluation"]
+    assert payload["running_analysis"]["further_training_suggestion"]
 
 
-def test_activity_difficulty_matches_spec_formula() -> None:
-    difficulty = calculate_activity_difficulty(
-        distance_km=Decimal("10.00"),
-        total_elevation_gain_meters=Decimal("100.00"),
-        average_heartrate_bpm=Decimal("150.00"),
-        average_speed_kph=Decimal("13.32"),
-        user_speed_max=Decimal("15.50"),
-        user_max_bpm=Decimal("194.80"),
+def test_activity_detail_service_omits_running_analysis_without_complete_thresholds() -> None:
+    service = ActivityDetailAnalyticsService()
+
+    payload = service.build(
+        sport_type="Run",
+        start_date_utc=datetime(2026, 3, 9, 6, 0, tzinfo=UTC),
+        time_stream=[0, 60, 120, 180],
+        distance_stream_meters=[0, 250, 500, 750],
+        heartrate_stream_bpm=[150, 151, 152, 153],
+        altitude_stream_meters=[200, 201, 202, 203],
+        velocity_smooth_stream_mps=[4.0, 4.1, 4.2, 4.3],
+        aet_heart_rate_bpm=148,
+        ant_heart_rate_bpm=None,
+        aet_pace_min_per_km=4.8,
+        ant_pace_min_per_km=4.1,
     )
-    assert difficulty is not None
+
+    assert payload["running_analysis"] is None
 
 
 def test_heart_rate_drift_uses_first_and_second_half_averages() -> None:

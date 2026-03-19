@@ -41,8 +41,8 @@ This document tracks implementation status against [specification.md](C:/Users/j
 
 ### Completed Analytics and API Work
 
-- [x] Ported activity-detail derivations for smoothed heart rate, smoothed speed, derived running pace, slope, running zones, interval grouping, and compliance scoring.
-- [x] Implemented the derived difficulty heuristic as reusable backend analytics logic.
+- [x] Ported activity-detail derivations for smoothed heart rate, smoothed speed, derived running pace, slope, and running-specific detail analytics.
+- [x] Implemented reusable backend analytics for activity detail, aggregations, best efforts, and heart-rate drift.
 - [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
@@ -56,7 +56,9 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Restyled the UI toward the intended Strava-inspired visual direction.
 - [x] Added sync-status progress refresh behavior in the frontend.
 - [x] Refined the calendar daily marker behavior and activity-detail chart presentation.
-- [x] Added editable profile inputs required by analytics formulas.
+- [x] Added editable profile inputs for explicit running threshold fields.
+- [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
+- [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 
 ### Completed Validation and Hardening Work
 

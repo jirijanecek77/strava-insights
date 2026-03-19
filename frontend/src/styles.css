@@ -354,6 +354,60 @@ button {
     justify-content: space-between;
 }
 
+.metric-help-label {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.45rem;
+    position: relative;
+}
+
+.info-tooltip-trigger {
+    align-items: center;
+    background: rgba(252, 76, 2, 0.1);
+    border: 1px solid rgba(252, 76, 2, 0.2);
+    border-radius: 999px;
+    color: var(--accent);
+    cursor: help;
+    display: inline-flex;
+    font-size: 0.72rem;
+    font-weight: 700;
+    height: 1.2rem;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    width: 1.2rem;
+}
+
+.info-tooltip-trigger:focus-visible {
+    box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.18);
+    outline: none;
+}
+
+.info-tooltip-panel {
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 0.7rem;
+    bottom: calc(100% + 0.45rem);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+    color: #f8fafc;
+    font-size: 0.72rem;
+    left: 0;
+    line-height: 1.4;
+    max-width: 16rem;
+    padding: 0.55rem 0.65rem;
+    position: absolute;
+    z-index: 20;
+}
+
+.running-analysis-copy {
+    color: #242428;
+    font-weight: 400;
+    line-height: 1.35;
+    max-width: 25rem;
+    text-align: right;
+    white-space: normal;
+}
+
 .metric-row,
 .settings-row,
 .summary-row,
