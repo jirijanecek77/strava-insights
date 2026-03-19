@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.application.auth.current_user import CurrentUserService
@@ -8,6 +10,7 @@ from app.domain.schemas.sync import SyncStatusResponse
 
 
 router = APIRouter(prefix="/sync")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/status", response_model=SyncStatusResponse)
@@ -23,6 +26,7 @@ def get_sync_status(
             detail="Authentication required.",
         )
 
+    logger.info("Loading sync status.", extra={"user.id": user.id})
     return sync_status_service.get_status_for_user(user.id)
 
 
@@ -39,4 +43,5 @@ def trigger_incremental_sync(
             detail="Authentication required.",
         )
 
+    logger.info("Triggering incremental sync.", extra={"user.id": user.id})
     return sync_orchestrator.enqueue_incremental_sync(user.id)

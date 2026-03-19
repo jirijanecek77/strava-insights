@@ -21,4 +21,4 @@ class User(TimestampMixin, Base):
     best_efforts = relationship("BestEffort", back_populates="user")
     sync_jobs = relationship("SyncJob", back_populates="user")
     sync_checkpoints = relationship("SyncCheckpoint", back_populates="user")
-    profile = relationship("UserProfile", back_populates="user", uselist=False)
+    threshold_profiles = relationship("UserThresholdProfile", back_populates="user")

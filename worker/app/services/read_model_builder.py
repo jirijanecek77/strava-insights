@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -27,6 +28,7 @@ RIDE_BEST_EFFORT_DISTANCES = {
     "50km": 50000.0,
     "100km": 100000.0,
 }
+logger = logging.getLogger(__name__)
 
 
 def _quantize(value: Decimal, precision: str) -> Decimal:
@@ -53,6 +55,7 @@ class ReadModelBuilder:
         self.activity_best_efforts = ActivityBestEffortRepository(session)
 
     def rebuild_for_user(self, user_id: int) -> None:
+        logger.info("Rebuilding read models for user.", extra={"user.id": user_id})
         activities = self.activities.list_for_user(user_id)
         self._refresh_activity_heart_rate_drift(activities)
         self.period_summaries.replace_for_user(
@@ -64,6 +67,14 @@ class ReadModelBuilder:
         self.activity_best_efforts.replace_for_activities(
             activity_ids=[activity.id for activity in activities],
             efforts=activity_best_efforts,
+        )
+        logger.info(
+            "Finished rebuilding read models for user.",
+            extra={
+                "user.id": user_id,
+                "activity_count": len(activities),
+                "best_effort_count": len(best_efforts),
+            },
         )
 
     def _refresh_activity_heart_rate_drift(self, activities: list) -> None:

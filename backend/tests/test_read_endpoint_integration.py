@@ -8,7 +8,7 @@ from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
 from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.user import User
-from app.infrastructure.db.models.user_profile import UserProfile
+from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 from app.main import app
 
 
@@ -42,8 +42,9 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         profile_picture_url=None,
         is_active=True,
     )
-    profile = UserProfile(
+    profile = UserThresholdProfile(
         user_id=1,
+        effective_from=date(1900, 1, 1),
         aet_heart_rate_bpm=145,
         ant_heart_rate_bpm=165,
         aet_pace_min_per_km=Decimal("5.20"),

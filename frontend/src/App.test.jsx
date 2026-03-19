@@ -6,6 +6,9 @@ function jsonResponse(body, status = 200) {
     return {
         ok: status >= 200 && status < 300,
         status,
+        headers: {
+            get: vi.fn().mockReturnValue("application/json"),
+        },
         json: vi.fn().mockResolvedValue(body),
     };
 }
@@ -640,7 +643,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /activities/i}));
-        fireEvent.click(screen.getByRole("button", {name: /morning ride/i}));
+        fireEvent.click(await screen.findByRole("button", {name: /morning ride/i}));
 
         expect(await screen.findByRole("heading", {name: /morning ride/i})).toBeInTheDocument();
         expect(screen.getByText(/cycling analysis/i)).toBeInTheDocument();
@@ -981,10 +984,8 @@ describe("App", () => {
             if (url.includes("/me/profile")) {
                 return Promise.resolve(
                     jsonResponse({
-                        aet_heart_rate_bpm: null,
-                        ant_heart_rate_bpm: null,
-                        aet_pace_min_per_km: null,
-                        ant_pace_min_per_km: null,
+                        items: [],
+                        current: null,
                     }),
                 );
             }
@@ -1071,18 +1072,42 @@ describe("App", () => {
             .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
             .mockResolvedValueOnce(
                 jsonResponse({
-                    aet_heart_rate_bpm: 145,
-                    ant_heart_rate_bpm: 168,
-                    aet_pace_min_per_km: "5.40",
-                    ant_pace_min_per_km: "4.30",
+                    items: [
+                        {
+                            effective_from: "2026-03-01",
+                            aet_heart_rate_bpm: 145,
+                            ant_heart_rate_bpm: 168,
+                            aet_pace_min_per_km: "5.40",
+                            ant_pace_min_per_km: "4.30",
+                        },
+                    ],
+                    current: {
+                        effective_from: "2026-03-01",
+                        aet_heart_rate_bpm: 145,
+                        ant_heart_rate_bpm: 168,
+                        aet_pace_min_per_km: "5.40",
+                        ant_pace_min_per_km: "4.30",
+                    },
                 }),
             )
             .mockResolvedValueOnce(
                 jsonResponse({
-                    aet_heart_rate_bpm: 148,
-                    ant_heart_rate_bpm: 170,
-                    aet_pace_min_per_km: "5.20",
-                    ant_pace_min_per_km: "4.10",
+                    items: [
+                        {
+                            effective_from: "2026-03-01",
+                            aet_heart_rate_bpm: 148,
+                            ant_heart_rate_bpm: 170,
+                            aet_pace_min_per_km: "5.20",
+                            ant_pace_min_per_km: "4.10",
+                        },
+                    ],
+                    current: {
+                        effective_from: "2026-03-01",
+                        aet_heart_rate_bpm: 148,
+                        ant_heart_rate_bpm: 170,
+                        aet_pace_min_per_km: "5.20",
+                        ant_pace_min_per_km: "4.10",
+                    },
                 }),
             );
 
@@ -1091,6 +1116,7 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /settings/i}));
 
         const aerobicPaceInput = await screen.findByLabelText("Aerobic Threshold Pace (min/km)");
+        expect(screen.getByLabelText("Effective From")).toHaveValue("2026-03-01");
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
@@ -1108,6 +1134,7 @@ describe("App", () => {
                 expect.stringContaining("/me/profile"),
                 expect.objectContaining({
                     body: JSON.stringify({
+                        effective_from: "2026-03-01",
                         aet_heart_rate_bpm: 148,
                         ant_heart_rate_bpm: 170,
                         aet_pace_min_per_km: 5.33,
@@ -1124,6 +1151,56 @@ describe("activity detail chart baselines", () => {
     it("parses average pace and speed summary metrics", () => {
         expect(parseSummaryMetricAverage("5:00 min/km", "pace")).toBe(5);
         expect(parseSummaryMetricAverage("28 km/h", "speed")).toBe(28);
+    });
+
+    it("shows backend error detail when saving profile settings fails", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input, options) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({status: "idle"}));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/me/profile") && !options?.method) {
+                return Promise.resolve(jsonResponse({items: [], current: null}));
+            }
+            if (url.includes("/me/profile") && options?.method === "PUT") {
+                return Promise.resolve(jsonResponse({detail: "Threshold update failed."}, 400));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        expect(await screen.findByRole("heading", {name: /dashboard/i})).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /settings/i}));
+        expect(await screen.findByRole("button", {name: /save profile/i})).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /save profile/i}));
+
+        expect(await screen.findByText(/threshold update failed\./i)).toBeInTheDocument();
     });
 
     it("falls back to series averages and keeps slope pinned to zero", () => {

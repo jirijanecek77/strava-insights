@@ -408,6 +408,20 @@ button {
     white-space: normal;
 }
 
+.threshold-history-item {
+    align-items: start;
+    display: flex;
+    font-size: 0.82rem;
+    justify-content: space-between;
+    text-align: left;
+    width: 100%;
+}
+
+.threshold-history-item strong {
+    max-width: 24rem;
+    text-align: right;
+}
+
 .metric-row,
 .settings-row,
 .summary-row,

@@ -57,6 +57,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Added sync-status progress refresh behavior in the frontend.
 - [x] Refined the calendar daily marker behavior and activity-detail chart presentation.
 - [x] Added editable profile inputs for explicit running threshold fields.
+- [x] Replaced single threshold profile values with dated threshold snapshots resolved by activity local date.
 - [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
@@ -76,6 +77,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Isolated backend pytest runs from the development dataset.
 - [x] Removed dead frontend helpers and stale backend-only code paths with no production call sites.
 - [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
+- [x] Added backend, worker, and beat logging to Docker console with request and task lifecycle coverage.
 
 ## Remaining Work
 

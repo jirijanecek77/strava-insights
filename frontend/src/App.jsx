@@ -57,7 +57,9 @@ export default function App() {
     const [authBusy, setAuthBusy] = useState(false);
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileBusy, setProfileBusy] = useState(false);
+    const [profileHistory, setProfileHistory] = useState([]);
     const [profileForm, setProfileForm] = useState({
+        effectiveFrom: formatDateInput(new Date()),
         aerobicThresholdHeartRate: "",
         anaerobicThresholdHeartRate: "",
         aerobicThresholdPace: "",
@@ -233,12 +235,8 @@ export default function App() {
                 if (!active) {
                     return;
                 }
-                setProfileForm({
-                    aerobicThresholdHeartRate: payload.aet_heart_rate_bpm == null ? "" : String(payload.aet_heart_rate_bpm),
-                    anaerobicThresholdHeartRate: payload.ant_heart_rate_bpm == null ? "" : String(payload.ant_heart_rate_bpm),
-                    aerobicThresholdPace: formatPaceField(payload.aet_pace_min_per_km),
-                    anaerobicThresholdPace: formatPaceField(payload.ant_pace_min_per_km),
-                });
+                setProfileHistory(payload.items ?? []);
+                setProfileForm(buildProfileFormFromItem(payload.current));
             })
             .catch((error) => {
                 if (active) {
@@ -302,6 +300,10 @@ export default function App() {
 
     async function handleSaveProfile() {
         try {
+            if (!profileForm.effectiveFrom) {
+                setErrorMessage("Effective-from date is required.");
+                return;
+            }
             const parsedAetPace = parsePaceInput(profileForm.aerobicThresholdPace);
             const parsedAntPace = parsePaceInput(profileForm.anaerobicThresholdPace);
             if (profileForm.aerobicThresholdPace.trim() && parsedAetPace == null) {
@@ -316,18 +318,15 @@ export default function App() {
             const payload = await fetchJson("/me/profile", {
                 method: "PUT",
                 body: JSON.stringify({
+                    effective_from: profileForm.effectiveFrom,
                     aet_heart_rate_bpm: profileForm.aerobicThresholdHeartRate ? Number(profileForm.aerobicThresholdHeartRate) : null,
                     ant_heart_rate_bpm: profileForm.anaerobicThresholdHeartRate ? Number(profileForm.anaerobicThresholdHeartRate) : null,
                     aet_pace_min_per_km: profileForm.aerobicThresholdPace.trim() ? parsedAetPace : null,
                     ant_pace_min_per_km: profileForm.anaerobicThresholdPace.trim() ? parsedAntPace : null,
                 }),
             });
-            setProfileForm({
-                aerobicThresholdHeartRate: payload.aet_heart_rate_bpm == null ? "" : String(payload.aet_heart_rate_bpm),
-                anaerobicThresholdHeartRate: payload.ant_heart_rate_bpm == null ? "" : String(payload.ant_heart_rate_bpm),
-                aerobicThresholdPace: formatPaceField(payload.aet_pace_min_per_km),
-                anaerobicThresholdPace: formatPaceField(payload.ant_pace_min_per_km),
-            });
+            setProfileHistory(payload.items ?? []);
+            setProfileForm(buildProfileFormFromItem(payload.current));
             setErrorMessage("");
         } catch (error) {
             setErrorMessage(error.message ?? "Failed to save profile settings.");
@@ -417,6 +416,7 @@ export default function App() {
                     ) : null}
                     {selectedView === "settings" ? (
                         <SettingsView
+                            profileHistory={profileHistory}
                             syncBusy={syncBusy}
                             profileBusy={profileBusy}
                             profileForm={profileForm}
@@ -425,6 +425,7 @@ export default function App() {
                             onChangeProfileField={(field, value) => {
                                 setProfileForm((current) => ({...current, [field]: value}));
                             }}
+                            onSelectThresholdProfile={(item) => setProfileForm(buildProfileFormFromItem(item))}
                             onLogout={handleLogout}
                             onRefreshSync={handleRefreshSync}
                             onSaveProfile={handleSaveProfile}
@@ -1065,12 +1066,14 @@ function BestEffortsView({items, selectedSport, onSelectActivity}) {
 }
 
 function SettingsView({
+                          profileHistory,
                           profileBusy,
                           profileForm,
                           syncBusy,
                           syncStatus,
                           user,
                           onChangeProfileField,
+                          onSelectThresholdProfile,
                           onLogout,
                           onRefreshSync,
                           onSaveProfile
@@ -1089,6 +1092,15 @@ function SettingsView({
                     </div>
                 </div>
                 <div className="settings-form">
+                    <label className="control-chip">
+                        <span>Effective From</span>
+                        <input
+                            aria-label="Effective From"
+                            type="date"
+                            value={profileForm.effectiveFrom}
+                            onChange={(event) => onChangeProfileField("effectiveFrom", event.target.value)}
+                        />
+                    </label>
                     <label className="control-chip">
                         <span>Aerobic Threshold HR (bpm)</span>
                         <input
@@ -1133,6 +1145,19 @@ function SettingsView({
                             onChange={(event) => onChangeProfileField("anaerobicThresholdPace", event.target.value)}
                         />
                     </label>
+                </div>
+                <div className="settings-list">
+                    {profileHistory.map((item) => (
+                        <button
+                            key={item.effective_from}
+                            className="ghost-button threshold-history-item"
+                            onClick={() => onSelectThresholdProfile(item)}
+                            type="button"
+                        >
+                            <span>{item.effective_from}</span>
+                            <strong>{formatThresholdSnapshotSummary(item)}</strong>
+                        </button>
+                    ))}
                 </div>
                 <button className="primary-button" disabled={profileBusy} onClick={onSaveProfile} type="button">
                     {profileBusy ? "Saving..." : "Save Profile"}
@@ -1755,7 +1780,28 @@ async function fetchJson(path, options = {}) {
         ...options,
     });
     if (!response.ok) {
-        const error = new Error(`Request failed with status ${response.status}`);
+        let message = `Request failed with status ${response.status}`;
+        const responseType = response.headers?.get?.("content-type") ?? "";
+        if (responseType.includes("application/json")) {
+            try {
+                const payload = await response.json();
+                if (typeof payload?.detail === "string" && payload.detail.trim()) {
+                    message = payload.detail;
+                }
+            } catch {
+                // Ignore malformed error bodies and keep the status-based message.
+            }
+        } else {
+            try {
+                const text = await response.text?.();
+                if (typeof text === "string" && text.trim()) {
+                    message = text.trim();
+                }
+            } catch {
+                // Ignore unreadable text bodies and keep the status-based message.
+            }
+        }
+        const error = new Error(message);
         error.status = response.status;
         throw error;
     }
@@ -1920,6 +1966,14 @@ function aggregateTrendItems(items) {
         .sort((left, right) => left.timestamp - right.timestamp);
 }
 
+function formatDateInput(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+    return date.toISOString().slice(0, 10);
+}
+
 function buildComparisonPeriodOptions(items, periodType) {
     const uniqueStarts = Array.from(new Set(items.map((item) => item.period_start))).sort((left, right) => right.localeCompare(left));
     return uniqueStarts.map((value) => ({
@@ -2041,6 +2095,28 @@ function parsePaceInput(value) {
         return null;
     }
     return Number(numericValue.toFixed(2));
+}
+
+function buildProfileFormFromItem(item) {
+    return {
+        effectiveFrom: item?.effective_from ?? formatDateInput(new Date()),
+        aerobicThresholdHeartRate: item?.aet_heart_rate_bpm == null ? "" : String(item.aet_heart_rate_bpm),
+        anaerobicThresholdHeartRate: item?.ant_heart_rate_bpm == null ? "" : String(item.ant_heart_rate_bpm),
+        aerobicThresholdPace: formatPaceField(item?.aet_pace_min_per_km),
+        anaerobicThresholdPace: formatPaceField(item?.ant_pace_min_per_km),
+    };
+}
+
+function formatThresholdSnapshotSummary(item) {
+    if (!item) {
+        return "No thresholds";
+    }
+    return [
+        item.aet_heart_rate_bpm == null ? "AeT HR n/a" : `AeT HR ${item.aet_heart_rate_bpm}`,
+        item.ant_heart_rate_bpm == null ? "AnT HR n/a" : `AnT HR ${item.ant_heart_rate_bpm}`,
+        item.aet_pace_min_per_km == null ? "AeT pace n/a" : `AeT ${formatPaceField(item.aet_pace_min_per_km)}`,
+        item.ant_pace_min_per_km == null ? "AnT pace n/a" : `AnT ${formatPaceField(item.ant_pace_min_per_km)}`,
+    ].join(" | ");
 }
 
 function labelForValueKind(kind) {

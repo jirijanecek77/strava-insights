@@ -1,3 +1,5 @@
+import logging
+
 from app.services.sync_scheduler import DailyIncrementalSyncScheduler
 
 
@@ -89,3 +91,21 @@ def test_daily_scheduler_returns_zero_when_all_users_have_active_jobs(monkeypatc
     assert scheduled_jobs == 0
     assert scheduler.sync_jobs.created_jobs == []
     assert celery_app_stub.calls == []
+
+
+def test_daily_scheduler_logs_candidate_and_skip_counts(monkeypatch, caplog) -> None:
+    session = SessionStub()
+    scheduler = DailyIncrementalSyncScheduler(session)
+    scheduler.users = UserRepositoryStub([1, 2])
+    scheduler.sync_jobs = SyncJobRepositoryStub(
+        {1: SyncJobStub(5, 1, status="queued"), 2: None}
+    )
+    celery_app_stub = CeleryAppStub()
+    monkeypatch.setattr("app.services.sync_scheduler.celery_app", celery_app_stub)
+    caplog.set_level(logging.INFO)
+
+    scheduled_jobs = scheduler.run()
+
+    assert scheduled_jobs == 1
+    assert any("Loaded incremental sync candidates." in message for message in caplog.messages)
+    assert any("Skipping scheduled sync because an active job exists." in message for message in caplog.messages)

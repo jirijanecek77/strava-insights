@@ -1,0 +1,126 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${FRONTEND_VITE_API_BASE_URL}
+        VITE_MAPYCZ_API_KEY: ${FRONTEND_VITE_MAPYCZ_API_KEY}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: python -m app.run_server
+    env_file:
+      - ./backend/.env.secrets
+    environment:
+      APP_ENV: production
+      SERVICE_NAME: backend
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      BACKEND_RELOAD: "false"
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      SESSION_COOKIE_NAME: strava_insights_session
+      SESSION_MAX_AGE_SECONDS: 1209600
+      SESSION_HTTPS_ONLY: "true"
+      BACKEND_PUBLIC_URL: https://${DOMAIN}
+      FRONTEND_PUBLIC_URL: https://${DOMAIN}
+      STRAVA_AUTHORIZE_URL: https://www.strava.com/oauth/authorize
+      STRAVA_TOKEN_URL: https://www.strava.com/oauth/token
+      STRAVA_SCOPE: read,activity:read_all
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.prod
+    command: celery -A app.celery_app.celery_app worker --loglevel=info
+    env_file:
+      - ./worker/.env.secrets
+    environment:
+      APP_ENV: production
+      SERVICE_NAME: worker
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      STRAVA_TOKEN_URL: https://www.strava.com/oauth/token
+      STRAVA_API_BASE_URL: https://www.strava.com/api/v3
+      STRAVA_ACTIVITY_PAGE_SIZE: 100
+      DAILY_SYNC_CRON_HOUR_UTC: 3
+      DAILY_SYNC_CRON_MINUTE_UTC: 0
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+
+  beat:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.prod
+    command: celery -A app.celery_app.celery_app beat --loglevel=info
+    env_file:
+      - ./worker/.env.secrets
+    environment:
+      APP_ENV: production
+      SERVICE_NAME: beat
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      STRAVA_TOKEN_URL: https://www.strava.com/oauth/token
+      STRAVA_API_BASE_URL: https://www.strava.com/api/v3
+      STRAVA_ACTIVITY_PAGE_SIZE: 100
+      DAILY_SYNC_CRON_HOUR_UTC: 3
+      DAILY_SYNC_CRON_MINUTE_UTC: 0
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: strava_insights
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:

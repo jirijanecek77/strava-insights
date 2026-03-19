@@ -15,17 +15,6 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
 
 
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    aet_heart_rate_bpm: Mapped[int | None]
-    ant_heart_rate_bpm: Mapped[int | None]
-    aet_pace_min_per_km: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    ant_pace_min_per_km: Mapped[float | None] = mapped_column(Numeric(5, 2))
-
-
 class SyncJob(Base):
     __tablename__ = "sync_jobs"
 

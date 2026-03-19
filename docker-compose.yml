@@ -16,10 +16,17 @@ services:
   backend:
     build:
       context: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: python -m app.run_server
     env_file:
       - ./backend/.env
       - ./backend/.env.secrets
+    environment:
+      APP_ENV: local
+      SERVICE_NAME: backend
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      BACKEND_RELOAD: "false"
+      LOG_LEVEL: INFO
     ports:
       - "8000:8000"
     volumes:
@@ -35,6 +42,10 @@ services:
     env_file:
       - ./worker/.env
       - ./worker/.env.secrets
+    environment:
+      APP_ENV: local
+      SERVICE_NAME: worker
+      LOG_LEVEL: INFO
     volumes:
       - ./worker:/app
     depends_on:
@@ -48,6 +59,10 @@ services:
     env_file:
       - ./worker/.env
       - ./worker/.env.secrets
+    environment:
+      APP_ENV: local
+      SERVICE_NAME: beat
+      LOG_LEVEL: INFO
     volumes:
       - ./worker:/app
     depends_on:

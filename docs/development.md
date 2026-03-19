@@ -9,6 +9,7 @@ This document describes how to run and validate the local stack. Product behavio
 - `frontend`: React application
 - `backend`: FastAPI application
 - `worker`: Celery worker
+- `beat`: Celery beat scheduler
 - `postgres`: PostgreSQL
 - `redis`: Redis
 
@@ -25,6 +26,8 @@ Expected env templates:
 - `backend/.env.secrets.template`
 - `worker/.env.template`
 - `worker/.env.secrets.template`
+- Log output is written to the Docker console for `backend`, `worker`, and `beat`.
+- The backend is started through a small Python Uvicorn runner so application logging remains authoritative in Docker.
 
 ## Commands
 
@@ -52,6 +55,12 @@ Windows fallback when `make` is unavailable:
 - `.\make.ps1 up-prod`
 - `.\make.ps1 down-prod`
 - `.\make.ps1 logs-prod`
+
+Useful log inspection commands:
+
+- `docker compose logs backend --tail 200`
+- `docker compose logs worker --tail 200`
+- `docker compose logs beat --tail 200`
 
 ## Validation Expectations
 

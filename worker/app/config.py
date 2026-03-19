@@ -2,8 +2,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    app_env: str = "local"
+    service_name: str = "worker"
     redis_url: str = "redis://redis:6379/0"
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/strava_insights"
+    log_level: str = "INFO"
     session_secret_key: str = "change-me"
     strava_client_id: str = ""
     strava_client_secret: str = ""

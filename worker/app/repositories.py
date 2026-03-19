@@ -12,7 +12,6 @@ from app.models import (
     SyncCheckpoint,
     SyncJob,
     User,
-    UserProfile,
 )
 
 
@@ -29,15 +28,6 @@ class UserRepository:
             .all()
         )
         return [user_id for (user_id,) in rows]
-
-
-class UserProfileRepository:
-    def __init__(self, session: Session) -> None:
-        self.session = session
-
-    def get_for_user(self, user_id: int) -> UserProfile | None:
-        return self.session.query(UserProfile).filter(UserProfile.user_id == user_id).one_or_none()
-
 
 class OauthTokenRepository:
     def __init__(self, session: Session) -> None:

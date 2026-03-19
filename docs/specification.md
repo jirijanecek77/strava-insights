@@ -51,6 +51,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - Frontend: React, Tailwind CSS, Recharts, Mapy.cz-backed map rendering
 - Backend: Python 3.13, FastAPI, Poetry
 - Worker: Celery, Poetry
+- Logging: Docker console output for backend and worker services
 - Database: PostgreSQL
 - Cache and broker: Redis
 - Local validation: Docker Compose driven through short `make` targets
@@ -72,6 +73,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - `frontend`: React web application
 - `backend`: FastAPI application for auth, read APIs, profile management, and sync orchestration
 - `worker`: Celery worker for full import, incremental sync, and read-model refresh
+- `beat`: Celery beat scheduler for daily sync orchestration
 - `postgres`: source of truth for persisted application data
 - `redis`: cache plus Celery broker/backend
 
@@ -83,6 +85,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - Avoid coupling UI code, HTTP handlers, and persistence logic directly.
 - Maintain clear separation between auth, sync, analytics, and read APIs.
 - Keep read APIs reusable so future machine-consumable or insight-oriented endpoints can be added without major redesign.
+- Emit readable service logs to container stdout.
 
 ```mermaid
 flowchart LR
@@ -318,7 +321,15 @@ If `delta_distance` is zero, pace should be treated as infinite and legacy-compa
 
 ### Profile Inputs
 
-Running threshold analysis should use explicit user-configured thresholds when available:
+Running threshold analysis should use explicit user-configured threshold snapshots when available.
+
+Threshold snapshots must:
+
+- store the full AeT/AnT HR and pace set together
+- include an `effective_from` date
+- be resolved for activity detail by the activity local calendar date, choosing the latest snapshot whose `effective_from` is on or before that date
+
+Each snapshot includes:
 
 - `aet_heart_rate_bpm`
 - `ant_heart_rate_bpm`
@@ -447,7 +458,7 @@ sequenceDiagram
 ### Core Entities
 
 - `users`
-- `user_profiles`
+- `user_threshold_profiles`
 - `oauth_tokens`
 - `activities`
 - `activity_streams`
@@ -466,7 +477,7 @@ The schema must support:
 - activity-level derived KPI inputs and normalized fields
 - derived detail series when precomputation is beneficial
 - threshold-analysis outputs when precomputation is beneficial
-- explicit running threshold inputs for activity-detail analysis
+- dated threshold snapshots for activity-detail analysis
 
 ### Key Indexes
 

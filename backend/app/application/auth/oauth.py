@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC
 from urllib.parse import urlencode
 
@@ -13,6 +14,9 @@ from app.infrastructure.repositories.oauth_token_repository import OauthTokenRep
 from app.infrastructure.repositories.user_repository import UserRepository
 from app.infrastructure.security.token_cipher import TokenCipher
 from app.infrastructure.strava.client import StravaAuthClient
+
+
+logger = logging.getLogger(__name__)
 
 
 class StravaOAuthService:
@@ -42,10 +46,15 @@ class StravaOAuthService:
         return f"{settings.strava_authorize_url}?{query}"
 
     def authenticate_from_code(self, code: str) -> AuthenticatedUser:
+        logger.info("Exchanging Strava authorization code for tokens.")
         token_payload = self.strava_client.exchange_code_for_token(code)
         user, is_new_user = self._upsert_user_with_token(token_payload)
         self.db_session.commit()
         self.db_session.refresh(user)
+        logger.info(
+            "Authenticated Strava user.",
+            extra={"user.id": user.id, "is_new_user": is_new_user, "strava_athlete_id": token_payload.athlete_id},
+        )
         return AuthenticatedUser(
             id=user.id,
             strava_athlete_id=user.strava_athlete_id or token_payload.athlete_id,
@@ -62,6 +71,7 @@ class StravaOAuthService:
         ) or f"Strava athlete {token_payload.athlete_id}"
 
         if user is None:
+            logger.info("Creating new user from Strava token payload.", extra={"strava_athlete_id": token_payload.athlete_id})
             user = User(
                 strava_athlete_id=token_payload.athlete_id,
                 display_name=display_name,
@@ -69,6 +79,7 @@ class StravaOAuthService:
             )
             self.user_repository.save(user)
         else:
+            logger.info("Updating existing user from Strava token payload.", extra={"user.id": user.id})
             user.display_name = display_name
             user.profile_picture_url = token_payload.athlete_profile
 
@@ -77,6 +88,7 @@ class StravaOAuthService:
         encrypted_refresh_token = self.token_cipher.encrypt(token_payload.refresh_token)
 
         if oauth_token is None:
+            logger.info("Creating OAuth token record.", extra={"user.id": user.id})
             oauth_token = OauthToken(
                 user_id=user.id,
                 provider="strava",
@@ -88,6 +100,7 @@ class StravaOAuthService:
             )
             self.oauth_token_repository.save(oauth_token)
         else:
+            logger.info("Refreshing OAuth token record.", extra={"user.id": user.id})
             oauth_token.access_token_encrypted = encrypted_access_token
             oauth_token.refresh_token_encrypted = encrypted_refresh_token
             oauth_token.expires_at = token_payload.expires_at.astimezone(UTC)

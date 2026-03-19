@@ -1,3 +1,8 @@
+import logging
+from datetime import date
+
+from fastapi.testclient import TestClient
+
 from app.api.routes.auth import _build_state_serializer
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
@@ -14,6 +19,7 @@ from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSche
 from app.domain.schemas.sync import SyncStatusResponse
 from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.db.models.user import User
+from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 from app.main import app
 
 
@@ -177,10 +183,8 @@ def test_me_profile_returns_empty_payload_when_profile_missing(client) -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "aet_heart_rate_bpm": None,
-        "ant_heart_rate_bpm": None,
-        "aet_pace_min_per_km": None,
-        "ant_pace_min_per_km": None,
+        "items": [],
+        "current": None,
     }
 
 
@@ -208,6 +212,7 @@ def test_me_profile_can_be_updated(client, db_session) -> None:
         response = client.put(
             "/me/profile",
             json={
+                "effective_from": "2026-03-01",
                 "aet_heart_rate_bpm": 145,
                 "ant_heart_rate_bpm": 168,
                 "aet_pace_min_per_km": "5.40",
@@ -218,12 +223,119 @@ def test_me_profile_can_be_updated(client, db_session) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json() == {
+    assert response.json()["current"] == {
+        "effective_from": "2026-03-01",
         "aet_heart_rate_bpm": 145,
         "ant_heart_rate_bpm": 168,
         "aet_pace_min_per_km": "5.40",
         "ant_pace_min_per_km": "4.30",
     }
+    assert response.json()["items"][0] == response.json()["current"]
+
+
+def test_me_profile_update_creates_missing_user_from_session(client, db_session) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
+    )
+    try:
+        response = client.put(
+            "/me/profile",
+            json={
+                "effective_from": "2026-03-01",
+                "aet_heart_rate_bpm": 145,
+                "ant_heart_rate_bpm": 168,
+                "aet_pace_min_per_km": "5.40",
+                "ant_pace_min_per_km": "4.30",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    persisted_user = db_session.get(User, 1)
+    assert persisted_user is not None
+    assert persisted_user.display_name == "Test Athlete"
+    assert response.json()["current"]["effective_from"] == "2026-03-01"
+
+
+def test_request_logging_logs_start_and_completion(client, caplog) -> None:
+    caplog.set_level(logging.INFO)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert any("Request started method=GET path=/health" in message for message in caplog.messages)
+    assert any("Request completed method=GET path=/health status=200" in message for message in caplog.messages)
+
+
+def test_request_logging_logs_unhandled_exceptions(client, caplog) -> None:
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    app.add_api_route("/_test_logging_boom", boom, methods=["GET"])
+    caplog.set_level(logging.ERROR)
+
+    with TestClient(app, raise_server_exceptions=False) as error_client:
+        response = error_client.get("/_test_logging_boom")
+
+    assert response.status_code == 500
+    assert any("Request failed method=GET path=/_test_logging_boom" in message for message in caplog.messages)
+
+
+def test_me_profile_returns_threshold_history(client, db_session) -> None:
+    db_session.add(
+        User(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+            is_active=True,
+        )
+    )
+    db_session.flush()
+    db_session.add_all(
+        [
+            UserThresholdProfile(
+                user_id=1,
+                effective_from=date(2026, 3, 1),
+                aet_heart_rate_bpm=145,
+                ant_heart_rate_bpm=168,
+                aet_pace_min_per_km="5.40",
+                ant_pace_min_per_km="4.30",
+            ),
+            UserThresholdProfile(
+                user_id=1,
+                effective_from=date(2026, 2, 1),
+                aet_heart_rate_bpm=142,
+                ant_heart_rate_bpm=165,
+                aet_pace_min_per_km="5.50",
+                ant_pace_min_per_km="4.40",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
+    )
+    try:
+        response = client.get("/me/profile")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["current"]["effective_from"] == "2026-03-01"
+    assert len(response.json()["items"]) == 2
 
 
 def test_sync_status_returns_idle_shape_with_override(client) -> None:

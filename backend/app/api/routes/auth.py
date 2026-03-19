@@ -1,3 +1,5 @@
+import logging
+
 from itsdangerous import BadSignature, URLSafeSerializer
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
@@ -10,6 +12,7 @@ from app.domain.schemas.user import CurrentUserResponse
 
 
 router = APIRouter(prefix="/auth")
+logger = logging.getLogger(__name__)
 
 
 def _build_state_serializer() -> URLSafeSerializer:
@@ -23,6 +26,10 @@ def start_strava_login(
 ) -> dict[str, str]:
     state = _build_state_serializer().dumps({"client": request.client.host if request.client else "unknown"})
     request.session["oauth_state"] = state
+    logger.info(
+        "Starting Strava OAuth login.",
+        extra={"client.address": request.client.host if request.client else "unknown"},
+    )
     return {"authorization_url": strava_oauth_service.build_authorization_url(state)}
 
 
@@ -36,15 +43,19 @@ def strava_callback(
 ) -> RedirectResponse:
     expected_state = request.session.get("oauth_state")
     if expected_state is None or state != expected_state:
+        logger.error("Rejected Strava OAuth callback because state did not match.")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.")
 
     try:
         _build_state_serializer().loads(state)
     except BadSignature as exc:
+        logger.error("Rejected Strava OAuth callback because state signature was invalid.")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.") from exc
 
+    logger.info("Handling Strava OAuth callback.")
     authenticated_user = strava_oauth_service.authenticate_from_code(code)
     if authenticated_user.is_new_user:
+        logger.info("Queueing first import after new user login.", extra={"user.id": authenticated_user.id})
         sync_orchestrator.enqueue_first_import_if_needed(authenticated_user.id)
     request.session["user"] = {
         "id": authenticated_user.id,
@@ -53,6 +64,7 @@ def strava_callback(
         "profile_picture_url": authenticated_user.profile_picture_url,
     }
     request.session.pop("oauth_state", None)
+    logger.info("Completed Strava OAuth callback.", extra={"user.id": authenticated_user.id})
 
     return RedirectResponse(url=settings.frontend_public_url, status_code=status.HTTP_302_FOUND)
 
@@ -74,4 +86,6 @@ def get_current_session(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(request: Request) -> None:
+    session_user = request.session.get("user") or {}
+    logger.info("Logging out current session.", extra={"user.id": session_user.get("id")})
     request.session.clear()

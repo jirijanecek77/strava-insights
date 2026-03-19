@@ -11,7 +11,6 @@ from app.repositories import (
     OauthTokenRepository,
     SyncCheckpointRepository,
     SyncJobRepository,
-    UserProfileRepository,
 )
 from app.security import TokenCipher
 from app.services.activity_summary import (
@@ -49,7 +48,6 @@ class BaseImportService:
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
         self.checkpoints = SyncCheckpointRepository(session)
-        self.user_profiles = UserProfileRepository(session)
         self.cache_invalidator = UserCacheInvalidator()
         self.read_model_builder = ReadModelBuilder(session)
 
@@ -60,6 +58,14 @@ class BaseImportService:
         sync_job = self.sync_jobs.get(sync_job_id, user_id)
         if sync_job is None:
             raise ValueError("Sync job not found.")
+        logger.info(
+            "Starting import service run.",
+            extra={
+                "sync_job.id": sync_job_id,
+                "user.id": user_id,
+                "after": None if after is None else after.isoformat(),
+            },
+        )
 
         access_token = self._get_access_token(user_id)
         activities_payload = [
@@ -74,6 +80,15 @@ class BaseImportService:
         activities_payload = [
             activity for activity in activities_payload if activity.get("id") not in existing_strava_ids
         ]
+        logger.info(
+            "Fetched Strava activities for import.",
+            extra={
+                "sync_job.id": sync_job_id,
+                "user.id": user_id,
+                "fetched_count": len(activities_payload),
+                "existing_count": len(existing_strava_ids),
+            },
+        )
         self.sync_jobs.update_running(sync_job, progress_total=len(activities_payload))
         self.session.commit()
 
@@ -85,7 +100,14 @@ class BaseImportService:
             try:
                 stream_payload = self.strava_client.get_activity_stream(access_token, activity.strava_activity_id)
             except StravaActivityStreamNotFoundError:
-                logger.warning("Skipping missing Strava streams for activity %s.", activity.strava_activity_id)
+                logger.warning(
+                    "Skipping missing Strava streams for activity.",
+                    extra={
+                        "sync_job.id": sync_job_id,
+                        "user.id": user_id,
+                        "activity.strava_id": activity.strava_activity_id,
+                    },
+                )
             else:
                 self._upsert_stream(activity_id=activity.id, payload=stream_payload)
             imported_count += 1
@@ -95,6 +117,16 @@ class BaseImportService:
             )
             self.sync_jobs.update_progress(sync_job, completed=index, total=len(activities_payload))
             self.session.commit()
+            logger.info(
+                "Imported activity.",
+                extra={
+                    "sync_job.id": sync_job_id,
+                    "user.id": user_id,
+                    "activity.strava_id": activity.strava_activity_id,
+                    "progress.completed": index,
+                    "progress.total": len(activities_payload),
+                },
+            )
 
         self.checkpoints.upsert(
             user_id=user_id,
@@ -106,6 +138,15 @@ class BaseImportService:
         self.cache_invalidator.invalidate_user(user_id)
         self.sync_jobs.complete(sync_job, imported_activities=imported_count)
         self.session.commit()
+        logger.info(
+            "Completed import service run.",
+            extra={
+                "sync_job.id": sync_job_id,
+                "user.id": user_id,
+                "imported_count": imported_count,
+                "checkpoint": latest_checkpoint_value,
+            },
+        )
         return imported_count
 
     def _get_access_token(self, user_id: int) -> str:
@@ -115,6 +156,7 @@ class BaseImportService:
 
         access_token = self.token_cipher.decrypt(oauth_token.access_token_encrypted)
         if oauth_token.expires_at <= datetime.now(UTC):
+            logger.info("Refreshing expired Strava access token.", extra={"user.id": user_id})
             refresh_payload = self.strava_client.refresh_access_token(
                 self.token_cipher.decrypt(oauth_token.refresh_token_encrypted)
             )
@@ -124,6 +166,7 @@ class BaseImportService:
             oauth_token.scope = refresh_payload.get("scope")
             access_token = refresh_payload["access_token"]
             self.session.flush()
+            logger.info("Refreshed Strava access token.", extra={"user.id": user_id})
         return access_token
 
     def _get_existing_checkpoint_value(self, user_id: int) -> str | None:

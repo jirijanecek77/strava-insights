@@ -65,7 +65,8 @@ class ActivityReadService:
             return None
 
         stream = self.streams.get_for_activity(activity.id)
-        profile = self.user_profiles.get_for_user(user_id)
+        activity_local_date = None if activity.start_date_local is None else activity.start_date_local.date()
+        profile = self.user_profiles.get_effective_for_user(user_id, activity_local_date)
         analytics = self.analytics.build(
             sport_type=activity.sport_type,
             start_date_utc=activity.start_date_utc,

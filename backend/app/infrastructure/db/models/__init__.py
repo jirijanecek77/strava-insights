@@ -7,7 +7,7 @@ from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.sync_checkpoint import SyncCheckpoint
 from app.infrastructure.db.models.sync_job import SyncJob
 from app.infrastructure.db.models.user import User
-from app.infrastructure.db.models.user_profile import UserProfile
+from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 
 __all__ = [
     "Activity",
@@ -19,5 +19,5 @@ __all__ = [
     "SyncCheckpoint",
     "SyncJob",
     "User",
-    "UserProfile",
+    "UserThresholdProfile",
 ]

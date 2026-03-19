@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 from app.services.sync_import import FullImportService, IncrementalSyncService
@@ -130,22 +131,6 @@ class CheckpointRepositoryStub:
         self.value = kwargs
 
 
-class UserProfileStub:
-    def __init__(self) -> None:
-        self.aet_heart_rate_bpm = 145
-        self.ant_heart_rate_bpm = 165
-        self.aet_pace_min_per_km = 5.2
-        self.ant_pace_min_per_km = 4.3
-
-
-class UserProfileRepositoryStub:
-    def __init__(self, profile=None) -> None:
-        self.profile = profile
-
-    def get_for_user(self, _user_id: int):
-        return self.profile
-
-
 class CacheInvalidatorStub:
     def __init__(self) -> None:
         self.user_ids: list[int] = []
@@ -243,7 +228,6 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -274,7 +258,6 @@ def test_full_import_service_refreshes_expired_token_before_import() -> None:
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -282,6 +265,26 @@ def test_full_import_service_refreshes_expired_token_before_import() -> None:
 
     assert oauth_token.access_token_encrypted == "enc:fresh-access-token"
     assert oauth_token.refresh_token_encrypted == "enc:fresh-refresh-token"
+
+
+def test_full_import_service_logs_token_refresh(caplog) -> None:
+    session = SessionStub()
+    sync_job = SyncJobStub()
+    oauth_token = OAuthTokenStub("enc:stale-access-token", "enc:refresh-token", datetime.now(UTC) - timedelta(minutes=5))
+    service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
+    service.sync_jobs = SyncJobRepositoryStub(sync_job)
+    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.activities = ActivityRepositoryStub()
+    service.activity_streams = ActivityStreamRepositoryStub()
+    service.checkpoints = CheckpointRepositoryStub()
+    service.cache_invalidator = CacheInvalidatorStub()
+    service.read_model_builder = ReadModelBuilderStub()
+    caplog.set_level(logging.INFO)
+
+    service.run(sync_job_id=1, user_id=1)
+
+    assert any("Refreshing expired Strava access token." in message for message in caplog.messages)
+    assert any("Completed import service run." in message for message in caplog.messages)
 
 
 def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
@@ -303,7 +306,6 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = checkpoint_repo
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -325,7 +327,6 @@ def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -350,7 +351,6 @@ def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing(
     service.activities.latest_start_date_utc = datetime.fromisoformat("2026-03-07T06:00:00+00:00")
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -373,7 +373,6 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     service.activities.existing_strava_ids = {100}
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
-    service.user_profiles = UserProfileRepositoryStub(UserProfileStub())
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 

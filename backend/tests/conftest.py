@@ -32,9 +32,9 @@ def _clear_test_tables(session: Session) -> None:
 def prepare_test_database() -> Generator[None, None, None]:
     main_module.upgrade_database = lambda: None
     with TEST_ENGINE.begin() as connection:
-        connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{TEST_SCHEMA}"'))
+        connection.execute(text(f'DROP SCHEMA IF EXISTS "{TEST_SCHEMA}" CASCADE'))
+        connection.execute(text(f'CREATE SCHEMA "{TEST_SCHEMA}"'))
         connection.execute(text(f'SET search_path TO "{TEST_SCHEMA}"'))
-        Base.metadata.drop_all(bind=connection)
         Base.metadata.create_all(bind=connection)
     session = TestSessionLocal()
     try:
