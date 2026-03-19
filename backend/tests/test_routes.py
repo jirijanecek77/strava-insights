@@ -263,28 +263,85 @@ def test_me_profile_update_creates_missing_user_from_session(client, db_session)
     assert response.json()["current"]["effective_from"] == "2026-03-01"
 
 
-def test_request_logging_logs_start_and_completion(client, caplog) -> None:
-    caplog.set_level(logging.INFO)
+def test_me_profile_can_update_existing_snapshot_with_same_effective_date(client, db_session) -> None:
+    db_session.add(
+        User(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+            is_active=True,
+        )
+    )
+    db_session.add(
+        UserThresholdProfile(
+            user_id=1,
+            effective_from=date(2026, 3, 1),
+            aet_heart_rate_bpm=145,
+            ant_heart_rate_bpm=168,
+            aet_pace_min_per_km="5.40",
+            ant_pace_min_per_km="4.30",
+        )
+    )
+    db_session.commit()
 
-    response = client.get("/health")
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
+    )
+    try:
+        response = client.put(
+            "/me/profile",
+            json={
+                "effective_from": "2026-03-01",
+                "aet_heart_rate_bpm": 150,
+                "ant_heart_rate_bpm": 171,
+                "aet_pace_min_per_km": "5.20",
+                "ant_pace_min_per_km": "4.10",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert any("Request started method=GET path=/health" in message for message in caplog.messages)
-    assert any("Request completed method=GET path=/health status=200" in message for message in caplog.messages)
+    assert response.json()["current"] == {
+        "effective_from": "2026-03-01",
+        "aet_heart_rate_bpm": 150,
+        "ant_heart_rate_bpm": 171,
+        "aet_pace_min_per_km": "5.20",
+        "ant_pace_min_per_km": "4.10",
+    }
+    assert db_session.query(UserThresholdProfile).count() == 1
 
 
-def test_request_logging_logs_unhandled_exceptions(client, caplog) -> None:
+def test_request_logging_logs_start_and_completion(client, capsys) -> None:
+    response = client.get("/health", headers={"x-request-id": "req-health-test"})
+    captured = capsys.readouterr()
+
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] == "req-health-test"
+    assert "Request started method=GET path=/health" in captured.out
+    assert "request_id=req-health-test" in captured.out
+    assert "Request completed method=GET path=/health status=200" in captured.out
+
+
+def test_request_logging_logs_unhandled_exceptions(client, capsys) -> None:
     def boom() -> None:
         raise RuntimeError("boom")
 
     app.add_api_route("/_test_logging_boom", boom, methods=["GET"])
-    caplog.set_level(logging.ERROR)
 
     with TestClient(app, raise_server_exceptions=False) as error_client:
         response = error_client.get("/_test_logging_boom")
+    captured = capsys.readouterr()
 
     assert response.status_code == 500
-    assert any("Request failed method=GET path=/_test_logging_boom" in message for message in caplog.messages)
+    assert "Request failed method=GET path=/_test_logging_boom" in captured.out
+    assert "Unhandled exception on path=/_test_logging_boom" in captured.out
 
 
 def test_me_profile_returns_threshold_history(client, db_session) -> None:

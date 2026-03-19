@@ -75,6 +75,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Replaced the discontinued Mapy.cz JavaScript SDK integration with the supported current map approach.
 - [x] Normalized activity summary metric payloads so the frontend can render pace and speed consistently.
 - [x] Isolated backend pytest runs from the development dataset.
+- [x] Hardened dated threshold profile saves against duplicate same-date submissions so repeated save clicks do not crash `/me/profile`.
 - [x] Removed dead frontend helpers and stale backend-only code paths with no production call sites.
 - [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
 - [x] Added backend, worker, and beat logging to Docker console with request and task lifecycle coverage.

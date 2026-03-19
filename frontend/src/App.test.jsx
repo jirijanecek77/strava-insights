@@ -440,6 +440,69 @@ describe("App", () => {
         });
     });
 
+    it("hides the broken 30 day window and labels weekly comparison selectors by week within the month", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10
+                }));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/trends?period_type=week")) {
+                return Promise.resolve(
+                    jsonResponse({
+                        period_type: "week",
+                        items: [
+                            {sport_type: "Run", period_type: "week", period_start: "2026-03-02", activity_count: 1, total_distance_meters: 10000, total_moving_time_seconds: 3000},
+                            {sport_type: "Run", period_type: "week", period_start: "2026-03-09", activity_count: 2, total_distance_meters: 15000, total_moving_time_seconds: 4500},
+                            {sport_type: "Run", period_type: "week", period_start: "2026-03-16", activity_count: 3, total_distance_meters: 20000, total_moving_time_seconds: 6000},
+                            {sport_type: "Run", period_type: "week", period_start: "2026-03-23", activity_count: 4, total_distance_meters: 25000, total_moving_time_seconds: 7500},
+                        ],
+                    }),
+                );
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        expect(await screen.findByLabelText(/window/i)).toBeInTheDocument();
+        expect(screen.queryByRole("option", {name: /30 days/i})).not.toBeInTheDocument();
+
+        fireEvent.change(screen.getByLabelText(/window/i), {target: {value: "week"}});
+
+        expect(await screen.findByDisplayValue("W4 Mar 2026")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("W3 Mar 2026")).toBeInTheDocument();
+        expect(screen.getAllByRole("option", {name: "W1 Mar 2026"}).length).toBeGreaterThan(0);
+        expect(screen.getAllByRole("option", {name: "W2 Mar 2026"}).length).toBeGreaterThan(0);
+    });
+
     it("opens the linked activity when a best effort card is clicked", async () => {
         vi.spyOn(global, "fetch")
             .mockResolvedValueOnce(
@@ -1117,6 +1180,8 @@ describe("App", () => {
 
         const aerobicPaceInput = await screen.findByLabelText("Aerobic Threshold Pace (min/km)");
         expect(screen.getByLabelText("Effective From")).toHaveValue("2026-03-01");
+        expect(screen.getByLabelText("Threshold Period")).toHaveValue("2026-03-01");
+        expect(screen.getByRole("button", {name: /add new time period/i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
@@ -1133,6 +1198,9 @@ describe("App", () => {
             expect(global.fetch).toHaveBeenCalledWith(
                 expect.stringContaining("/me/profile"),
                 expect.objectContaining({
+                    headers: expect.objectContaining({
+                        "X-Request-ID": expect.any(String),
+                    }),
                     body: JSON.stringify({
                         effective_from: "2026-03-01",
                         aet_heart_rate_bpm: 148,
@@ -1144,6 +1212,118 @@ describe("App", () => {
                 }),
             );
         });
+    });
+
+    it("starts a new time period draft while keeping the current threshold values visible", async () => {
+        vi.spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({status: "idle"}))
+            .mockResolvedValueOnce(jsonResponse({month: [], year: []}))
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse([]))
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    items: [
+                        {
+                            effective_from: "2026-03-01",
+                            aet_heart_rate_bpm: 145,
+                            ant_heart_rate_bpm: 168,
+                            aet_pace_min_per_km: "5.40",
+                            ant_pace_min_per_km: "4.30",
+                        },
+                    ],
+                    current: {
+                        effective_from: "2026-03-01",
+                        aet_heart_rate_bpm: 145,
+                        ant_heart_rate_bpm: 168,
+                        aet_pace_min_per_km: "5.40",
+                        ant_pace_min_per_km: "4.30",
+                    },
+                }),
+            );
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /settings/i}));
+        expect(await screen.findByLabelText("Threshold Period")).toHaveValue("2026-03-01");
+
+        fireEvent.click(screen.getByRole("button", {name: /add new time period/i}));
+
+        expect(screen.getByLabelText("Threshold Period")).toHaveValue("");
+        expect(screen.getByLabelText("Effective From")).toHaveValue("");
+        expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
+        expect(screen.getByLabelText("Anaerobic Threshold Pace (min/km)")).toHaveValue("4:18");
+        expect(screen.getByText(/saving creates a new dated threshold snapshot\./i)).toBeInTheDocument();
+    });
+
+    it("ignores repeated save clicks while the profile request is in flight", async () => {
+        let resolveSave;
+        const savePromise = new Promise((resolve) => {
+            resolveSave = resolve;
+        });
+        vi.spyOn(global, "fetch").mockImplementation((input, options) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({status: "idle"}));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/me/profile") && !options?.method) {
+                return Promise.resolve(jsonResponse({
+                    items: [],
+                    current: null,
+                }));
+            }
+            if (url.includes("/me/profile") && options?.method === "PUT") {
+                return savePromise;
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /settings/i}));
+        const saveButton = await screen.findByRole("button", {name: /save profile/i});
+
+        fireEvent.click(saveButton);
+        fireEvent.click(saveButton);
+
+        await waitFor(() => {
+            expect(global.fetch).toHaveBeenCalledTimes(9);
+        });
+
+        resolveSave(jsonResponse({items: [], current: null}));
+        expect(await screen.findByRole("button", {name: /save profile/i})).toBeInTheDocument();
     });
 });
 

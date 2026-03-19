@@ -22,7 +22,6 @@ const windows = [
     {id: "week", label: "Week"},
     {id: "month", label: "Month"},
     {id: "year", label: "Year"},
-    {id: "rolling_30d", label: "30 Days"},
 ];
 const sports = [
     {id: "", label: "All Sports"},
@@ -31,7 +30,6 @@ const sports = [
     {id: "EBikeRide", label: "E-Bike"},
 ];
 const syncPollIntervalMs = 3000;
-
 export default function App() {
     const [sessionState, setSessionState] = useState("loading");
     const [user, setUser] = useState(null);
@@ -58,6 +56,7 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileBusy, setProfileBusy] = useState(false);
     const [profileHistory, setProfileHistory] = useState([]);
+    const profileSaveInFlightRef = useRef(false);
     const [profileForm, setProfileForm] = useState({
         effectiveFrom: formatDateInput(new Date()),
         aerobicThresholdHeartRate: "",
@@ -230,7 +229,8 @@ export default function App() {
             return;
         }
         let active = true;
-        fetchJson("/me/profile")
+        const requestId = generateRequestId();
+        fetchJson("/me/profile", {requestId, requestLabel: "load profile settings"})
             .then((payload) => {
                 if (!active) {
                     return;
@@ -299,6 +299,10 @@ export default function App() {
     }
 
     async function handleSaveProfile() {
+        if (profileSaveInFlightRef.current) {
+            return;
+        }
+        const requestId = generateRequestId();
         try {
             if (!profileForm.effectiveFrom) {
                 setErrorMessage("Effective-from date is required.");
@@ -314,9 +318,12 @@ export default function App() {
                 setErrorMessage("Anaerobic threshold pace must use mm:ss or decimal minutes.");
                 return;
             }
+            profileSaveInFlightRef.current = true;
             setProfileBusy(true);
             const payload = await fetchJson("/me/profile", {
                 method: "PUT",
+                requestId,
+                requestLabel: "save profile settings",
                 body: JSON.stringify({
                     effective_from: profileForm.effectiveFrom,
                     aet_heart_rate_bpm: profileForm.aerobicThresholdHeartRate ? Number(profileForm.aerobicThresholdHeartRate) : null,
@@ -331,6 +338,7 @@ export default function App() {
         } catch (error) {
             setErrorMessage(error.message ?? "Failed to save profile settings.");
         } finally {
+            profileSaveInFlightRef.current = false;
             setProfileBusy(false);
         }
     }
@@ -424,6 +432,9 @@ export default function App() {
                             user={user}
                             onChangeProfileField={(field, value) => {
                                 setProfileForm((current) => ({...current, [field]: value}));
+                            }}
+                            onStartNewThresholdProfile={() => {
+                                setProfileForm((current) => ({...current, effectiveFrom: ""}));
                             }}
                             onSelectThresholdProfile={(item) => setProfileForm(buildProfileFormFromItem(item))}
                             onLogout={handleLogout}
@@ -1073,11 +1084,16 @@ function SettingsView({
                           syncStatus,
                           user,
                           onChangeProfileField,
+                          onStartNewThresholdProfile,
                           onSelectThresholdProfile,
                           onLogout,
                           onRefreshSync,
                           onSaveProfile
                       }) {
+    const selectedThresholdProfile =
+        profileHistory.find((item) => item.effective_from === profileForm.effectiveFrom) ?? null;
+    const isDraftThresholdProfile = selectedThresholdProfile == null;
+
     return (
         <section className="panel-grid">
             <article className="panel settings-panel">
@@ -1091,77 +1107,152 @@ function SettingsView({
                     <div className="settings-row"><span>Strava Athlete</span><strong>{user.strava_athlete_id}</strong>
                     </div>
                 </div>
-                <div className="settings-form">
-                    <label className="control-chip">
-                        <span>Effective From</span>
-                        <input
-                            aria-label="Effective From"
-                            type="date"
-                            value={profileForm.effectiveFrom}
-                            onChange={(event) => onChangeProfileField("effectiveFrom", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Aerobic Threshold HR (bpm)</span>
-                        <input
-                            aria-label="Aerobic Threshold HR (bpm)"
-                            inputMode="numeric"
-                            step="1"
-                            type="number"
-                            value={profileForm.aerobicThresholdHeartRate}
-                            onChange={(event) => onChangeProfileField("aerobicThresholdHeartRate", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Anaerobic Threshold HR (bpm)</span>
-                        <input
-                            aria-label="Anaerobic Threshold HR (bpm)"
-                            inputMode="numeric"
-                            step="1"
-                            type="number"
-                            value={profileForm.anaerobicThresholdHeartRate}
-                            onChange={(event) => onChangeProfileField("anaerobicThresholdHeartRate", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Aerobic Threshold Pace (min/km)</span>
-                        <input
-                            aria-label="Aerobic Threshold Pace (min/km)"
-                            inputMode="text"
-                            placeholder="5:20"
-                            type="text"
-                            value={profileForm.aerobicThresholdPace}
-                            onChange={(event) => onChangeProfileField("aerobicThresholdPace", event.target.value)}
-                        />
-                    </label>
-                    <label className="control-chip">
-                        <span>Anaerobic Threshold Pace (min/km)</span>
-                        <input
-                            aria-label="Anaerobic Threshold Pace (min/km)"
-                            inputMode="text"
-                            placeholder="4:15"
-                            type="text"
-                            value={profileForm.anaerobicThresholdPace}
-                            onChange={(event) => onChangeProfileField("anaerobicThresholdPace", event.target.value)}
-                        />
-                    </label>
-                </div>
-                <div className="settings-list">
-                    {profileHistory.map((item) => (
-                        <button
-                            key={item.effective_from}
-                            className="ghost-button threshold-history-item"
-                            onClick={() => onSelectThresholdProfile(item)}
-                            type="button"
-                        >
-                            <span>{item.effective_from}</span>
-                            <strong>{formatThresholdSnapshotSummary(item)}</strong>
+                <section className="settings-section">
+                    <div className="settings-section-header">
+                        <div>
+                            <p className="eyebrow">Threshold Timeline</p>
+                            <h3>Select or add a time period</h3>
+                        </div>
+                        <span className={`threshold-status-pill${isDraftThresholdProfile ? " is-draft" : ""}`}>
+                            {isDraftThresholdProfile ? "New period draft" : "Saved period selected"}
+                        </span>
+                    </div>
+                    <p className="settings-helper-text">
+                        Choose an existing effective date to review or edit it. Start a new time period when your thresholds changed.
+                    </p>
+                    <div className="profile-period-toolbar">
+                        <label className="control-chip threshold-period-select">
+                            <span>Threshold Period</span>
+                            <select
+                                aria-label="Threshold Period"
+                                value={selectedThresholdProfile?.effective_from ?? ""}
+                                onChange={(event) => {
+                                    if (!event.target.value) {
+                                        onStartNewThresholdProfile();
+                                        return;
+                                    }
+                                    const profile = profileHistory.find((item) => item.effective_from === event.target.value);
+                                    if (profile) {
+                                        onSelectThresholdProfile(profile);
+                                    }
+                                }}
+                            >
+                                <option value="">New Time Period</option>
+                                {profileHistory.map((item) => (
+                                    <option key={item.effective_from} value={item.effective_from}>
+                                        {formatThresholdPeriodOption(item)}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <button className="ghost-button inline-button" onClick={onStartNewThresholdProfile} type="button">
+                            Add New Time Period
                         </button>
-                    ))}
-                </div>
-                <button className="primary-button" disabled={profileBusy} onClick={onSaveProfile} type="button">
-                    {profileBusy ? "Saving..." : "Save Profile"}
-                </button>
+                    </div>
+                    {selectedThresholdProfile ? (
+                        <div className="threshold-selected-summary">
+                            <strong>{selectedThresholdProfile.effective_from}</strong>
+                            <span>{formatThresholdSnapshotSummary(selectedThresholdProfile)}</span>
+                        </div>
+                    ) : (
+                        <div className="threshold-selected-summary is-draft">
+                            <strong>New time period</strong>
+                            <span>Pick an effective date, then save these threshold values as a new dated snapshot.</span>
+                        </div>
+                    )}
+                </section>
+                <section className="settings-section">
+                    <div className="settings-section-header">
+                        <div>
+                            <p className="eyebrow">Threshold Values</p>
+                            <h3>Edit the values for this period</h3>
+                        </div>
+                    </div>
+                    <p className="settings-helper-text">
+                        The effective date controls when these values start applying to activity analysis.
+                    </p>
+                    <div className="threshold-form-grid">
+                        <div className="threshold-metric-card threshold-date-card">
+                            <p className="eyebrow">Effective Date</p>
+                            <h4>When these thresholds begin</h4>
+                            <label className="control-chip">
+                                <span>Effective From</span>
+                                <input
+                                    aria-label="Effective From"
+                                    type="date"
+                                    value={profileForm.effectiveFrom}
+                                    onChange={(event) => onChangeProfileField("effectiveFrom", event.target.value)}
+                                />
+                            </label>
+                        </div>
+                        <div className="threshold-metric-card">
+                            <p className="eyebrow">Heart Rate</p>
+                            <h4>Threshold bpm</h4>
+                            <div className="threshold-input-grid">
+                                <label className="control-chip">
+                                    <span>Aerobic Threshold HR (bpm)</span>
+                                    <input
+                                        aria-label="Aerobic Threshold HR (bpm)"
+                                        inputMode="numeric"
+                                        step="1"
+                                        type="number"
+                                        value={profileForm.aerobicThresholdHeartRate}
+                                        onChange={(event) => onChangeProfileField("aerobicThresholdHeartRate", event.target.value)}
+                                    />
+                                </label>
+                                <label className="control-chip">
+                                    <span>Anaerobic Threshold HR (bpm)</span>
+                                    <input
+                                        aria-label="Anaerobic Threshold HR (bpm)"
+                                        inputMode="numeric"
+                                        step="1"
+                                        type="number"
+                                        value={profileForm.anaerobicThresholdHeartRate}
+                                        onChange={(event) => onChangeProfileField("anaerobicThresholdHeartRate", event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="threshold-metric-card">
+                            <p className="eyebrow">Pace</p>
+                            <h4>Threshold min/km</h4>
+                            <div className="threshold-input-grid">
+                                <label className="control-chip">
+                                    <span>Aerobic Threshold Pace (min/km)</span>
+                                    <input
+                                        aria-label="Aerobic Threshold Pace (min/km)"
+                                        inputMode="text"
+                                        placeholder="5:20"
+                                        type="text"
+                                        value={profileForm.aerobicThresholdPace}
+                                        onChange={(event) => onChangeProfileField("aerobicThresholdPace", event.target.value)}
+                                    />
+                                </label>
+                                <label className="control-chip">
+                                    <span>Anaerobic Threshold Pace (min/km)</span>
+                                    <input
+                                        aria-label="Anaerobic Threshold Pace (min/km)"
+                                        inputMode="text"
+                                        placeholder="4:15"
+                                        type="text"
+                                        value={profileForm.anaerobicThresholdPace}
+                                        onChange={(event) => onChangeProfileField("anaerobicThresholdPace", event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="profile-actions">
+                        <button className="primary-button" disabled={profileBusy} onClick={onSaveProfile} type="button">
+                            {profileBusy ? "Saving..." : "Save Profile"}
+                        </button>
+                        <p className="settings-helper-text profile-save-note">
+                            {isDraftThresholdProfile
+                                ? "Saving creates a new dated threshold snapshot."
+                                : "Saving updates the currently selected threshold period."}
+                        </p>
+                    </div>
+                </section>
                 <button className="ghost-button inline-button" onClick={onLogout} type="button">Log out</button>
             </article>
             <article className="panel settings-panel">
@@ -1771,14 +1862,48 @@ function AmbientBackdrop() {
 }
 
 async function fetchJson(path, options = {}) {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-        credentials: "include",
-        headers: {
-            "Content-Type": "application/json",
-            ...(options.headers ?? {}),
-        },
-        ...options,
+    const {headers: optionHeaders, requestId = generateRequestId(), requestLabel = path, ...fetchOptions} = options;
+    const url = `${apiBaseUrl}${path}`;
+    const startedAt = performance.now();
+    logFrontendRequest("info", {
+        phase: "start",
+        requestId,
+        requestLabel,
+        method: fetchOptions.method ?? "GET",
+        url,
     });
+    let response;
+    try {
+        response = await fetch(url, {
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Request-ID": requestId,
+                ...(optionHeaders ?? {}),
+            },
+            ...fetchOptions,
+        });
+    } catch (cause) {
+        const message = cause instanceof Error && cause.message ? cause.message : "Failed to fetch";
+        logFrontendRequest("error", {
+            phase: "network_error",
+            requestId,
+            requestLabel,
+            method: fetchOptions.method ?? "GET",
+            message,
+            url,
+        });
+        const error = new Error(message);
+        error.cause = cause;
+        error.requestId = requestId;
+        error.url = url;
+        throw error;
+    }
+    const headerRequestId = response.headers?.get?.("x-request-id");
+    const responseRequestId =
+        typeof headerRequestId === "string" && headerRequestId.trim() && !headerRequestId.includes("/")
+            ? headerRequestId
+            : requestId;
     if (!response.ok) {
         let message = `Request failed with status ${response.status}`;
         const responseType = response.headers?.get?.("content-type") ?? "";
@@ -1801,14 +1926,44 @@ async function fetchJson(path, options = {}) {
                 // Ignore unreadable text bodies and keep the status-based message.
             }
         }
+        logFrontendRequest("error", {
+            durationMs: Math.round(performance.now() - startedAt),
+            phase: "http_error",
+            requestId: responseRequestId,
+            requestLabel,
+            method: fetchOptions.method ?? "GET",
+            status: response.status,
+            url,
+        });
         const error = new Error(message);
         error.status = response.status;
+        error.requestId = responseRequestId;
+        error.url = url;
         throw error;
     }
     if (response.status === 204) {
+        logFrontendRequest("info", {
+            durationMs: Math.round(performance.now() - startedAt),
+            phase: "success",
+            requestId: responseRequestId,
+            requestLabel,
+            method: fetchOptions.method ?? "GET",
+            status: response.status,
+            url,
+        });
         return null;
     }
-    return response.json();
+    const payload = await response.json();
+    logFrontendRequest("info", {
+        durationMs: Math.round(performance.now() - startedAt),
+        phase: "success",
+        requestId: responseRequestId,
+        requestLabel,
+        method: fetchOptions.method ?? "GET",
+        status: response.status,
+        url,
+    });
+    return payload;
 }
 
 function buildQuery(params) {
@@ -1921,6 +2076,9 @@ function formatComparisonPeriod(value, periodType) {
     if (periodType === "year") {
         return date.toLocaleDateString(undefined, {year: "numeric"});
     }
+    if (periodType === "week") {
+        return `W${getWeekOfMonth(date)} ${date.toLocaleDateString(undefined, {month: "short", year: "numeric"})}`;
+    }
     return date.toLocaleDateString(undefined, {month: "2-digit", year: "numeric"});
 }
 
@@ -2004,6 +2162,10 @@ function getIsoWeek(value) {
     date.setUTCDate(date.getUTCDate() + 4 - day);
     const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
     return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function getWeekOfMonth(value) {
+    return Math.floor((value.getDate() - 1) / 7) + 1;
 }
 
 
@@ -2117,6 +2279,22 @@ function formatThresholdSnapshotSummary(item) {
         item.aet_pace_min_per_km == null ? "AeT pace n/a" : `AeT ${formatPaceField(item.aet_pace_min_per_km)}`,
         item.ant_pace_min_per_km == null ? "AnT pace n/a" : `AnT ${formatPaceField(item.ant_pace_min_per_km)}`,
     ].join(" | ");
+}
+
+function formatThresholdPeriodOption(item) {
+    return `${item.effective_from} | ${formatThresholdSnapshotSummary(item)}`;
+}
+
+function generateRequestId() {
+    if (globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
+    }
+    return `req-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function logFrontendRequest(level, payload) {
+    const logger = level === "error" ? console.error : console.info;
+    logger("[api]", payload);
 }
 
 function labelForValueKind(kind) {

@@ -44,6 +44,11 @@ def get_user_profile_details(
         )
 
     logger.info("Loading threshold profiles.", extra={"user.id": user.id})
+    logger.info(
+        "Loading threshold profiles request_id=%s user_id=%s",
+        getattr(request.state, "request_id", "unknown"),
+        user.id,
+    )
     profiles = UserProfileRepository(db_session).list_for_user(user.id)
     if not profiles:
         return UserProfileResponse(items=[], current=None)
@@ -68,11 +73,14 @@ def update_user_profile_details(
         )
 
     logger.info(
-        "Saving threshold profile snapshot.",
-        extra={
-            "user.id": user.id,
-            "effective_from": payload.effective_from.isoformat(),
-        },
+        "Saving threshold profile snapshot request_id=%s user_id=%s effective_from=%s aet_hr=%s ant_hr=%s aet_pace=%s ant_pace=%s",
+        getattr(request.state, "request_id", "unknown"),
+        user.id,
+        payload.effective_from.isoformat(),
+        payload.aet_heart_rate_bpm,
+        payload.ant_heart_rate_bpm,
+        payload.aet_pace_min_per_km,
+        payload.ant_pace_min_per_km,
     )
     user_repository = UserRepository(db_session)
     persisted_user = user_repository.get_by_id(user.id)
@@ -99,12 +107,11 @@ def update_user_profile_details(
     db_session.commit()
     profiles = UserProfileRepository(db_session).list_for_user(user.id)
     logger.info(
-        "Saved threshold profile snapshot.",
-        extra={
-            "user.id": user.id,
-            "effective_from": profile.effective_from.isoformat(),
-            "profile_count": len(profiles),
-        },
+        "Saved threshold profile snapshot request_id=%s user_id=%s effective_from=%s profile_count=%s",
+        getattr(request.state, "request_id", "unknown"),
+        user.id,
+        profile.effective_from.isoformat(),
+        len(profiles),
     )
     return UserProfileResponse(
         items=[UserThresholdProfileItem.model_validate(item) for item in profiles],

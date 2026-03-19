@@ -1,5 +1,7 @@
 from datetime import date
 
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
@@ -48,29 +50,30 @@ class UserProfileRepository:
         aet_pace_min_per_km,
         ant_pace_min_per_km,
     ) -> UserThresholdProfile:
-        profile = (
-            self.session.query(UserThresholdProfile)
-            .filter(
-                UserThresholdProfile.user_id == user_id,
-                UserThresholdProfile.effective_from == effective_from,
-            )
-            .one_or_none()
-        )
-        if profile is None:
-            profile = UserThresholdProfile(
+        statement = (
+            insert(UserThresholdProfile)
+            .values(
                 user_id=user_id,
                 effective_from=effective_from,
                 aet_heart_rate_bpm=aet_heart_rate_bpm,
                 ant_heart_rate_bpm=ant_heart_rate_bpm,
                 aet_pace_min_per_km=aet_pace_min_per_km,
                 ant_pace_min_per_km=ant_pace_min_per_km,
+                created_at=func.now(),
+                updated_at=func.now(),
             )
-            self.session.add(profile)
-        else:
-            profile.effective_from = effective_from
-            profile.aet_heart_rate_bpm = aet_heart_rate_bpm
-            profile.ant_heart_rate_bpm = ant_heart_rate_bpm
-            profile.aet_pace_min_per_km = aet_pace_min_per_km
-            profile.ant_pace_min_per_km = ant_pace_min_per_km
+            .on_conflict_do_update(
+                constraint="uq_user_threshold_profiles_user_date",
+                set_={
+                    "aet_heart_rate_bpm": aet_heart_rate_bpm,
+                    "ant_heart_rate_bpm": ant_heart_rate_bpm,
+                    "aet_pace_min_per_km": aet_pace_min_per_km,
+                    "ant_pace_min_per_km": ant_pace_min_per_km,
+                    "updated_at": func.now(),
+                },
+            )
+            .returning(UserThresholdProfile.id)
+        )
+        profile_id = self.session.execute(statement).scalar_one()
         self.session.flush()
-        return profile
+        return self.session.get(UserThresholdProfile, profile_id)
