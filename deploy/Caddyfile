@@ -1,14 +1,25 @@
 {$DOMAIN} {
-    encode zstd gzip
+    # Route all /assets/* to frontend
+    @assets path /assets/*
+    handle @assets {
+        reverse_proxy frontend:80
+    }
 
-    tls {$ACME_EMAIL}
+    # Route root and common static files to frontend
+    @static_files path / /favicon.ico /robots.txt /manifest.json
+    handle @static_files {
+        reverse_proxy frontend:80
+    }
 
-    @api path /health /dashboard /trends /comparisons /me* /sync* /activities* /best-efforts* /auth*
-    handle @api {
+    # Everything else goes to backend (API routes)
+    handle {
         reverse_proxy backend:8000
     }
 
-    handle {
-        reverse_proxy frontend:80
+    encode gzip
+
+    log {
+        output stdout
+        format json
     }
 }
