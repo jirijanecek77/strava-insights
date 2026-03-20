@@ -202,3 +202,4 @@ tests/data/device.parquet
 k8s/secrets.yml
 /dash_apps/app/body2.py
 /dash_apps/app/body3.py
+/.env.production
