@@ -119,6 +119,10 @@ button {
     width: min(100%, 76rem);
 }
 
+.auth-panel {
+    grid-template-columns: 1.1fr minmax(22rem, 0.95fr);
+}
+
 .landing-copy,
 .landing-art,
 .workspace,
@@ -225,6 +229,44 @@ button {
     color: #ffffff;
     font-weight: 700;
     justify-self: start;
+}
+
+.strava-connect-button {
+    align-items: center;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    color: #ffffff;
+    display: inline-flex;
+    gap: 0.8rem;
+    justify-self: start;
+    padding: 0.9rem 1.15rem;
+    font-weight: 700;
+}
+
+.strava-connect-mark,
+.auth-brand-icon {
+    display: inline-flex;
+    gap: 0.18rem;
+}
+
+.strava-connect-chevron,
+.auth-brand-chevron {
+    background: currentColor;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    display: inline-block;
+    width: 0.7rem;
+}
+
+.strava-connect-chevron.tall,
+.auth-brand-chevron.tall {
+    height: 1rem;
+}
+
+.strava-connect-chevron.short,
+.auth-brand-chevron.short {
+    align-self: end;
+    height: 0.7rem;
 }
 
 .sync-card,
@@ -600,6 +642,49 @@ button {
     justify-self: start;
     min-width: 10rem;
     width: auto;
+}
+
+.auth-brand-card {
+    align-content: start;
+    background:
+        linear-gradient(180deg, rgba(252, 76, 2, 0.08), rgba(252, 76, 2, 0)),
+        #fffdfa;
+    border: 1px solid rgba(252, 76, 2, 0.18);
+    border-radius: 20px;
+    display: grid;
+    gap: 0.85rem;
+    padding: 1.5rem;
+}
+
+.auth-brand-lockup {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.auth-brand-wordmark {
+    align-items: center;
+    color: #242428;
+    display: inline-flex;
+    gap: 0.55rem;
+    justify-self: start;
+}
+
+.auth-brand-word {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.auth-brand-mark {
+    border-bottom: 1px solid rgba(36, 36, 40, 0.1);
+    border-top: 1px solid rgba(36, 36, 40, 0.1);
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0;
+    padding: 1rem 0;
+    text-transform: uppercase;
 }
 
 .metric-row,
@@ -1062,6 +1147,10 @@ button {
     .ghost-button,
     .primary-button {
         width: 100%;
+    }
+
+    .auth-panel {
+        grid-template-columns: 1fr;
     }
 
     .calendar-grid {

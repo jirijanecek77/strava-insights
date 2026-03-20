@@ -24,8 +24,72 @@ describe("App", () => {
         render(<App/>);
 
         expect(await screen.findByRole("heading", {name: /local-first review for your strava history/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /log in with strava/i})).toBeInTheDocument();
-        expect(screen.queryByText(/authenticate once, import your archive/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect with strava/i})).toBeInTheDocument();
+        expect(screen.getByText(/authenticate once, import your archive/i)).toBeInTheDocument();
+        expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
+    });
+
+    it("renders the shared auth screen with Strava compatibility branding after logout", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input, init) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/auth/logout")) {
+                expect(init?.method).toBe("POST");
+                return Promise.resolve({ok: true, status: 204, headers: {get: vi.fn().mockReturnValue(null)}});
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(
+                    jsonResponse({
+                        status: "completed",
+                        sync_type: "full_import",
+                        progress_total: 10,
+                        progress_completed: 10,
+                        started_at: null,
+                        finished_at: null,
+                        error_message: null,
+                    }),
+                );
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/me/profile")) {
+                return Promise.resolve(jsonResponse({items: [], current: null}));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        expect(await screen.findByRole("heading", {name: /dashboard/i})).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /settings/i}));
+        fireEvent.click(await screen.findByRole("button", {name: /log out/i}));
+
+        expect(await screen.findByRole("heading", {name: /signed out from your local training archive/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect with strava/i})).toBeInTheDocument();
+        expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
+        expect(screen.getByText(/compatible with strava/i)).toBeInTheDocument();
+        expect(screen.getByText(/not developed or sponsored by strava/i)).toBeInTheDocument();
     });
 
     it("renders dashboard data and activity detail from the backend payloads", async () => {

@@ -275,11 +275,12 @@ export default function App() {
     async function handleLogout() {
         try {
             await fetchJson("/auth/logout", {method: "POST"});
-            setSessionState("anonymous");
+            setSessionState("logged_out");
             setUser(null);
             setActivityDetail(null);
             setSelectedActivityId(null);
             setActivityDetailState("idle");
+            setErrorMessage("");
         } catch (error) {
             setErrorMessage(error.message ?? "Failed to log out.");
         }
@@ -347,8 +348,15 @@ export default function App() {
         return <LoadingScreen/>;
     }
 
-    if (sessionState === "anonymous") {
-        return <LandingScreen authBusy={authBusy} errorMessage={errorMessage} onLogin={handleLogin}/>;
+    if (sessionState === "anonymous" || sessionState === "logged_out") {
+        return (
+            <AuthScreen
+                authBusy={authBusy}
+                errorMessage={errorMessage}
+                isLoggedOut={sessionState === "logged_out"}
+                onLogin={handleLogin}
+            />
+        );
     }
 
     return (
@@ -460,31 +468,56 @@ function LoadingScreen() {
     );
 }
 
-function LandingScreen({authBusy, errorMessage, onLogin}) {
+function AuthScreen({authBusy, errorMessage, isLoggedOut, onLogin}) {
     return (
         <main className="app-shell landing-shell">
             <AmbientBackdrop/>
-            <section className="landing-panel">
+            <section className="landing-panel auth-panel">
                 <div className="landing-copy">
                     <p className="eyebrow">Strava Insights</p>
-                    <h1>Local-first review for your Strava history.</h1>
+                    <h1>{isLoggedOut ? "Signed out from your local training archive." : "Local-first review for your Strava history."}</h1>
+                    <p className="copy">
+                        {isLoggedOut
+                            ? "Your local data stays in place. Sign in again when you want to review new imports, compare blocks, or inspect activity detail."
+                            : "Authenticate once, import your archive, and review dashboards, history, and activity detail from local storage instead of live Strava reads."}
+                    </p>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
-                    <button className="primary-button" disabled={authBusy} onClick={onLogin} type="button">
-                        {authBusy ? "Opening Strava..." : "Log In with Strava"}
+                    <button className="strava-connect-button" disabled={authBusy} onClick={onLogin} type="button">
+                        <span className="strava-connect-mark" aria-hidden="true">
+                            <span className="strava-connect-chevron tall"/>
+                            <span className="strava-connect-chevron short"/>
+                        </span>
+                        <span>{authBusy ? "Opening Strava..." : "Connect with Strava"}</span>
                     </button>
                 </div>
-                <div aria-hidden="true" className="landing-art">
-                    <div className="landing-art-sun"/>
-                    <div className="landing-art-hill landing-art-hill-back"/>
-                    <div className="landing-art-hill landing-art-hill-front"/>
-                    <div className="landing-art-road">
-                        <span className="landing-art-road-line"/>
-                        <span className="landing-art-road-line"/>
-                        <span className="landing-art-road-line"/>
+                <div className="auth-brand-card" aria-label="Strava compatibility notice">
+                    <p className="eyebrow">Compatibility</p>
+                    <div className="auth-brand-lockup">
+                        <div className="auth-brand-wordmark" aria-label="Strava">
+                            <span className="auth-brand-word">Strava</span>
+                            <span className="auth-brand-icon" aria-hidden="true">
+                                <span className="auth-brand-chevron tall"/>
+                                <span className="auth-brand-chevron short"/>
+                            </span>
+                        </div>
+                        <p className="auth-brand-mark">Compatible with Strava</p>
                     </div>
-                    <div className="landing-art-badge">
-                        <span className="landing-art-badge-dot"/>
-                        <strong>Run. Ride. Improve.</strong>
+                    <p className="copy">
+                        Strava Insights works with your Strava account, but it is a separate application and is not developed or sponsored by Strava.
+                    </p>
+                    <div aria-hidden="true" className="landing-art">
+                        <div className="landing-art-sun"/>
+                        <div className="landing-art-hill landing-art-hill-back"/>
+                        <div className="landing-art-hill landing-art-hill-front"/>
+                        <div className="landing-art-road">
+                            <span className="landing-art-road-line"/>
+                            <span className="landing-art-road-line"/>
+                            <span className="landing-art-road-line"/>
+                        </div>
+                        <div className="landing-art-badge">
+                            <span className="landing-art-badge-dot"/>
+                            <strong>Run. Ride. Improve.</strong>
+                        </div>
                     </div>
                 </div>
             </section>
