@@ -27,6 +27,12 @@ class OAuthTokenStub:
         self.scope = None
 
 
+class StravaAppCredentialStub:
+    def __init__(self, client_id: str, client_secret_encrypted: str) -> None:
+        self.client_id = client_id
+        self.client_secret_encrypted = client_secret_encrypted
+
+
 class ActivityStub:
     def __init__(self, activity_id: int | None = None) -> None:
         self.id = activity_id
@@ -77,6 +83,14 @@ class OAuthTokenRepositoryStub:
 
     def get_for_user(self, _user_id: int, provider: str = "strava"):
         return self.oauth_token
+
+
+class StravaAppCredentialRepositoryStub:
+    def __init__(self, credential) -> None:
+        self.credential = credential
+
+    def get_for_user(self, _user_id: int):
+        return self.credential
 
 
 class ActivityRepositoryStub:
@@ -161,8 +175,10 @@ class StravaClientStub:
         self.after = None
         self.stream_calls: list[int] = []
 
-    def refresh_access_token(self, refresh_token: str):
+    def refresh_access_token(self, refresh_token: str, *, client_id: str, client_secret: str):
         assert refresh_token == "refresh-token"
+        assert client_id == "12345"
+        assert client_secret == "client-secret"
         return {
             "access_token": "fresh-access-token",
             "refresh_token": "fresh-refresh-token",
@@ -225,6 +241,7 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -255,6 +272,7 @@ def test_full_import_service_refreshes_expired_token_before_import() -> None:
     service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -274,6 +292,7 @@ def test_full_import_service_logs_token_refresh(caplog) -> None:
     service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -303,6 +322,7 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = checkpoint_repo
@@ -324,6 +344,7 @@ def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     service = IncrementalSyncService(session, strava_client=MissingStreamStravaClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -347,6 +368,7 @@ def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing(
     service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activities.latest_start_date_utc = datetime.fromisoformat("2026-03-07T06:00:00+00:00")
     service.activity_streams = ActivityStreamRepositoryStub()
@@ -369,6 +391,7 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
     service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
+    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
     service.activities = ActivityRepositoryStub()
     service.activities.existing_strava_ids = {100}
     service.activity_streams = ActivityStreamRepositoryStub()

@@ -3,6 +3,12 @@ from datetime import datetime
 
 
 @dataclass(slots=True)
+class StravaAppCredentials:
+    client_id: str
+    client_secret: str
+
+
+@dataclass(slots=True)
 class StravaTokenPayload:
     access_token: str
     refresh_token: str

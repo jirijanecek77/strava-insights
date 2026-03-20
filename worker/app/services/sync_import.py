@@ -11,6 +11,7 @@ from app.repositories import (
     OauthTokenRepository,
     SyncCheckpointRepository,
     SyncJobRepository,
+    UserStravaAppCredentialRepository,
 )
 from app.security import TokenCipher
 from app.services.activity_summary import (
@@ -44,6 +45,7 @@ class BaseImportService:
         self.strava_client = strava_client or StravaApiClient()
         self.token_cipher = token_cipher or TokenCipher()
         self.oauth_tokens = OauthTokenRepository(session)
+        self.strava_app_credentials = UserStravaAppCredentialRepository(session)
         self.sync_jobs = SyncJobRepository(session)
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
@@ -153,12 +155,17 @@ class BaseImportService:
         oauth_token = self.oauth_tokens.get_for_user(user_id)
         if oauth_token is None:
             raise ValueError("OAuth token not found for user.")
+        app_credential = self.strava_app_credentials.get_for_user(user_id)
+        if app_credential is None:
+            raise ValueError("Strava app credentials not found for user.")
 
         access_token = self.token_cipher.decrypt(oauth_token.access_token_encrypted)
         if oauth_token.expires_at <= datetime.now(UTC):
             logger.info("Refreshing expired Strava access token.", extra={"user.id": user_id})
             refresh_payload = self.strava_client.refresh_access_token(
-                self.token_cipher.decrypt(oauth_token.refresh_token_encrypted)
+                self.token_cipher.decrypt(oauth_token.refresh_token_encrypted),
+                client_id=app_credential.client_id,
+                client_secret=self.token_cipher.decrypt(app_credential.client_secret_encrypted),
             )
             oauth_token.access_token_encrypted = self.token_cipher.encrypt(refresh_payload["access_token"])
             oauth_token.refresh_token_encrypted = self.token_cipher.encrypt(refresh_payload["refresh_token"])

@@ -16,12 +16,12 @@ class StravaApiClient:
     def __init__(self) -> None:
         self.base_url = settings.strava_api_base_url.rstrip("/")
 
-    def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
+    def refresh_access_token(self, refresh_token: str, *, client_id: str, client_secret: str) -> dict[str, Any]:
         response = httpx.post(
             settings.strava_token_url,
             data={
-                "client_id": settings.strava_client_id,
-                "client_secret": settings.strava_client_secret,
+                "client_id": client_id,
+                "client_secret": client_secret,
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,
             },

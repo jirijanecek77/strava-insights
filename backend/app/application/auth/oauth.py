@@ -1,17 +1,25 @@
 import logging
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
+from uuid import uuid4
 
-from fastapi import Depends
+from itsdangerous import BadSignature, URLSafeSerializer
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
-from app.application.auth.dto import AuthenticatedUser, StravaTokenPayload
+from app.application.auth.dto import AuthenticatedUser, StravaAppCredentials
+from app.application.auth.dto import StravaTokenPayload
 from app.core.config import settings
+from app.domain.schemas.auth import StravaCredentialStateResponse
 from app.infrastructure.db.models.oauth_token import OauthToken
+from app.infrastructure.db.models.strava_oauth_state import StravaOauthState
 from app.infrastructure.db.models.user import User
+from app.infrastructure.db.models.user_strava_app_credential import UserStravaAppCredential
 from app.infrastructure.repositories.oauth_token_repository import OauthTokenRepository
+from app.infrastructure.repositories.strava_oauth_state_repository import StravaOauthStateRepository
 from app.infrastructure.repositories.user_repository import UserRepository
+from app.infrastructure.repositories.user_strava_app_credential_repository import UserStravaAppCredentialRepository
 from app.infrastructure.security.token_cipher import TokenCipher
 from app.infrastructure.strava.client import StravaAuthClient
 
@@ -31,11 +39,57 @@ class StravaOAuthService:
         self.token_cipher = token_cipher
         self.user_repository = UserRepository(db_session)
         self.oauth_token_repository = OauthTokenRepository(db_session)
+        self.strava_app_credential_repository = UserStravaAppCredentialRepository(db_session)
+        self.oauth_state_repository = StravaOauthStateRepository(db_session)
 
-    def build_authorization_url(self, state: str) -> str:
+    def get_landing_credential_state(self, remembered_user_id: int | None) -> StravaCredentialStateResponse:
+        if remembered_user_id is None:
+            return self._empty_credential_state()
+
+        credential = self.strava_app_credential_repository.get_for_user(remembered_user_id)
+        if credential is None:
+            return self._empty_credential_state()
+
+        return StravaCredentialStateResponse(
+            client_id=credential.client_id,
+            has_saved_secret=True,
+            can_connect=True,
+            strava_api_settings_url=settings.strava_api_settings_url,
+        )
+
+    def start_login(
+        self,
+        *,
+        client_id: str | None,
+        client_secret: str | None,
+        use_saved_credentials: bool,
+        remembered_user_id: int | None,
+        request_client: str,
+    ) -> str:
+        credentials = self._resolve_start_login_credentials(
+            client_id=client_id,
+            client_secret=client_secret,
+            use_saved_credentials=use_saved_credentials,
+            remembered_user_id=remembered_user_id,
+        )
+        self.oauth_state_repository.delete_expired()
+        raw_state = str(uuid4())
+        signed_state = self._build_state_serializer().dumps({"state": raw_state, "client": request_client})
+        pending_state = StravaOauthState(
+            state_token=raw_state,
+            client_id=credentials.client_id,
+            client_secret_encrypted=self.token_cipher.encrypt(credentials.client_secret),
+            expires_at=datetime.now(UTC) + timedelta(seconds=settings.strava_oauth_state_ttl_seconds),
+        )
+        self.oauth_state_repository.save(pending_state)
+        self.db_session.commit()
+        logger.info("Starting Strava OAuth login.", extra={"client.address": request_client})
+        return self.build_authorization_url(credentials.client_id, signed_state)
+
+    def build_authorization_url(self, client_id: str, state: str) -> str:
         query = urlencode(
             {
-                "client_id": settings.strava_client_id,
+                "client_id": client_id,
                 "redirect_uri": settings.strava_redirect_uri,
                 "response_type": "code",
                 "approval_prompt": "auto",
@@ -45,10 +99,17 @@ class StravaOAuthService:
         )
         return f"{settings.strava_authorize_url}?{query}"
 
-    def authenticate_from_code(self, code: str) -> AuthenticatedUser:
+    def authenticate_from_code(self, code: str, state: str) -> AuthenticatedUser:
+        pending_state = self._consume_pending_state(state)
+        credentials = StravaAppCredentials(
+            client_id=pending_state.client_id,
+            client_secret=self.token_cipher.decrypt(pending_state.client_secret_encrypted),
+        )
         logger.info("Exchanging Strava authorization code for tokens.")
-        token_payload = self.strava_client.exchange_code_for_token(code)
+        token_payload = self.strava_client.exchange_code_for_token(code, credentials)
         user, is_new_user = self._upsert_user_with_token(token_payload)
+        self._upsert_user_app_credentials(user.id, credentials)
+        self.oauth_state_repository.delete(pending_state)
         self.db_session.commit()
         self.db_session.refresh(user)
         logger.info(
@@ -62,6 +123,69 @@ class StravaOAuthService:
             profile_picture_url=user.profile_picture_url,
             is_new_user=is_new_user,
         )
+
+    def _resolve_start_login_credentials(
+        self,
+        *,
+        client_id: str | None,
+        client_secret: str | None,
+        use_saved_credentials: bool,
+        remembered_user_id: int | None,
+    ) -> StravaAppCredentials:
+        if use_saved_credentials:
+            if remembered_user_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Saved Strava app credentials are not available.",
+                )
+            stored_credential = self.strava_app_credential_repository.get_for_user(remembered_user_id)
+            if stored_credential is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Saved Strava app credentials are not available.",
+                )
+            return StravaAppCredentials(
+                client_id=stored_credential.client_id,
+                client_secret=self.token_cipher.decrypt(stored_credential.client_secret_encrypted),
+            )
+
+        normalized_client_id = (client_id or "").strip()
+        normalized_client_secret = (client_secret or "").strip()
+        if not normalized_client_id or not normalized_client_secret:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both Strava client ID and client secret are required.",
+            )
+        return StravaAppCredentials(client_id=normalized_client_id, client_secret=normalized_client_secret)
+
+    def _consume_pending_state(self, signed_state: str) -> StravaOauthState:
+        try:
+            raw_payload = self._build_state_serializer().loads(signed_state)
+        except BadSignature as exc:
+            logger.error("Rejected Strava OAuth callback because state signature was invalid.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.") from exc
+
+        raw_state = raw_payload.get("state")
+        if not raw_state:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.")
+        pending_state = self.oauth_state_repository.get_by_state_token(raw_state)
+        if pending_state is None or pending_state.expires_at <= datetime.now(UTC):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.")
+        return pending_state
+
+    def _upsert_user_app_credentials(self, user_id: int, credentials: StravaAppCredentials) -> None:
+        stored = self.strava_app_credential_repository.get_for_user(user_id)
+        encrypted_secret = self.token_cipher.encrypt(credentials.client_secret)
+        if stored is None:
+            stored = UserStravaAppCredential(
+                user_id=user_id,
+                client_id=credentials.client_id,
+                client_secret_encrypted=encrypted_secret,
+            )
+        else:
+            stored.client_id = credentials.client_id
+            stored.client_secret_encrypted = encrypted_secret
+        self.strava_app_credential_repository.save(stored)
 
     def _upsert_user_with_token(self, token_payload: StravaTokenPayload) -> tuple[User, bool]:
         user = self.user_repository.get_by_strava_athlete_id(token_payload.athlete_id)
@@ -109,3 +233,16 @@ class StravaOAuthService:
             self.oauth_token_repository.save(oauth_token)
 
         return user, is_new_user
+
+    @staticmethod
+    def _build_state_serializer() -> URLSafeSerializer:
+        return URLSafeSerializer(settings.session_secret_key, salt="strava-oauth-state")
+
+    @staticmethod
+    def _empty_credential_state() -> StravaCredentialStateResponse:
+        return StravaCredentialStateResponse(
+            client_id=None,
+            has_saved_secret=False,
+            can_connect=False,
+            strava_api_settings_url=settings.strava_api_settings_url,
+        )

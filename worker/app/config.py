@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/strava_insights"
     log_level: str = "INFO"
     session_secret_key: str = "change-me"
-    strava_client_id: str = ""
-    strava_client_secret: str = ""
     strava_token_url: str = "https://www.strava.com/oauth/token"
     strava_api_base_url: str = "https://www.strava.com/api/v3"
     strava_activity_page_size: int = 100

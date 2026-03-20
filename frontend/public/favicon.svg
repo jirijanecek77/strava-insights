@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="faviconTitle faviconDesc">
+  <title id="faviconTitle">Strava Insights favicon</title>
+  <desc id="faviconDesc">Orange square with a cream route line and dark insight marker.</desc>
+  <rect width="64" height="64" rx="16" fill="#fc4c02"/>
+  <path d="M15 43c6-13 15-22 27-27l7 7c-9 4-17 11-23 22l-11-2Z" fill="#fff4ec"/>
+  <circle cx="45" cy="18" r="6" fill="#242428"/>
+  <path d="M45 13v10M40 18h10" stroke="#fff4ec" stroke-linecap="round" stroke-width="2.5"/>
+</svg>

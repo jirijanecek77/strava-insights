@@ -50,6 +50,15 @@ class OauthToken(Base):
     strava_athlete_id: Mapped[int | None] = mapped_column(BigInteger)
 
 
+class UserStravaAppCredential(Base):
+    __tablename__ = "user_strava_app_credentials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    client_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    client_secret_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
+
+
 class Activity(Base):
     __tablename__ = "activities"
 

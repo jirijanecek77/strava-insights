@@ -2,8 +2,8 @@ import logging
 from datetime import date
 
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
-from app.api.routes.auth import _build_state_serializer
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
 from app.application.auth.oauth import StravaOAuthService
@@ -40,11 +40,21 @@ class SyncStatusServiceStub:
 
 
 class OAuthServiceStub:
-    def build_authorization_url(self, state: str) -> str:
-        return f"https://example.com/oauth?state={state}"
+    def get_landing_credential_state(self, _remembered_user_id):
+        return {
+            "client_id": "12345",
+            "has_saved_secret": True,
+            "can_connect": True,
+            "strava_api_settings_url": "https://www.strava.com/settings/api",
+        }
 
-    def authenticate_from_code(self, code: str) -> AuthenticatedUser:
+    def start_login(self, **_kwargs) -> str:
+        return "https://example.com/oauth?state=signed-state"
+
+    def authenticate_from_code(self, code: str, state: str) -> AuthenticatedUser:
         assert code == "valid-code"
+        if state != "signed-state":
+            raise HTTPException(status_code=400, detail="Invalid OAuth state.")
         return AuthenticatedUser(
             id=1,
             strava_athlete_id=162181,
@@ -545,10 +555,23 @@ def test_best_efforts_returns_items(client) -> None:
     assert response.json()["items"][0]["effort_code"] == "5km"
 
 
+def test_oauth_credentials_returns_saved_state(client) -> None:
+    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+    with client as session_client:
+        session_client.cookies.set("strava_insights_session", "")
+        session = session_client.cookies
+        response = session_client.get("/auth/strava/credentials")
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["client_id"] == "12345"
+    assert response.json()["can_connect"] is True
+
+
 def test_oauth_login_returns_authorization_url(client) -> None:
     app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
     try:
-        response = client.get("/auth/strava/login")
+        response = client.post("/auth/strava/login", json={"client_id": "12345", "client_secret": "secret"})
     finally:
         app.dependency_overrides.clear()
 
@@ -557,7 +580,11 @@ def test_oauth_login_returns_authorization_url(client) -> None:
 
 
 def test_oauth_callback_rejects_invalid_state(client) -> None:
-    response = client.get("/auth/strava/callback?code=valid-code&state=bad-state")
+    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+    try:
+        response = client.get("/auth/strava/callback?code=valid-code&state=bad-state")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid OAuth state."}
@@ -571,13 +598,9 @@ def test_oauth_logout_returns_no_content(client) -> None:
 
 def test_oauth_callback_sets_session_and_redirects(client) -> None:
     app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
-    login_response = client.get("/auth/strava/login")
-    state = login_response.json()["authorization_url"].split("state=")[1]
-    serializer = _build_state_serializer()
-    serializer.loads(state)
 
     try:
-        response = client.get(f"/auth/strava/callback?code=valid-code&state={state}", follow_redirects=False)
+        response = client.get("/auth/strava/callback?code=valid-code&state=signed-state", follow_redirects=False)
     finally:
         app.dependency_overrides.clear()
 

@@ -17,11 +17,11 @@ class Settings(BaseSettings):
     session_https_only: bool = False
     backend_public_url: str = "http://localhost:8000"
     frontend_public_url: str = "http://localhost:5173"
-    strava_client_id: str = ""
-    strava_client_secret: str = ""
     strava_authorize_url: str = "https://www.strava.com/oauth/authorize"
     strava_token_url: str = "https://www.strava.com/oauth/token"
+    strava_api_settings_url: str = "https://www.strava.com/settings/api"
     strava_scope: str = "read,activity:read_all"
+    strava_oauth_state_ttl_seconds: int = 60 * 15
 
     model_config = SettingsConfigDict(
         env_file=".env",

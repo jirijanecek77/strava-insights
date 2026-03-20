@@ -28,6 +28,7 @@ Expected env templates:
 - `worker/.env.secrets.template`
 - Log output is written to the Docker console for `backend`, `worker`, and `beat`.
 - The backend is started through a small Python Uvicorn runner so application logging remains authoritative in Docker.
+- Strava app `client_id` and `client_secret` are no longer provided through service env files; each athlete enters their own app credentials on the landing/login screen and the backend stores them in the database after a successful OAuth callback.
 
 ## Commands
 

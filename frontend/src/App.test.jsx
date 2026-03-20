@@ -19,14 +19,31 @@ describe("App", () => {
     });
 
     it("renders the login screen when the session is anonymous", async () => {
-        vi.spyOn(global, "fetch").mockResolvedValueOnce(jsonResponse({detail: "Authentication required."}, 401));
+        vi.spyOn(global, "fetch").mockImplementation((input) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
+            }
+            if (url.includes("/auth/strava/credentials")) {
+                return Promise.resolve(jsonResponse({
+                    client_id: null,
+                    has_saved_secret: false,
+                    can_connect: false,
+                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                }));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
 
         render(<App/>);
 
-        expect(await screen.findByRole("heading", {name: /local-first review for your strava history/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /connect with strava/i})).toBeInTheDocument();
-        expect(screen.getByText(/authenticate once, import your archive/i)).toBeInTheDocument();
+        expect(await screen.findByRole("heading", {name: /review your strava history locally/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
+        expect(screen.getByText(/import once, then use local dashboards/i)).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
+        expect(screen.getByText(/use your own strava app credentials/i)).toBeInTheDocument();
+        expect(screen.getByText(/strava api settings/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /login to strava/i})).toBeDisabled();
     });
 
     it("renders the shared auth screen with Strava compatibility branding after logout", async () => {
@@ -43,6 +60,14 @@ describe("App", () => {
             if (url.includes("/auth/logout")) {
                 expect(init?.method).toBe("POST");
                 return Promise.resolve({ok: true, status: 204, headers: {get: vi.fn().mockReturnValue(null)}});
+            }
+            if (url.includes("/auth/strava/credentials")) {
+                return Promise.resolve(jsonResponse({
+                    client_id: "12345",
+                    has_saved_secret: true,
+                    can_connect: true,
+                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                }));
             }
             if (url.includes("/sync/status")) {
                 return Promise.resolve(
@@ -85,9 +110,10 @@ describe("App", () => {
         fireEvent.click(screen.getByRole("button", {name: /settings/i}));
         fireEvent.click(await screen.findByRole("button", {name: /log out/i}));
 
-        expect(await screen.findByRole("heading", {name: /signed out from your local training archive/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /connect with strava/i})).toBeInTheDocument();
+        expect(await screen.findByRole("heading", {name: /^signed out\.$/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
+        expect(screen.getByText(/saved and ready/i)).toBeInTheDocument();
         expect(screen.getByText(/compatible with strava/i)).toBeInTheDocument();
         expect(screen.getByText(/not developed or sponsored by strava/i)).toBeInTheDocument();
     });

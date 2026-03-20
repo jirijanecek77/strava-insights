@@ -30,6 +30,12 @@ const sports = [
     {id: "EBikeRide", label: "E-Bike"},
 ];
 const syncPollIntervalMs = 3000;
+const defaultLandingCredentialState = {
+    client_id: "",
+    has_saved_secret: false,
+    can_connect: false,
+    strava_api_settings_url: "https://www.strava.com/settings/api",
+};
 export default function App() {
     const [sessionState, setSessionState] = useState("loading");
     const [user, setUser] = useState(null);
@@ -56,6 +62,12 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileBusy, setProfileBusy] = useState(false);
     const [profileHistory, setProfileHistory] = useState([]);
+    const [landingCredentialState, setLandingCredentialState] = useState(defaultLandingCredentialState);
+    const [authForm, setAuthForm] = useState({
+        clientId: "",
+        clientSecret: "",
+        mode: "manual",
+    });
     const profileSaveInFlightRef = useRef(false);
     const [profileForm, setProfileForm] = useState({
         effectiveFrom: formatDateInput(new Date()),
@@ -83,6 +95,26 @@ export default function App() {
         }
     });
 
+    const loadLandingCredentialState = useEffectEvent(async () => {
+        try {
+            const payload = await fetchJson("/auth/strava/credentials");
+            setLandingCredentialState(payload);
+            setAuthForm({
+                clientId: payload.client_id ?? "",
+                clientSecret: "",
+                mode: payload.can_connect ? "saved" : "manual",
+            });
+        } catch (error) {
+            setLandingCredentialState(defaultLandingCredentialState);
+            setAuthForm({
+                clientId: "",
+                clientSecret: "",
+                mode: "manual",
+            });
+            setErrorMessage(error.message ?? "Failed to load saved Strava app credentials.");
+        }
+    });
+
     useEffect(() => {
         let active = true;
 
@@ -101,6 +133,7 @@ export default function App() {
                     return;
                 }
                 if (error.status === 401) {
+                    await loadLandingCredentialState();
                     setSessionState("anonymous");
                     return;
                 }
@@ -263,7 +296,18 @@ export default function App() {
     async function handleLogin() {
         try {
             setAuthBusy(true);
-            const payload = await fetchJson("/auth/strava/login");
+            const payload = await fetchJson("/auth/strava/login", {
+                method: "POST",
+                body: JSON.stringify(
+                    authForm.mode === "saved"
+                        ? {use_saved_credentials: true}
+                        : {
+                            client_id: authForm.clientId.trim(),
+                            client_secret: authForm.clientSecret.trim(),
+                            use_saved_credentials: false,
+                        },
+                ),
+            });
             window.location.assign(payload.authorization_url);
         } catch (error) {
             setErrorMessage(error.message ?? "Failed to start Strava login.");
@@ -275,6 +319,7 @@ export default function App() {
     async function handleLogout() {
         try {
             await fetchJson("/auth/logout", {method: "POST"});
+            await loadLandingCredentialState();
             setSessionState("logged_out");
             setUser(null);
             setActivityDetail(null);
@@ -352,8 +397,16 @@ export default function App() {
         return (
             <AuthScreen
                 authBusy={authBusy}
+                authForm={authForm}
                 errorMessage={errorMessage}
                 isLoggedOut={sessionState === "logged_out"}
+                landingCredentialState={landingCredentialState}
+                onChangeAuthField={(field, value) => {
+                    setAuthForm((current) => ({...current, [field]: value}));
+                }}
+                onEditSavedCredentials={() => {
+                    setAuthForm((current) => ({...current, clientSecret: "", mode: "manual"}));
+                }}
                 onLogin={handleLogin}
             />
         );
@@ -468,26 +521,90 @@ function LoadingScreen() {
     );
 }
 
-function AuthScreen({authBusy, errorMessage, isLoggedOut, onLogin}) {
+function AuthScreen({
+                        authBusy,
+                        authForm,
+                        errorMessage,
+                        isLoggedOut,
+                        landingCredentialState,
+                        onChangeAuthField,
+                        onEditSavedCredentials,
+                        onLogin
+                    }) {
+    const canConnect =
+        authForm.mode === "saved"
+            ? landingCredentialState.can_connect
+            : authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
     return (
         <main className="app-shell landing-shell">
             <AmbientBackdrop/>
             <section className="landing-panel auth-panel">
                 <div className="landing-copy">
                     <p className="eyebrow">Strava Insights</p>
-                    <h1>{isLoggedOut ? "Signed out from your local training archive." : "Local-first review for your Strava history."}</h1>
+                    <h1>{isLoggedOut ? "Signed out." : "Review your Strava history locally."}</h1>
                     <p className="copy">
                         {isLoggedOut
-                            ? "Your local data stays in place. Sign in again when you want to review new imports, compare blocks, or inspect activity detail."
-                            : "Authenticate once, import your archive, and review dashboards, history, and activity detail from local storage instead of live Strava reads."}
+                            ? "Your imported data stays here. Sign in again to sync and review it."
+                            : "Import once, then use local dashboards and activity detail without live Strava reads."}
                     </p>
+                    <div className="auth-credential-panel">
+                        <div className="auth-credential-header">
+                            <div>
+                                <p className="eyebrow">Your Strava App</p>
+                                <h2>Use your own Strava app credentials.</h2>
+                                <p className="copy">
+                                    Get them from{" "}
+                                    <a className="auth-inline-link" href={landingCredentialState.strava_api_settings_url} rel="noreferrer" target="_blank">
+                                        Strava API settings
+                                    </a>, then log in.
+                                </p>
+                            </div>
+                        </div>
+                        {authForm.mode === "saved" ? (
+                            <div className="saved-credential-card">
+                                <div className="saved-credential-row">
+                                    <span>Client ID</span>
+                                    <strong>{landingCredentialState.client_id}</strong>
+                                </div>
+                                <div className="saved-credential-row">
+                                    <span>Client Secret</span>
+                                    <strong>Saved and ready</strong>
+                                </div>
+                                <button className="ghost-button compact-inline-button" onClick={onEditSavedCredentials} type="button">
+                                    Edit Credentials
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="auth-credential-grid">
+                                <label className="control-chip">
+                                    <span>Strava Client ID</span>
+                                    <input
+                                        autoComplete="off"
+                                        inputMode="numeric"
+                                        type="text"
+                                        value={authForm.clientId}
+                                        onChange={(event) => onChangeAuthField("clientId", event.target.value)}
+                                    />
+                                </label>
+                                <label className="control-chip">
+                                    <span>Strava Client Secret</span>
+                                    <input
+                                        autoComplete="off"
+                                        type="password"
+                                        value={authForm.clientSecret}
+                                        onChange={(event) => onChangeAuthField("clientSecret", event.target.value)}
+                                    />
+                                </label>
+                            </div>
+                        )}
+                    </div>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
-                    <button className="strava-connect-button" disabled={authBusy} onClick={onLogin} type="button">
+                    <button className="strava-connect-button" disabled={authBusy || !canConnect} onClick={onLogin} type="button">
                         <span className="strava-connect-mark" aria-hidden="true">
                             <span className="strava-connect-chevron tall"/>
                             <span className="strava-connect-chevron short"/>
                         </span>
-                        <span>{authBusy ? "Opening Strava..." : "Connect with Strava"}</span>
+                        <span>{authBusy ? "Opening Strava..." : "Login to Strava"}</span>
                     </button>
                 </div>
                 <div className="auth-brand-card" aria-label="Strava compatibility notice">

@@ -15,6 +15,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 ### Core Requirements
 
 - Authentication uses Strava OAuth only.
+- Before a user can start Strava OAuth, the landing/login screen must collect that user's own Strava app `client_id` and `client_secret`.
 - The system supports multiple users with isolated data.
 - Supported sports in v1 are running, cycling, and e-bike ride types.
 - First login triggers a background full historical import.
@@ -444,7 +445,9 @@ sequenceDiagram
     participant Strava
     participant DB
 
-    User->>Frontend: Login with Strava
+    User->>Frontend: Enter personal Strava app credentials
+    User->>Frontend: Start Strava login
+    Frontend->>API: Start OAuth with submitted or remembered credentials
     Frontend->>API: OAuth callback
     API->>DB: Create or update user
     API->>Worker: Enqueue full import
@@ -458,8 +461,10 @@ sequenceDiagram
 ### Core Entities
 
 - `users`
+- `user_strava_app_credentials`
 - `user_threshold_profiles`
 - `oauth_tokens`
+- `strava_oauth_states`
 - `activities`
 - `activity_streams`
 - `period_summaries`
@@ -472,6 +477,7 @@ sequenceDiagram
 
 The schema must support:
 
+- user-scoped Strava app credentials needed for OAuth start and token refresh
 - imported activity metadata
 - imported streams needed for local rendering
 - activity-level derived KPI inputs and normalized fields
@@ -490,7 +496,7 @@ The schema must support:
 
 The backend must expose:
 
-- auth endpoints for Strava login and callback
+- auth endpoints for Strava credential-state lookup plus Strava login and callback
 - current-user profile endpoint
 - sync-status endpoint
 - dashboard endpoint

@@ -22,3 +22,4 @@ class User(TimestampMixin, Base):
     sync_jobs = relationship("SyncJob", back_populates="user")
     sync_checkpoints = relationship("SyncCheckpoint", back_populates="user")
     threshold_profiles = relationship("UserThresholdProfile", back_populates="user")
+    strava_app_credential = relationship("UserStravaAppCredential", back_populates="user", uselist=False)

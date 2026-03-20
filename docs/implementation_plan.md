@@ -26,6 +26,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Implemented Strava OAuth, secure token persistence, and cookie-based session auth.
 - [x] Added current-user and sync-status endpoints.
 - [x] Added Redis-backed cache utilities needed by current reads and sync behavior.
+- [x] Replaced shared env-based Strava app credentials with per-user Strava app credentials entered on the landing screen, persisted in the database, and reused for OAuth/token refresh.
 
 ### Completed Sync and Import Work
 
@@ -61,6 +62,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
+- [x] Added landing/login credential capture, saved-credential reconnect behavior after logout, and a Strava API settings link for user-managed app credentials.
 
 ### Completed Validation and Hardening Work
 

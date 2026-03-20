@@ -12,6 +12,7 @@ from app.models import (
     SyncCheckpoint,
     SyncJob,
     User,
+    UserStravaAppCredential,
 )
 
 
@@ -37,6 +38,18 @@ class OauthTokenRepository:
         return (
             self.session.query(OauthToken)
             .filter(OauthToken.user_id == user_id, OauthToken.provider == provider)
+            .one_or_none()
+        )
+
+
+class UserStravaAppCredentialRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_for_user(self, user_id: int) -> UserStravaAppCredential | None:
+        return (
+            self.session.query(UserStravaAppCredential)
+            .filter(UserStravaAppCredential.user_id == user_id)
             .one_or_none()
         )
 

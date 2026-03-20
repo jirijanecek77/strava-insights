@@ -2,24 +2,24 @@ from datetime import UTC, datetime
 
 import httpx
 
-from app.application.auth.dto import StravaTokenPayload
+from app.application.auth.dto import StravaAppCredentials, StravaTokenPayload
 from app.core.config import settings
 
 
 class StravaAuthClient:
-    def exchange_code_for_token(self, code: str) -> StravaTokenPayload:
+    def exchange_code_for_token(self, code: str, credentials: StravaAppCredentials) -> StravaTokenPayload:
         response = httpx.post(
             settings.strava_token_url,
-            data=self._build_token_request_data(code=code, grant_type="authorization_code"),
+            data=self._build_token_request_data(credentials, code=code, grant_type="authorization_code"),
             timeout=30.0,
         )
         response.raise_for_status()
         return self._build_token_payload(response.json())
 
-    def refresh_access_token(self, refresh_token: str) -> StravaTokenPayload:
+    def refresh_access_token(self, refresh_token: str, credentials: StravaAppCredentials) -> StravaTokenPayload:
         response = httpx.post(
             settings.strava_token_url,
-            data=self._build_token_request_data(refresh_token=refresh_token, grant_type="refresh_token"),
+            data=self._build_token_request_data(credentials, refresh_token=refresh_token, grant_type="refresh_token"),
             timeout=30.0,
         )
         response.raise_for_status()
@@ -27,14 +27,15 @@ class StravaAuthClient:
 
     def _build_token_request_data(
         self,
+        credentials: StravaAppCredentials,
         *,
         grant_type: str,
         code: str | None = None,
         refresh_token: str | None = None,
     ) -> dict[str, str]:
         data = {
-            "client_id": settings.strava_client_id,
-            "client_secret": settings.strava_client_secret,
+            "client_id": credentials.client_id,
+            "client_secret": credentials.client_secret,
             "grant_type": grant_type,
         }
         if code is not None:

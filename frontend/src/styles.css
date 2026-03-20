@@ -112,15 +112,15 @@ button {
 
 .landing-panel {
     display: grid;
-    gap: 1.5rem;
+    gap: 1.1rem;
     grid-template-columns: 1.4fr 1fr;
-    max-width: 76rem;
-    padding: 2rem;
-    width: min(100%, 76rem);
+    max-width: 61rem;
+    padding: 1.55rem;
+    width: min(100%, 61rem);
 }
 
 .auth-panel {
-    grid-template-columns: 1.1fr minmax(22rem, 0.95fr);
+    grid-template-columns: 1.08fr minmax(18rem, 0.9fr);
 }
 
 .landing-copy,
@@ -135,6 +135,14 @@ button {
 .map-panel {
     display: grid;
     gap: 1rem;
+}
+
+.auth-credential-panel,
+.auth-credential-header,
+.auth-credential-grid,
+.saved-credential-card {
+    display: grid;
+    gap: 0.8rem;
 }
 
 .app-frame {
@@ -223,6 +231,19 @@ button {
     padding: 0.8rem 1rem;
 }
 
+.inline-link-button {
+    align-items: center;
+    display: inline-flex;
+    justify-self: start;
+    text-decoration: none;
+}
+
+.auth-inline-link {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: underline;
+}
+
 .primary-button {
     background: var(--accent);
     border: 1px solid var(--accent);
@@ -238,10 +259,16 @@ button {
     border-radius: 16px;
     color: #ffffff;
     display: inline-flex;
-    gap: 0.8rem;
+    gap: 0.7rem;
     justify-self: start;
-    padding: 0.9rem 1.15rem;
+    padding: 0.76rem 1rem;
     font-weight: 700;
+}
+
+.strava-connect-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
 }
 
 .strava-connect-mark,
@@ -300,9 +327,9 @@ button {
     border: 1px solid var(--border);
     border-radius: 14px;
     display: grid;
-    gap: 0.35rem;
-    min-width: 8.5rem;
-    padding: 0.65rem 0.85rem;
+    gap: 0.25rem;
+    min-width: 8rem;
+    padding: 0.55rem 0.75rem;
 }
 
 .control-chip input,
@@ -371,6 +398,7 @@ button {
 
 .landing-copy {
     align-content: center;
+    gap: 0.8rem;
 }
 
 .landing-art {
@@ -381,20 +409,20 @@ button {
     border: 1px solid rgba(111, 107, 98, 0.12);
     border-radius: 28px;
     display: grid;
-    min-height: 22rem;
+    min-height: 17.5rem;
     overflow: hidden;
-    padding: 1.5rem;
+    padding: 1.1rem;
     position: relative;
 }
 
 .landing-art-sun {
     background: radial-gradient(circle, #e6dfd2 0%, #d8d0c2 65%, rgba(216, 208, 194, 0) 66%);
     border-radius: 999px;
-    height: 8rem;
+    height: 6rem;
     position: absolute;
-    right: 2.5rem;
-    top: 2rem;
-    width: 8rem;
+    right: 2rem;
+    top: 1.5rem;
+    width: 6rem;
 }
 
 .landing-art-hill {
@@ -405,14 +433,14 @@ button {
 
 .landing-art-hill-back {
     background: linear-gradient(180deg, #d4cec3 0%, #bdb4a6 100%);
-    height: 12rem;
+    height: 9.5rem;
     left: -1rem;
     width: 75%;
 }
 
 .landing-art-hill-front {
     background: linear-gradient(180deg, #b7aea1 0%, #9f9587 100%);
-    height: 10rem;
+    height: 8rem;
     right: -2rem;
     width: 68%;
 }
@@ -423,13 +451,13 @@ button {
     border-radius: 999px 999px 0 0;
     bottom: -1rem;
     display: grid;
-    gap: 1rem;
+    gap: 0.8rem;
     justify-items: center;
     left: 50%;
-    padding-top: 2.2rem;
+    padding-top: 1.8rem;
     position: absolute;
     transform: translateX(-50%);
-    width: 7rem;
+    width: 5.6rem;
     z-index: 2;
 }
 
@@ -437,8 +465,8 @@ button {
     background: rgba(111, 107, 98, 0.45);
     border-radius: 999px;
     display: block;
-    height: 1.5rem;
-    width: 0.35rem;
+    height: 1.15rem;
+    width: 0.28rem;
 }
 
 .landing-art-badge {
@@ -449,9 +477,9 @@ button {
     border-radius: 999px;
     box-shadow: 0 8px 24px rgba(85, 78, 67, 0.08);
     display: inline-flex;
-    gap: 0.6rem;
+    gap: 0.5rem;
     justify-self: start;
-    padding: 0.7rem 1rem;
+    padding: 0.55rem 0.8rem;
     position: relative;
     z-index: 3;
 }
@@ -460,8 +488,8 @@ button {
     background: #8f8578;
     border-radius: 999px;
     display: inline-block;
-    height: 0.7rem;
-    width: 0.7rem;
+    height: 0.55rem;
+    width: 0.55rem;
 }
 
 .comparison-grid {
@@ -644,6 +672,48 @@ button {
     width: auto;
 }
 
+.auth-credential-header {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.auth-credential-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.auth-credential-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.saved-credential-card {
+    background: #fffdfa;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 0.85rem;
+}
+
+.compact-inline-button {
+    justify-self: start;
+    min-width: 0;
+    padding: 0.45rem 0.72rem;
+    width: auto;
+}
+
+.saved-credential-row {
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding-bottom: 0.6rem;
+}
+
+.saved-credential-row:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
 .auth-brand-card {
     align-content: start;
     background:
@@ -652,13 +722,13 @@ button {
     border: 1px solid rgba(252, 76, 2, 0.18);
     border-radius: 20px;
     display: grid;
-    gap: 0.85rem;
-    padding: 1.5rem;
+    gap: 0.7rem;
+    padding: 1.1rem;
 }
 
 .auth-brand-lockup {
     display: grid;
-    gap: 0.8rem;
+    gap: 0.6rem;
 }
 
 .auth-brand-wordmark {
@@ -670,7 +740,7 @@ button {
 }
 
 .auth-brand-word {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 700;
     letter-spacing: -0.03em;
 }
@@ -679,11 +749,11 @@ button {
     border-bottom: 1px solid rgba(36, 36, 40, 0.1);
     border-top: 1px solid rgba(36, 36, 40, 0.1);
     color: var(--accent);
-    font-size: 1rem;
+    font-size: 0.88rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     margin: 0;
-    padding: 1rem 0;
+    padding: 0.75rem 0;
     text-transform: uppercase;
 }
 
@@ -1089,10 +1159,10 @@ button {
 
 .eyebrow {
     color: var(--accent);
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.18em;
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.35rem;
     text-transform: uppercase;
 }
 
@@ -1139,7 +1209,9 @@ button {
     }
 
     .profile-period-toolbar,
-    .threshold-form-grid {
+    .threshold-form-grid,
+    .auth-credential-grid,
+    .auth-credential-header {
         grid-template-columns: 1fr;
     }
 
