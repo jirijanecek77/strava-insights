@@ -21,6 +21,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - First login triggers a background full historical import.
 - Ongoing synchronization runs daily, with optional refresh on startup when data is stale.
 - Users cannot export, delete, or disconnect their data in v1.
+- A single admin athlete with Strava athlete id `102168741` can review user access and disable other users.
 - Historical edits and deletions performed later in Strava are out of scope for v1.
 - Desktop is the primary target. Mobile optimization is not required for v1.
 
@@ -33,6 +34,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - activity detail
 - best efforts
 - settings/profile
+- admin users/audit
 - sync/import status
 
 ## Performance and Operational Requirements
@@ -66,6 +68,14 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 - Every meaningful code change must include a successful build validation.
 - Do not rely on deleting or recreating the database as a normal development step.
 - When schema changes are required, add explicit backward-safe migrations.
+
+## Administration
+
+- The admin identity is fixed to the athlete whose `strava_athlete_id` is `102168741`.
+- The admin screen must show all users with basic audit fields: display name, Strava athlete id, active status, created/updated timestamps, and last login timestamp.
+- The admin can disable any non-admin user.
+- A disabled user must be blocked from further app use and from reconnecting through Strava OAuth.
+- The admin account cannot disable itself.
 
 ## Architecture
 

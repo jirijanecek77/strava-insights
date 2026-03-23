@@ -46,6 +46,10 @@ class StravaOAuthService:
         if remembered_user_id is None:
             return self._empty_credential_state()
 
+        user = self.user_repository.get_by_id(remembered_user_id)
+        if user is None or not user.is_active:
+            return self._empty_credential_state()
+
         credential = self.strava_app_credential_repository.get_for_user(remembered_user_id)
         if credential is None:
             return self._empty_credential_state()
@@ -138,6 +142,12 @@ class StravaOAuthService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Saved Strava app credentials are not available.",
                 )
+            remembered_user = self.user_repository.get_by_id(remembered_user_id)
+            if remembered_user is None or not remembered_user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account has been disabled.",
+                )
             stored_credential = self.strava_app_credential_repository.get_for_user(remembered_user_id)
             if stored_credential is None:
                 raise HTTPException(
@@ -203,9 +213,15 @@ class StravaOAuthService:
             )
             self.user_repository.save(user)
         else:
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account has been disabled.",
+                )
             logger.info("Updating existing user from Strava token payload.", extra={"user.id": user.id})
             user.display_name = display_name
             user.profile_picture_url = token_payload.athlete_profile
+        user.last_login_at = datetime.now(UTC)
 
         oauth_token = self.oauth_token_repository.get_by_user_and_provider(user.id)
         encrypted_access_token = self.token_cipher.encrypt(token_payload.access_token)

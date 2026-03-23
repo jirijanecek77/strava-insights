@@ -48,6 +48,9 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
 - [x] Added heart-rate drift as an activity KPI derived from stored streams and exposed in activity list/detail payloads.
+- [x] Added admin-only user audit APIs plus admin UI for athlete `102168741`, including user disable/reject actions.
+- [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through Strava OAuth.
+- [x] Added user `last_login_at` persistence for admin audit visibility.
 
 ### Completed Frontend Work
 
@@ -63,6 +66,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
 - [x] Added landing/login credential capture, saved-credential reconnect behavior after logout, and a Strava API settings link for user-managed app credentials.
+- [x] Redesigned the landing/login page into a simpler Strava-first hero with a separate setup modal for client credentials, a dominant login action, and bundled local hero artwork.
 
 ### Completed Validation and Hardening Work
 
@@ -87,6 +91,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 ### End-to-End Validation
 
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end in the running Docker stack.
+- [ ] Validate the admin user audit and disable flow end to end in the running Docker stack.
 - [ ] Validate that cache-backed and database-backed reads meet the expected latency target under normal use.
 
 ### Architecture and Codebase Cleanup

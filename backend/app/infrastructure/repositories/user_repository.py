@@ -17,6 +17,13 @@ class UserRepository:
             .one_or_none()
         )
 
+    def list_all(self) -> list[User]:
+        return (
+            self.session.query(User)
+            .order_by(User.last_login_at.desc().nullslast(), User.created_at.desc())
+            .all()
+        )
+
     def save(self, user: User) -> User:
         self.session.add(user)
         self.session.flush()

@@ -16,6 +16,7 @@ function jsonResponse(body, status = 200) {
 describe("App", () => {
     afterEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it("renders the login screen when the session is anonymous", async () => {
@@ -37,16 +38,20 @@ describe("App", () => {
 
         render(<App/>);
 
-        expect(await screen.findByRole("heading", {name: /review your strava history locally/i})).toBeInTheDocument();
+        expect(await screen.findByRole("heading", {name: /your strava history, kept simple/i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
-        expect(screen.getByText(/import once, then use local dashboards/i)).toBeInTheDocument();
+        expect(screen.getByText(/login once\. review everything locally\./i)).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
-        expect(screen.getByText(/use your own strava app credentials/i)).toBeInTheDocument();
-        expect(screen.getByText(/strava api settings/i)).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /login to strava/i})).toBeDisabled();
+        expect(screen.getByRole("button", {name: /set strava credentials/i})).toBeInTheDocument();
+        expect(screen.queryByText(/setup required/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/flow/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", {name: /login to strava/i}));
+        expect(await screen.findByRole("dialog", {name: /set up your strava app/i})).toBeInTheDocument();
+        expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
     });
 
-    it("renders the shared auth screen with Strava compatibility branding after logout", async () => {
+    it("renders the shared auth screen with saved credentials after logout", async () => {
         vi.spyOn(global, "fetch").mockImplementation((input, init) => {
             const url = String(input);
             if (url.includes("/auth/session")) {
@@ -110,12 +115,69 @@ describe("App", () => {
         fireEvent.click(screen.getByRole("button", {name: /settings/i}));
         fireEvent.click(await screen.findByRole("button", {name: /log out/i}));
 
-        expect(await screen.findByRole("heading", {name: /^signed out\.$/i})).toBeInTheDocument();
+        expect(await screen.findByRole("heading", {name: /back to your training archive\./i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
-        expect(screen.getByText(/saved and ready/i)).toBeInTheDocument();
+        expect(screen.getByText(/ready when you are\./i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /set strava credentials/i})).toBeInTheDocument();
         expect(screen.getByText(/compatible with strava/i)).toBeInTheDocument();
         expect(screen.getByText(/not developed or sponsored by strava/i)).toBeInTheDocument();
+    });
+
+    it("stages manual credentials in the setup modal and uses them for login", async () => {
+        const assignSpy = vi.fn();
+        vi.stubGlobal("location", {...window.location, assign: assignSpy});
+        vi.spyOn(global, "fetch").mockImplementation((input, init) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
+            }
+            if (url.includes("/auth/strava/credentials")) {
+                return Promise.resolve(jsonResponse({
+                    client_id: null,
+                    has_saved_secret: false,
+                    can_connect: false,
+                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                }));
+            }
+            if (url.includes("/auth/strava/login")) {
+                expect(init?.method).toBe("POST");
+                expect(init?.body).toBe(JSON.stringify({
+                    client_id: "45678",
+                    client_secret: "super-secret",
+                    use_saved_credentials: false,
+                }));
+                return Promise.resolve(jsonResponse({authorization_url: "https://www.strava.com/oauth/authorize"}));
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /set strava credentials/i}));
+        fireEvent.change(screen.getByLabelText("Strava Client ID"), {target: {value: "45678"}});
+        fireEvent.change(screen.getByLabelText("Strava Client Secret"), {target: {value: "super-secret"}});
+        fireEvent.click(screen.getByRole("button", {name: /save for next login/i}));
+
+        expect(screen.queryByRole("dialog", {name: /set up your strava app/i})).not.toBeInTheDocument();
+        expect(screen.getByText(/ready for login\./i)).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /login to strava/i}));
+
+        await waitFor(() => {
+            expect(global.fetch).toHaveBeenCalledWith(
+                expect.stringContaining("/auth/strava/login"),
+                expect.objectContaining({
+                    body: JSON.stringify({
+                        client_id: "45678",
+                        client_secret: "super-secret",
+                        use_saved_credentials: false,
+                    }),
+                    method: "POST",
+                }),
+            );
+        });
+        expect(assignSpy).toHaveBeenCalledWith("https://www.strava.com/oauth/authorize");
     });
 
     it("renders dashboard data and activity detail from the backend payloads", async () => {
@@ -1196,9 +1258,179 @@ describe("App", () => {
         fireEvent.click(screen.getByRole("button", {name: /calendar/i}));
         expect(await screen.findByRole("heading", {name: /calendar/i})).toBeInTheDocument();
         expect(screen.getByText("Sport")).toBeInTheDocument();
+        expect(screen.getByText("Month")).toBeInTheDocument();
         expect(screen.queryByText("Window")).not.toBeInTheDocument();
         expect(screen.queryByText("From")).not.toBeInTheDocument();
         expect(screen.queryByText("To")).not.toBeInTheDocument();
+    });
+
+    it("lets the user jump directly to a month from the calendar toolbar", async () => {
+        vi.spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }),
+            )
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10,
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({month: [], year: []}))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    items: [
+                        {
+                            id: 51,
+                            sport_type: "Run",
+                            name: "March Run",
+                            start_date_local: "2026-03-05T08:30:00",
+                            distance_km: 10,
+                            summary_metric_display: "5:20 /km",
+                        },
+                        {
+                            id: 52,
+                            sport_type: "Run",
+                            name: "February Run",
+                            start_date_local: "2026-02-10T08:30:00",
+                            distance_km: 12,
+                            summary_metric_display: "5:10 /km",
+                        },
+                    ],
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse([]))
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+
+        expect(await screen.findByText(/march 2026/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /^10 km$/i})).toBeInTheDocument();
+
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-02"}});
+
+        expect(await screen.findByText(/february 2026/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /^12 km$/i})).toBeInTheDocument();
+    });
+
+    it("shows the admin page only for the admin athlete and lets them reject a user", async () => {
+        vi.spyOn(global, "fetch").mockImplementation((input, init) => {
+            const url = String(input);
+            if (url.includes("/auth/session")) {
+                return Promise.resolve(jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 102168741,
+                    display_name: "Admin Athlete",
+                    profile_picture_url: null,
+                }));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({status: "idle"}));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/admin/users") && !init?.method) {
+                return Promise.resolve(jsonResponse({
+                    items: [
+                        {
+                            id: 1,
+                            strava_athlete_id: 102168741,
+                            display_name: "Admin Athlete",
+                            email: null,
+                            is_active: true,
+                            created_at: "2026-03-20T09:00:00Z",
+                            updated_at: "2026-03-23T09:00:00Z",
+                            last_login_at: "2026-03-23T09:00:00Z",
+                        },
+                        {
+                            id: 2,
+                            strava_athlete_id: 200,
+                            display_name: "Second Athlete",
+                            email: null,
+                            is_active: true,
+                            created_at: "2026-03-21T09:00:00Z",
+                            updated_at: "2026-03-23T09:00:00Z",
+                            last_login_at: "2026-03-22T09:00:00Z",
+                        },
+                    ],
+                }));
+            }
+            if (url.includes("/admin/users/2/disable")) {
+                expect(init?.method).toBe("POST");
+                return Promise.resolve({
+                    ok: true,
+                    status: 204,
+                    headers: {get: vi.fn().mockReturnValue(null)},
+                    json: vi.fn(),
+                });
+            }
+            return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+        });
+
+        render(<App/>);
+
+        expect(await screen.findByRole("heading", {name: /dashboard/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /admin/i})).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", {name: /admin/i}));
+
+        expect(await screen.findByText("Second Athlete")).toBeInTheDocument();
+        expect(screen.queryAllByRole("button", {name: "Admin"})).toHaveLength(1);
+
+        fireEvent.click(screen.getByRole("button", {name: "Reject"}));
+
+        await waitFor(() => {
+            expect(global.fetch).toHaveBeenCalledWith(
+                expect.stringContaining("/admin/users/2/disable"),
+                expect.objectContaining({method: "POST"}),
+            );
+        });
+        expect(await screen.findByText("Disabled")).toBeInTheDocument();
+    });
+
+    it("does not show the admin page for a normal athlete", async () => {
+        vi.spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({status: "idle"}))
+            .mockResolvedValueOnce(jsonResponse({month: [], year: []}))
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse([]))
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+
+        render(<App/>);
+
+        expect(await screen.findByRole("heading", {name: /dashboard/i})).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: /admin/i})).not.toBeInTheDocument();
     });
 
     it("loads and saves profile settings from the settings view", async () => {

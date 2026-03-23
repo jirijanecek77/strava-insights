@@ -18,6 +18,7 @@ import {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
+const adminStravaAthleteId = 102168741;
 const windows = [
     {id: "week", label: "Week"},
     {id: "month", label: "Month"},
@@ -62,12 +63,16 @@ export default function App() {
     const [syncBusy, setSyncBusy] = useState(false);
     const [profileBusy, setProfileBusy] = useState(false);
     const [profileHistory, setProfileHistory] = useState([]);
+    const [adminUsers, setAdminUsers] = useState([]);
+    const [adminBusy, setAdminBusy] = useState(false);
+    const [adminActionUserId, setAdminActionUserId] = useState(null);
     const [landingCredentialState, setLandingCredentialState] = useState(defaultLandingCredentialState);
     const [authForm, setAuthForm] = useState({
         clientId: "",
         clientSecret: "",
         mode: "manual",
     });
+    const [setupModalOpen, setSetupModalOpen] = useState(false);
     const profileSaveInFlightRef = useRef(false);
     const [profileForm, setProfileForm] = useState({
         effectiveFrom: formatDateInput(new Date()),
@@ -86,12 +91,28 @@ export default function App() {
             }),
         [dateFrom, dateTo, selectedSport],
     );
+    const isAdmin = user?.strava_athlete_id === adminStravaAthleteId;
+    const availableViews = isAdmin ? [...views, "admin"] : views;
+
+    const transitionToAnonymous = useEffectEvent(async () => {
+        await loadLandingCredentialState();
+        setSessionState("anonymous");
+        setUser(null);
+        setSelectedView("dashboard");
+        setSelectedActivityId(null);
+        setActivityDetail(null);
+        setActivityDetailState("idle");
+        setAdminUsers([]);
+        setErrorMessage("");
+    });
 
     const pollSyncStatus = useEffectEvent(async () => {
         try {
             setSyncStatus(await fetchJson("/sync/status"));
-        } catch {
-            // Keep the last known sync state if background polling fails.
+        } catch (error) {
+            if (error.status === 401) {
+                await transitionToAnonymous();
+            }
         }
     });
 
@@ -192,9 +213,14 @@ export default function App() {
                     setErrorMessage("");
                 });
             } catch (error) {
-                if (active) {
-                    setErrorMessage(error.message ?? "Failed to load application data.");
+                if (!active) {
+                    return;
                 }
+                if (error.status === 401) {
+                    await transitionToAnonymous();
+                    return;
+                }
+                setErrorMessage(error.message ?? "Failed to load application data.");
             }
         }
 
@@ -237,21 +263,28 @@ export default function App() {
             return;
         }
         let active = true;
-        setActivityDetailState("loading");
-        fetchJson(`/activities/${selectedActivityId}`)
-            .then((payload) => {
+        async function loadActivityDetail() {
+            try {
+                setActivityDetailState("loading");
+                const payload = await fetchJson(`/activities/${selectedActivityId}`);
                 if (!active) {
                     return;
                 }
                 setActivityDetail(payload);
                 setActivityDetailState("ready");
-            })
-            .catch((error) => {
-                if (active) {
-                    setActivityDetailState("error");
-                    setErrorMessage(error.message ?? "Failed to load activity detail.");
+            } catch (error) {
+                if (!active) {
+                    return;
                 }
-            });
+                if (error.status === 401) {
+                    await transitionToAnonymous();
+                    return;
+                }
+                setActivityDetailState("error");
+                setErrorMessage(error.message ?? "Failed to load activity detail.");
+            }
+        }
+        loadActivityDetail();
         return () => {
             active = false;
         };
@@ -263,23 +296,71 @@ export default function App() {
         }
         let active = true;
         const requestId = generateRequestId();
-        fetchJson("/me/profile", {requestId, requestLabel: "load profile settings"})
-            .then((payload) => {
+        async function loadProfile() {
+            try {
+                const payload = await fetchJson("/me/profile", {requestId, requestLabel: "load profile settings"});
                 if (!active) {
                     return;
                 }
                 setProfileHistory(payload.items ?? []);
                 setProfileForm(buildProfileFormFromItem(payload.current));
-            })
-            .catch((error) => {
-                if (active) {
-                    setErrorMessage(error.message ?? "Failed to load profile settings.");
+            } catch (error) {
+                if (!active) {
+                    return;
                 }
-            });
+                if (error.status === 401) {
+                    await transitionToAnonymous();
+                    return;
+                }
+                setErrorMessage(error.message ?? "Failed to load profile settings.");
+            }
+        }
+        loadProfile();
         return () => {
             active = false;
         };
     }, [selectedView, sessionState]);
+
+    useEffect(() => {
+        if (sessionState !== "authenticated" || selectedView !== "admin" || !isAdmin) {
+            return;
+        }
+        let active = true;
+        async function loadAdminUsersView() {
+            try {
+                setAdminBusy(true);
+                const payload = await fetchJson("/admin/users");
+                if (!active) {
+                    return;
+                }
+                setAdminUsers(payload.items ?? []);
+                setErrorMessage("");
+            } catch (error) {
+                if (!active) {
+                    return;
+                }
+                if (error.status === 401) {
+                    await transitionToAnonymous();
+                    return;
+                }
+                setErrorMessage(error.message ?? "Failed to load admin users.");
+            } finally {
+                if (active) {
+                    setAdminBusy(false);
+                }
+            }
+        }
+        loadAdminUsersView();
+        return () => {
+            active = false;
+        };
+    }, [isAdmin, selectedView, sessionState]);
+
+    useEffect(() => {
+        if (selectedView === "admin" && !isAdmin) {
+            setSelectedView("dashboard");
+        }
+    }, [isAdmin, selectedView]);
 
     useEffect(() => {
         if (sessionState !== "authenticated" || !isSyncInFlight(syncStatus)) {
@@ -331,6 +412,39 @@ export default function App() {
         }
     }
 
+    function hasManualCredentials() {
+        return authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
+    }
+
+    function handleAuthPrimaryAction() {
+        if (authBusy) {
+            return;
+        }
+        if (authForm.mode === "saved" ? landingCredentialState.can_connect : hasManualCredentials()) {
+            handleLogin();
+            return;
+        }
+        setSetupModalOpen(true);
+    }
+
+    function handleOpenSetupModal() {
+        setSetupModalOpen(true);
+    }
+
+    function handleCloseSetupModal() {
+        setSetupModalOpen(false);
+    }
+
+    function handleEditSavedCredentials() {
+        setAuthForm((current) => ({
+            ...current,
+            clientId: current.clientId || landingCredentialState.client_id || "",
+            clientSecret: "",
+            mode: "manual",
+        }));
+        setSetupModalOpen(true);
+    }
+
     async function handleRefreshSync() {
         try {
             setSyncBusy(true);
@@ -338,6 +452,10 @@ export default function App() {
             setSyncStatus(await fetchJson("/sync/status"));
             setErrorMessage("");
         } catch (error) {
+            if (error.status === 401) {
+                await transitionToAnonymous();
+                return;
+            }
             setErrorMessage(error.message ?? "Failed to trigger sync.");
         } finally {
             setSyncBusy(false);
@@ -382,10 +500,31 @@ export default function App() {
             setProfileForm(buildProfileFormFromItem(payload.current));
             setErrorMessage("");
         } catch (error) {
+            if (error.status === 401) {
+                await transitionToAnonymous();
+                return;
+            }
             setErrorMessage(error.message ?? "Failed to save profile settings.");
         } finally {
             profileSaveInFlightRef.current = false;
             setProfileBusy(false);
+        }
+    }
+
+    async function handleDisableUser(userId) {
+        try {
+            setAdminActionUserId(userId);
+            await fetchJson(`/admin/users/${userId}/disable`, {method: "POST"});
+            setAdminUsers((current) => current.map((item) => (item.id === userId ? {...item, is_active: false} : item)));
+            setErrorMessage("");
+        } catch (error) {
+            if (error.status === 401) {
+                await transitionToAnonymous();
+                return;
+            }
+            setErrorMessage(error.message ?? "Failed to disable user.");
+        } finally {
+            setAdminActionUserId(null);
         }
     }
 
@@ -401,13 +540,14 @@ export default function App() {
                 errorMessage={errorMessage}
                 isLoggedOut={sessionState === "logged_out"}
                 landingCredentialState={landingCredentialState}
+                isSetupModalOpen={setupModalOpen}
                 onChangeAuthField={(field, value) => {
                     setAuthForm((current) => ({...current, [field]: value}));
                 }}
-                onEditSavedCredentials={() => {
-                    setAuthForm((current) => ({...current, clientSecret: "", mode: "manual"}));
-                }}
-                onLogin={handleLogin}
+                onCloseSetupModal={handleCloseSetupModal}
+                onEditSavedCredentials={handleEditSavedCredentials}
+                onLogin={handleAuthPrimaryAction}
+                onOpenSetupModal={handleOpenSetupModal}
             />
         );
     }
@@ -417,17 +557,20 @@ export default function App() {
             <AmbientBackdrop/>
             <div className="app-frame">
                 <Sidebar
+                    availableViews={availableViews}
                     selectedView={selectedView}
                     user={user}
                     onSelectView={setSelectedView}
                 />
                 <section className="workspace">
                     <Toolbar
+                        calendarMonth={calendarMonth}
                         dateFrom={dateFrom}
                         dateTo={dateTo}
                         selectedSport={selectedSport}
                         selectedView={selectedView}
                         selectedWindow={selectedWindow}
+                        onChangeCalendarMonth={setCalendarMonth}
                         onChangeDateFrom={setDateFrom}
                         onChangeDateTo={setDateTo}
                         onSelectSport={setSelectedSport}
@@ -502,6 +645,14 @@ export default function App() {
                             onSaveProfile={handleSaveProfile}
                         />
                     ) : null}
+                    {selectedView === "admin" ? (
+                        <AdminView
+                            actionUserId={adminActionUserId}
+                            adminUsers={adminUsers}
+                            busy={adminBusy}
+                            onDisableUser={handleDisableUser}
+                        />
+                    ) : null}
                 </section>
             </div>
         </main>
@@ -526,123 +677,113 @@ function AuthScreen({
                         authForm,
                         errorMessage,
                         isLoggedOut,
+                        isSetupModalOpen,
                         landingCredentialState,
                         onChangeAuthField,
+                        onCloseSetupModal,
                         onEditSavedCredentials,
-                        onLogin
+                        onLogin,
+                        onOpenSetupModal
                     }) {
-    const canConnect =
-        authForm.mode === "saved"
-            ? landingCredentialState.can_connect
-            : authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
+    const hasSavedCredentials = authForm.mode === "saved" && landingCredentialState.can_connect;
+    const hasManualCredentials = authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
+    const canConnect = hasSavedCredentials || hasManualCredentials;
+    const primaryButtonLabel = authBusy ? "Opening Strava..." : "Login to Strava";
+    const heroTitle = isLoggedOut ? "Back to your training archive." : "Your Strava history, kept simple.";
+    const heroCopy = isLoggedOut
+        ? "Your data is still here. Connect again and continue."
+        : "Login once. Review everything locally.";
+    const secondaryButtonLabel = "Set Strava credentials";
+    const subCopy = hasSavedCredentials ? "Ready when you are." : "First time? Set up your app, then log in.";
+
     return (
         <main className="app-shell landing-shell">
             <AmbientBackdrop/>
             <section className="landing-panel auth-panel">
-                <div className="landing-copy">
+                <div className="landing-copy landing-copy-simple">
                     <p className="eyebrow">Strava Insights</p>
-                    <h1>{isLoggedOut ? "Signed out." : "Review your Strava history locally."}</h1>
-                    <p className="copy">
-                        {isLoggedOut
-                            ? "Your imported data stays here. Sign in again to sync and review it."
-                            : "Import once, then use local dashboards and activity detail without live Strava reads."}
-                    </p>
-                    <div className="auth-credential-panel">
-                        <div className="auth-credential-header">
-                            <div>
-                                <p className="eyebrow">Your Strava App</p>
-                                <h2>Use your own Strava app credentials.</h2>
-                                <p className="copy">
-                                    Get them from{" "}
-                                    <a className="auth-inline-link" href={landingCredentialState.strava_api_settings_url} rel="noreferrer" target="_blank">
-                                        Strava API settings
-                                    </a>, then log in.
-                                </p>
-                            </div>
-                        </div>
-                        {authForm.mode === "saved" ? (
-                            <div className="saved-credential-card">
-                                <div className="saved-credential-row">
-                                    <span>Client ID</span>
-                                    <strong>{landingCredentialState.client_id}</strong>
-                                </div>
-                                <div className="saved-credential-row">
-                                    <span>Client Secret</span>
-                                    <strong>Saved and ready</strong>
-                                </div>
-                                <button className="ghost-button compact-inline-button" onClick={onEditSavedCredentials} type="button">
-                                    Edit Credentials
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="auth-credential-grid">
-                                <label className="control-chip">
-                                    <span>Strava Client ID</span>
-                                    <input
-                                        autoComplete="off"
-                                        inputMode="numeric"
-                                        type="text"
-                                        value={authForm.clientId}
-                                        onChange={(event) => onChangeAuthField("clientId", event.target.value)}
-                                    />
-                                </label>
-                                <label className="control-chip">
-                                    <span>Strava Client Secret</span>
-                                    <input
-                                        autoComplete="off"
-                                        type="password"
-                                        value={authForm.clientSecret}
-                                        onChange={(event) => onChangeAuthField("clientSecret", event.target.value)}
-                                    />
-                                </label>
-                            </div>
-                        )}
-                    </div>
+                    <h1>{heroTitle}</h1>
+                    <p className="copy landing-copy-compact">{heroCopy}</p>
+                    <p className="copy landing-subcopy">{hasManualCredentials ? "Ready for login." : subCopy}</p>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
-                    <button className="strava-connect-button" disabled={authBusy || !canConnect} onClick={onLogin} type="button">
-                        <span className="strava-connect-mark" aria-hidden="true">
+                    <div className="landing-actions">
+                        <button className="strava-connect-button is-primary" disabled={authBusy} onClick={onLogin} type="button">
+                            <span className="strava-connect-mark" aria-hidden="true">
+                                <span className="strava-connect-chevron tall"/>
+                                <span className="strava-connect-chevron short"/>
+                            </span>
+                            <span>{primaryButtonLabel}</span>
+                        </button>
+                        <button className="ghost-button landing-setup-button" onClick={hasSavedCredentials ? onEditSavedCredentials : onOpenSetupModal} type="button">
+                            {secondaryButtonLabel}
+                        </button>
+                    </div>
+                </div>
+                <div className="auth-brand-card landing-hero-card" aria-label="Strava compatibility notice">
+                    <div className="auth-brand-lockup landing-brand-copy">
+                        <div className="auth-brand-wordmark" aria-label="Strava">
                             <span className="strava-connect-chevron tall"/>
                             <span className="strava-connect-chevron short"/>
-                        </span>
-                        <span>{authBusy ? "Opening Strava..." : "Login to Strava"}</span>
-                    </button>
-                </div>
-                <div className="auth-brand-card" aria-label="Strava compatibility notice">
-                    <p className="eyebrow">Compatibility</p>
-                    <div className="auth-brand-lockup">
-                        <div className="auth-brand-wordmark" aria-label="Strava">
                             <span className="auth-brand-word">Strava</span>
-                            <span className="auth-brand-icon" aria-hidden="true">
-                                <span className="auth-brand-chevron tall"/>
-                                <span className="auth-brand-chevron short"/>
-                            </span>
                         </div>
                         <p className="auth-brand-mark">Compatible with Strava</p>
-                    </div>
-                    <p className="copy">
-                        Strava Insights works with your Strava account, but it is a separate application and is not developed or sponsored by Strava.
-                    </p>
-                    <div aria-hidden="true" className="landing-art">
-                        <div className="landing-art-sun"/>
-                        <div className="landing-art-hill landing-art-hill-back"/>
-                        <div className="landing-art-hill landing-art-hill-front"/>
-                        <div className="landing-art-road">
-                            <span className="landing-art-road-line"/>
-                            <span className="landing-art-road-line"/>
-                            <span className="landing-art-road-line"/>
-                        </div>
-                        <div className="landing-art-badge">
-                            <span className="landing-art-badge-dot"/>
-                            <strong>Run. Ride. Improve.</strong>
-                        </div>
+                        <p className="copy">Fast local dashboard. Less text. One clear login path.</p>
+                        <p className="copy landing-legal-copy">
+                            Separate app. Not developed or sponsored by Strava.
+                        </p>
                     </div>
                 </div>
             </section>
+            {isSetupModalOpen ? (
+                <div className="modal-backdrop" role="presentation">
+                    <section aria-labelledby="setup-dialog-title" aria-modal="true" className="setup-modal" role="dialog">
+                        <div className="setup-modal-header">
+                            <div>
+                                <p className="eyebrow">Strava App</p>
+                                <h2 id="setup-dialog-title">Set up your Strava app</h2>
+                                <p className="copy">Paste your client ID and secret, then return to login.</p>
+                            </div>
+                            <button aria-label="Close setup" className="ghost-button compact-inline-button" onClick={onCloseSetupModal} type="button">
+                                Close
+                            </button>
+                        </div>
+                        <div className="auth-credential-grid">
+                            <label className="control-chip">
+                                <span>Strava Client ID</span>
+                                <input
+                                    autoComplete="off"
+                                    inputMode="numeric"
+                                    type="text"
+                                    value={authForm.clientId}
+                                    onChange={(event) => onChangeAuthField("clientId", event.target.value)}
+                                />
+                            </label>
+                            <label className="control-chip">
+                                <span>Strava Client Secret</span>
+                                <input
+                                    autoComplete="off"
+                                    type="password"
+                                    value={authForm.clientSecret}
+                                    onChange={(event) => onChangeAuthField("clientSecret", event.target.value)}
+                                />
+                            </label>
+                        </div>
+                        <div className="setup-modal-actions">
+                            <button className="primary-button" onClick={onCloseSetupModal} type="button">
+                                Save for next login
+                            </button>
+                            <button className="ghost-button" onClick={onLogin} type="button">
+                                {canConnect ? "Save and login" : "Login after setup"}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
         </main>
     );
 }
 
-function Sidebar({selectedView, user, onSelectView}) {
+function Sidebar({availableViews, selectedView, user, onSelectView}) {
     return (
         <aside className="sidebar">
             <div className="sidebar-user">
@@ -650,7 +791,7 @@ function Sidebar({selectedView, user, onSelectView}) {
                 <h2 className="sidebar-title">{user.display_name}</h2>
             </div>
             <nav aria-label="Primary" className="sidebar-nav">
-                {views.map((view) => (
+                {availableViews.map((view) => (
                     <button
                         key={view}
                         className={view === selectedView ? "nav-pill active" : "nav-pill"}
@@ -666,11 +807,13 @@ function Sidebar({selectedView, user, onSelectView}) {
 }
 
 function Toolbar({
+                     calendarMonth,
                      dateFrom,
                      dateTo,
                      selectedSport,
                      selectedView,
                      selectedWindow,
+                     onChangeCalendarMonth,
                      onChangeDateFrom,
                      onChangeDateTo,
                      onSelectSport,
@@ -679,6 +822,7 @@ function Toolbar({
     const showSportFilter = selectedView === "dashboard" || selectedView === "calendar" || selectedView === "activities" || selectedView === "best-efforts";
     const showWindowFilter = selectedView === "dashboard";
     const showDateFilters = selectedView === "activities";
+    const showCalendarMonthFilter = selectedView === "calendar";
 
     return (
         <header className="toolbar">
@@ -689,6 +833,13 @@ function Toolbar({
             <div className="toolbar-controls">
                 {showSportFilter ? (
                     <FilterSelect label="Sport" options={sports} value={selectedSport} onChange={onSelectSport}/>
+                ) : null}
+                {showCalendarMonthFilter ? (
+                    <FilterMonth
+                        label="Month"
+                        value={calendarMonth}
+                        onChange={onChangeCalendarMonth}
+                    />
                 ) : null}
                 {showWindowFilter ? (
                     <FilterSelect label="Window" options={windows} value={selectedWindow} onChange={onSelectWindow}/>
@@ -720,6 +871,15 @@ function FilterDate({label, value, onChange}) {
         <label className="control-chip">
             <span>{label}</span>
             <input type="date" value={value} onChange={(event) => onChange(event.target.value)}/>
+        </label>
+    );
+}
+
+function FilterMonth({label, value, onChange}) {
+    return (
+        <label className="control-chip">
+            <span>{label}</span>
+            <input type="month" value={formatMonthInput(value)} onChange={(event) => onChange(parseMonthInput(event.target.value))}/>
         </label>
     );
 }
@@ -1400,6 +1560,60 @@ function SettingsView({
                     {syncBusy ? "Refreshing..." : "Refresh Sync"}
                 </button>
             </article>
+        </section>
+    );
+}
+
+function AdminView({actionUserId, adminUsers, busy, onDisableUser}) {
+    return (
+        <section className="panel">
+            <div className="panel-header">
+                <div>
+                    <p className="eyebrow">Admin</p>
+                    <h2>Users</h2>
+                </div>
+            </div>
+            {busy ? <EmptyState text="Loading users..."/> : null}
+            {!busy && adminUsers.length === 0 ? <EmptyState text="No users found."/> : null}
+            {!busy && adminUsers.length > 0 ? (
+                <div aria-label="Users audit list" className="admin-user-list">
+                    {adminUsers.map((item) => {
+                        const isSelf = item.strava_athlete_id === adminStravaAthleteId;
+                        const isDisabled = !item.is_active;
+                        return (
+                            <article key={item.id} className="admin-user-card">
+                                <div className="admin-user-main">
+                                    <div>
+                                        <strong>{item.display_name}</strong>
+                                        <p className="copy">Athlete {item.strava_athlete_id ?? "n/a"}</p>
+                                    </div>
+                                    <span className={isDisabled ? "status-pill is-disabled" : "status-pill is-active"}>
+                                        {isDisabled ? "Disabled" : "Active"}
+                                    </span>
+                                </div>
+                                <div className="admin-user-meta">
+                                    <span>Last login</span>
+                                    <strong>{item.last_login_at ? formatDateTime(item.last_login_at) : "Never"}</strong>
+                                    <span>Created</span>
+                                    <strong>{formatDateTime(item.created_at)}</strong>
+                                </div>
+                                <div className="admin-user-actions">
+                                    {!isSelf ? (
+                                        <button
+                                            className="ghost-button"
+                                            disabled={isDisabled || actionUserId === item.id}
+                                            onClick={() => onDisableUser(item.id)}
+                                            type="button"
+                                        >
+                                            {actionUserId === item.id ? "Rejecting..." : "Reject"}
+                                        </button>
+                                    ) : null}
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            ) : null}
         </section>
     );
 }
@@ -2252,6 +2466,29 @@ function formatDateInput(value) {
         return "";
     }
     return date.toISOString().slice(0, 10);
+}
+
+function formatMonthInput(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+}
+
+function parseMonthInput(value) {
+    if (!value) {
+        return startOfMonth(new Date());
+    }
+    const [yearText, monthText] = value.split("-");
+    const year = Number(yearText);
+    const monthIndex = Number(monthText) - 1;
+    if (!Number.isInteger(year) || !Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+        return startOfMonth(new Date());
+    }
+    return new Date(year, monthIndex, 1);
 }
 
 function buildComparisonPeriodOptions(items, periodType) {

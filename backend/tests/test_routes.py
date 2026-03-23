@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
@@ -606,6 +606,140 @@ def test_oauth_callback_sets_session_and_redirects(client) -> None:
 
     assert response.status_code == 302
     assert response.headers["location"] == "http://localhost:5173"
+
+
+def test_disabled_user_session_is_rejected_on_authenticated_request(client, db_session) -> None:
+    db_session.add(
+        User(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Disabled Athlete",
+            profile_picture_url=None,
+            is_active=False,
+        )
+    )
+    db_session.commit()
+    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+    try:
+        with client as session_client:
+            callback_response = session_client.get(
+                "/auth/strava/callback?code=valid-code&state=signed-state",
+                follow_redirects=False,
+            )
+            response = session_client.get("/me")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert callback_response.status_code == 302
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Authentication required."}
+
+
+def test_admin_can_list_all_users(client, db_session) -> None:
+    db_session.add_all(
+        [
+            User(
+                id=1,
+                strava_athlete_id=102168741,
+                display_name="Admin Athlete",
+                profile_picture_url=None,
+                is_active=True,
+                last_login_at=datetime(2026, 3, 23, 10, 0, tzinfo=UTC),
+            ),
+            User(
+                id=2,
+                strava_athlete_id=999,
+                display_name="Other Athlete",
+                profile_picture_url=None,
+                is_active=True,
+                last_login_at=datetime(2026, 3, 23, 11, 0, tzinfo=UTC),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+    )
+    try:
+        response = client.get("/admin/users")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert [item["display_name"] for item in response.json()["items"]] == ["Other Athlete", "Admin Athlete"]
+
+
+def test_non_admin_cannot_list_users(client) -> None:
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+    )
+    try:
+        response = client.get("/admin/users")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Admin access required."}
+
+
+def test_admin_can_disable_other_user(client, db_session) -> None:
+    db_session.add_all(
+        [
+            User(
+                id=1,
+                strava_athlete_id=102168741,
+                display_name="Admin Athlete",
+                profile_picture_url=None,
+                is_active=True,
+            ),
+            User(
+                id=2,
+                strava_athlete_id=999,
+                display_name="Other Athlete",
+                profile_picture_url=None,
+                is_active=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+    )
+    try:
+        response = client.post("/admin/users/2/disable")
+    finally:
+        app.dependency_overrides.clear()
+
+    target_user = db_session.get(User, 2)
+    db_session.refresh(target_user)
+    assert response.status_code == 204
+    assert target_user.is_active is False
+
+
+def test_admin_cannot_disable_self(client, db_session) -> None:
+    db_session.add(
+        User(
+            id=1,
+            strava_athlete_id=102168741,
+            display_name="Admin Athlete",
+            profile_picture_url=None,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
+        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+    )
+    try:
+        response = client.post("/admin/users/1/disable")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "The admin account cannot be disabled."}
 
 
 def test_cors_allows_frontend_origin(client) -> None:

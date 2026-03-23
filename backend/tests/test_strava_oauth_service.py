@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+from fastapi import HTTPException
+
 from app.application.auth.dto import StravaAppCredentials, StravaTokenPayload
 from app.application.auth.oauth import StravaOAuthService
 from app.infrastructure.security.token_cipher import TokenCipher
@@ -149,10 +151,12 @@ def test_authenticate_from_code_persists_user_tokens_and_app_credentials() -> No
     assert session.app_credential.client_id == "12345"
     assert session.app_credential.client_secret_encrypted != "manual-secret"
     assert session.oauth_state is None
+    assert session.user.last_login_at is not None
 
 
 def test_landing_credential_state_returns_saved_credential_summary() -> None:
     session = SessionStub()
+    session.user = type("SavedUser", (), {"id": 1, "is_active": True})()
     cipher = TokenCipher()
     session.app_credential = type(
         "SavedCredential",
@@ -174,6 +178,7 @@ def test_landing_credential_state_returns_saved_credential_summary() -> None:
 
 def test_start_login_uses_saved_credentials_for_remembered_user() -> None:
     session = SessionStub()
+    session.user = type("SavedUser", (), {"id": 1, "is_active": True})()
     cipher = TokenCipher()
     session.app_credential = type(
         "SavedCredential",
@@ -196,3 +201,55 @@ def test_start_login_uses_saved_credentials_for_remembered_user() -> None:
 
     assert "client_id=24680" in url
     assert session.oauth_state is not None
+
+
+def test_start_login_rejects_disabled_remembered_user() -> None:
+    session = SessionStub()
+    session.user = type("DisabledUser", (), {"id": 1, "is_active": False})()
+    service = _build_service(session=session)
+
+    try:
+        service.start_login(
+            client_id=None,
+            client_secret=None,
+            use_saved_credentials=True,
+            remembered_user_id=1,
+            request_client="127.0.0.1",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 403
+        assert exc.detail == "This account has been disabled."
+    else:
+        raise AssertionError("Expected disabled remembered user to be rejected.")
+
+
+def test_authenticate_from_code_rejects_disabled_existing_user() -> None:
+    session = SessionStub()
+    session.user = type(
+        "DisabledUser",
+        (),
+        {
+            "id": 1,
+            "is_active": False,
+            "display_name": "Disabled Athlete",
+            "profile_picture_url": None,
+            "last_login_at": None,
+        },
+    )()
+    service = _build_service(session=session)
+    state_url = service.start_login(
+        client_id="12345",
+        client_secret="manual-secret",
+        use_saved_credentials=False,
+        remembered_user_id=None,
+        request_client="127.0.0.1",
+    )
+    state = state_url.split("state=")[1]
+
+    try:
+        service.authenticate_from_code("valid-code", state)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+        assert exc.detail == "This account has been disabled."
+    else:
+        raise AssertionError("Expected disabled existing user to be rejected.")
