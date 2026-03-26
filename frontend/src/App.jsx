@@ -1043,14 +1043,14 @@ function ActivitiesView({
                             ref={selectedActivityId === activity.id ? selectedRowRef : null}
                             type="button"
                         >
-                            <div>
-                                <strong>{activity.name}</strong>
-                                <p>{activity.sport_type}</p>
-                            </div>
-                            <div className="activity-row-kpis">
-                                <span>{activity.distance_km ?? "?"} km</span>
-                                <span>{activity.start_date_local ? formatDateLabel(activity.start_date_local) : "Unknown date"}</span>
-                            </div>
+                            <span className="activity-row-left">
+                                <strong className="activity-row-name">{activity.name}</strong>
+                                <span className="activity-row-date">{activity.start_date_local ? formatDateLabel(activity.start_date_local) : "Unknown date"}</span>
+                            </span>
+                            <span className="activity-row-right">
+                                <strong className="activity-row-distance">{formatNumber(Number(activity.distance_km ?? 0))} km</strong>
+                                <span className="activity-row-type">{formatSportLabel(activity.sport_type)}</span>
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -1766,6 +1766,26 @@ function TrendChartTooltip({active, payload}) {
     );
 }
 
+function DetailChartTooltip({active, label, payload, position, valueKind}) {
+    const point = payload?.[0]?.payload;
+    if (!active || !point) {
+        return null;
+    }
+    return (
+        <div
+            className="detail-chart-tooltip"
+            style={{
+                left: `${position.leftPercent}%`,
+                top: `${position.topPercent}%`,
+                transform: position.preferBelow ? "translate(-50%, 12px)" : "translate(-50%, calc(-100% - 12px))",
+            }}
+        >
+            <span>Distance: {formatNumber(point.distance)} km</span>
+            <span>{label}: {formatTooltipSeriesValue(valueKind, point.value)}</span>
+        </div>
+    );
+}
+
 function MetricTile({label, value}) {
     return (
         <div className="metric-tile">
@@ -1830,6 +1850,10 @@ function MiniLineChart({
         () => chartData.map((point) => point.distance).filter(Number.isFinite),
         [chartData],
     );
+    const numericAltitudes = useMemo(
+        () => chartData.map((point) => point.altitude).filter(Number.isFinite),
+        [chartData],
+    );
     const lineColor = getDetailAccentColor(accent);
     const referenceLineColor = getDetailReferenceColor(accent);
 
@@ -1859,7 +1883,32 @@ function MiniLineChart({
         () => (clampedActiveIndex == null ? null : chartData[clampedActiveIndex]),
         [chartData, clampedActiveIndex],
     );
+    const [isTooltipVisible, setIsTooltipVisible] = useState(false);
     const gradientId = `detail-elevation-${accent}-${valueKind}`;
+
+    useEffect(() => {
+        if (!activePoint || !Number.isFinite(activePoint.distance) || !Number.isFinite(activePoint.value)) {
+            setIsTooltipVisible(false);
+            return undefined;
+        }
+        setIsTooltipVisible(true);
+        const timeoutId = window.setTimeout(() => {
+            setIsTooltipVisible(false);
+        }, 1600);
+        return () => window.clearTimeout(timeoutId);
+    }, [activePoint]);
+
+    const tooltipPosition = useMemo(
+        () => computeDetailTooltipPosition({
+            activePoint,
+            maxValue,
+            minValue,
+            valueKind,
+            xMax,
+            xMin,
+        }),
+        [activePoint, maxValue, minValue, valueKind, xMax, xMin],
+    );
 
     function handleChartSelection(state) {
         const activeDistance = Number(state?.activeLabel);
@@ -1874,10 +1923,19 @@ function MiniLineChart({
 
     return (
         <div aria-label={`${labelForValueKind(valueKind)} chart`} className={`mini-chart ${accent}`} role="img">
+            {isTooltipVisible && activePoint && Number.isFinite(activePoint.distance) && Number.isFinite(activePoint.value) ? (
+                <DetailChartTooltip
+                    active
+                    label={label}
+                    payload={[{payload: activePoint}]}
+                    position={tooltipPosition}
+                    valueKind={valueKind}
+                />
+            ) : null}
             <ResponsiveContainer height="100%" width="100%">
                 <ComposedChart
                     data={sampledChartData}
-                    margin={{top: 10, right: 12, bottom: 16, left: 8}}
+                    margin={{top: 10, right: 10, bottom: 16, left: 2}}
                     onClick={handleChartSelection}
                     onMouseMove={handleChartSelection}
                     syncId="activity-detail-series"
@@ -1903,11 +1961,22 @@ function MiniLineChart({
                         domain={[minValue, maxValue]}
                         reversed={valueKind === "pace"}
                         tick={{fill: "#6f6b62", fontSize: 11}}
-                        tickFormatter={(value) => formatSeriesValue(valueKind, value)}
+                        tickFormatter={(value) => formatAxisValue(valueKind, value)}
                         tickLine={false}
-                        width={52}
+                        width={34}
                     />
-                    <YAxis dataKey="altitude" domain={["dataMin", "dataMax"]} hide yAxisId="altitude"/>
+                    <YAxis
+                        axisLine={false}
+                        dataKey="altitude"
+                        domain={["dataMin", "dataMax"]}
+                        hide={!numericAltitudes.length}
+                        orientation="right"
+                        tick={{fill: "rgba(100, 116, 139, 0.88)", fontSize: 10}}
+                        tickFormatter={formatAltitudeAxisValue}
+                        tickLine={false}
+                        width={30}
+                        yAxisId="altitude"
+                    />
                     <Tooltip
                         content={() => null}
                         cursor={{stroke: "rgba(29, 122, 243, 0.28)", strokeDasharray: "4 4"}}
@@ -2551,6 +2620,63 @@ function formatSeriesValue(kind, value) {
     return formatNumber(value);
 }
 
+function formatTooltipSeriesValue(kind, value) {
+    if (!Number.isFinite(value)) {
+        return "n/a";
+    }
+    if (kind === "pace") {
+        return `${formatPaceMinutes(value)} /km`;
+    }
+    return formatSeriesValue(kind, value);
+}
+
+export function formatAltitudeAxisValue(value) {
+    if (!Number.isFinite(value)) {
+        return "";
+    }
+    return `${Math.round(value)} m`;
+}
+
+export function formatAxisValue(kind, value) {
+    if (!Number.isFinite(value)) {
+        return "";
+    }
+    if (kind === "pace") {
+        return formatPaceMinutes(value);
+    }
+    if (kind === "speed") {
+        return formatNumber(value);
+    }
+    if (kind === "heart_rate") {
+        return `${Math.round(value)}`;
+    }
+    if (kind === "slope") {
+        return formatNumber(value);
+    }
+    return formatNumber(value);
+}
+
+function computeDetailTooltipPosition({activePoint, maxValue, minValue, valueKind, xMax, xMin}) {
+    if (!activePoint || !Number.isFinite(activePoint.distance) || !Number.isFinite(activePoint.value)) {
+        return {leftPercent: 50, preferBelow: false, topPercent: 18};
+    }
+    const xRange = xMax - xMin;
+    const xRatio = xRange > 0 ? (activePoint.distance - xMin) / xRange : 0.5;
+    const clampedXRatio = Math.min(Math.max(xRatio, 0.12), 0.88);
+
+    const yRange = maxValue - minValue;
+    const rawYRatio = yRange > 0 ? (activePoint.value - minValue) / yRange : 0.5;
+    const normalizedYRatio = valueKind === "pace" ? rawYRatio : 1 - rawYRatio;
+    const clampedYRatio = Math.min(Math.max(normalizedYRatio, 0.12), 0.82);
+    const topPercent = 10 + (clampedYRatio * 74);
+
+    return {
+        leftPercent: 9 + (clampedXRatio * 82),
+        preferBelow: topPercent < 22,
+        topPercent,
+    };
+}
+
 function formatPaceMinutes(value) {
   const wholeMinutes = Math.floor(value);
   const seconds = Math.round((value - wholeMinutes) * 60);
@@ -2911,21 +3037,21 @@ function findClosestDistanceIndex(points, targetDistance) {
 
 function scaleCalendarBubbleSize(totalDistanceKm, dominantSport) {
     if (totalDistanceKm <= 0) {
-        return 28;
+        return 20;
     }
 
     if (dominantSport === "Run") {
         if (totalDistanceKm <= 10) {
-            return 32;
+            return 22;
         }
         if (totalDistanceKm <= 21.1) {
-            return 46;
+            return 32;
         }
-        return 60;
+        return 42;
     }
 
     const rideBucket = Math.min(Math.ceil(totalDistanceKm / 20), 8);
-    return 28 + (rideBucket * 5);
+    return 19 + (rideBucket * 4);
 }
 
 function roundNumber(value) {

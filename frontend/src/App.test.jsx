@@ -1,6 +1,6 @@
-import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 
-import App, {buildThresholdGuides, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
+import App, {buildThresholdGuides, formatAltitudeAxisValue, formatAxisValue, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
 
 function jsonResponse(body, status = 200) {
     return {
@@ -418,6 +418,10 @@ describe("App", () => {
         expect(screen.getByLabelText("min/km chart")).toBeInTheDocument();
         expect(screen.getByLabelText("bpm chart")).toBeInTheDocument();
         expect(screen.getByLabelText("% chart")).toBeInTheDocument();
+        expect(within(screen.getByLabelText("min/km chart")).getByText("Distance: 0 km")).toBeInTheDocument();
+        expect(within(screen.getByLabelText("min/km chart")).getByText("Pace: 5:12 /km")).toBeInTheDocument();
+        expect(within(screen.getByLabelText("bpm chart")).getByText("Heart Rate: 140 bpm")).toBeInTheDocument();
+        expect(within(screen.getByLabelText("% chart")).getByText("Slope: 0.5%")).toBeInTheDocument();
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
@@ -928,6 +932,120 @@ describe("App", () => {
         expect(screen.getByText("50 km")).toBeInTheDocument();
     });
 
+    it("renders activity list rows with name and distance on top and date plus type aligned below", async () => {
+        vi.spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }),
+            )
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10,
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({month: [], year: []}))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    items: [
+                        {
+                            id: 51,
+                            sport_type: "Run",
+                            name: "Morning Session",
+                            start_date_local: "2026-03-05T08:30:00",
+                            distance_km: 18,
+                            moving_time_display: "1:30:00",
+                            summary_metric_display: "5:00 /km",
+                            total_elevation_gain_meters: 120,
+                            average_heartrate_bpm: 150,
+                            heart_rate_drift_bpm: 2.5,
+                        },
+                    ],
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse([]))
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /activities/i}));
+
+        const name = await screen.findByText("Morning Session");
+        const row = name.closest("button");
+        expect(row).not.toBeNull();
+        expect(row).toHaveTextContent("Mar 5, 2026");
+        expect(row).toHaveTextContent("18 km");
+        expect(row).toHaveTextContent("Run");
+        expect(row.querySelector(".activity-row-left")).not.toBeNull();
+        expect(row.querySelector(".activity-row-right")).not.toBeNull();
+        expect(row.querySelector(".activity-row-name")).toHaveTextContent("Morning Session");
+        expect(row.querySelector(".activity-row-date")).toHaveTextContent("Mar 5, 2026");
+        expect(row.querySelector(".activity-row-distance")).toHaveTextContent("18 km");
+        expect(row.querySelector(".activity-row-type")).toHaveTextContent("Run");
+        expect(row.querySelector(".activity-row-bubble")).toBeNull();
+    });
+
+    it("renders e-bike activity rows with the activity type on the same metadata line as the date", async () => {
+        vi.spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    id: 1,
+                    strava_athlete_id: 99,
+                    display_name: "Test Athlete",
+                    profile_picture_url: null,
+                }),
+            )
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    status: "completed",
+                    sync_type: "full_import",
+                    progress_total: 10,
+                    progress_completed: 10,
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({month: [], year: []}))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    items: [
+                        {
+                            id: 52,
+                            sport_type: "EBikeRide",
+                            name: "Hill Commute",
+                            start_date_local: "2026-03-06T07:15:00",
+                            distance_km: 100,
+                            moving_time_display: "3:20:00",
+                            summary_metric_display: "30 km/h",
+                            total_elevation_gain_meters: 500,
+                            average_heartrate_bpm: 135,
+                            heart_rate_drift_bpm: 1.4,
+                        },
+                    ],
+                }),
+            )
+            .mockResolvedValueOnce(jsonResponse({items: []}))
+            .mockResolvedValueOnce(jsonResponse([]))
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+
+        render(<App/>);
+
+        fireEvent.click(await screen.findByRole("button", {name: /activities/i}));
+
+        const row = (await screen.findByText("Hill Commute")).closest("button");
+        expect(row).not.toBeNull();
+        expect(row).toHaveTextContent("100 km");
+        expect(row).toHaveTextContent("E-Bike");
+        expect(row.querySelector(".activity-row-date")).toHaveTextContent("Mar 6, 2026");
+        expect(row.querySelector(".activity-row-type")).toHaveTextContent("E-Bike");
+        expect(row.querySelector(".activity-row-bubble")).toBeNull();
+    });
+
     it("aggregates daily calendar distance into a single day bubble", async () => {
         vi.spyOn(global, "fetch")
             .mockResolvedValueOnce(
@@ -1089,9 +1207,9 @@ describe("App", () => {
         const mediumBubble = await screen.findByRole("button", {name: /^18 km$/i});
         const longBubble = await screen.findByRole("button", {name: /^30 km$/i});
 
-        expect(shortBubble.style.getPropertyValue("--bubble-size")).toBe("32px");
-        expect(mediumBubble.style.getPropertyValue("--bubble-size")).toBe("46px");
-        expect(longBubble.style.getPropertyValue("--bubble-size")).toBe("60px");
+        expect(shortBubble.style.getPropertyValue("--bubble-size")).toBe("22px");
+        expect(mediumBubble.style.getPropertyValue("--bubble-size")).toBe("32px");
+        expect(longBubble.style.getPropertyValue("--bubble-size")).toBe("42px");
     });
 
     it("uses 20 km ride buckets for calendar bubble sizing", async () => {
@@ -1146,8 +1264,8 @@ describe("App", () => {
         const shortRideBubble = await screen.findByRole("button", {name: /^20 km$/i});
         const longRideBubble = await screen.findByRole("button", {name: /^100 km$/i});
 
-        expect(shortRideBubble.style.getPropertyValue("--bubble-size")).toBe("33px");
-        expect(longRideBubble.style.getPropertyValue("--bubble-size")).toBe("53px");
+        expect(shortRideBubble.style.getPropertyValue("--bubble-size")).toBe("23px");
+        expect(longRideBubble.style.getPropertyValue("--bubble-size")).toBe("39px");
     });
 
     it("registers sync polling while a sync is running", async () => {
@@ -1653,6 +1771,18 @@ describe("activity detail chart baselines", () => {
     it("parses average pace and speed summary metrics", () => {
         expect(parseSummaryMetricAverage("5:00 min/km", "pace")).toBe(5);
         expect(parseSummaryMetricAverage("28 km/h", "speed")).toBe(28);
+    });
+
+    it("formats elevation axis ticks in meters", () => {
+        expect(formatAltitudeAxisValue(220.4)).toBe("220 m");
+        expect(formatAltitudeAxisValue(null)).toBe("");
+    });
+
+    it("formats compact detail-chart axis ticks without wrapping units", () => {
+        expect(formatAxisValue("pace", 5.2)).toBe("5:12");
+        expect(formatAxisValue("speed", 28.4)).toBe("28.4");
+        expect(formatAxisValue("heart_rate", 150.2)).toBe("150");
+        expect(formatAxisValue("slope", 0.5)).toBe("0.5");
     });
 
     it("shows backend error detail when saving profile settings fails", async () => {
