@@ -270,12 +270,10 @@ export function SettingsView({
                     <div className="settings-section-header">
                         <div>
                             <p className="eyebrow">Thresholds</p>
-                            <h3>Current values</h3>
+                            <h3>Edit thresholds</h3>
                         </div>
+                        <button className="ghost-button inline-button" onClick={onStartNewThresholdProfile} type="button">Create New Period</button>
                     </div>
-                    <p className="settings-helper-text">
-                        Old periods stay in history automatically. This screen edits the current thresholds, or lets you create the next period from them.
-                    </p>
                     <div className="profile-period-toolbar simple">
                         <div className={`threshold-selected-summary${!latestThresholdProfile || profileForm.effectiveFrom !== latestThresholdProfile.effective_from ? " is-draft" : ""}`}>
                             <strong>
@@ -285,27 +283,15 @@ export function SettingsView({
                             </strong>
                             <span>
                                 {!latestThresholdProfile || profileForm.effectiveFrom !== latestThresholdProfile.effective_from
-                                    ? "Set a new effective date and save to create the next threshold period."
+                                    ? "Choose an effective date, update the fields, and save."
                                     : formatThresholdSnapshotSummary(latestThresholdProfile)}
                             </span>
                         </div>
-                        <button className="ghost-button inline-button" onClick={onStartNewThresholdProfile} type="button">Create New Period</button>
                     </div>
-                </section>
-                <section className="settings-section">
-                    <div className="settings-section-header">
-                        <div>
-                            <p className="eyebrow">Threshold Values</p>
-                            <h3>Edit pace and heart rate</h3>
-                        </div>
-                    </div>
-                    <p className="settings-helper-text">
-                        Change the values below, then save them for the current effective date or as a new period.
-                    </p>
                     <div className="threshold-form-grid">
                         <div className="threshold-metric-card threshold-date-card">
                             <p className="eyebrow">Effective Date</p>
-                            <h4>When these thresholds begin</h4>
+                            <h4>Threshold period</h4>
                             <label className="control-chip">
                                 <span>Effective From</span>
                                 <input aria-label="Effective From" type="date" value={profileForm.effectiveFrom} onChange={(event) => onChangeProfileField("effectiveFrom", event.target.value)}/>

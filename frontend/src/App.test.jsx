@@ -1624,11 +1624,13 @@ describe("App", () => {
         const aerobicPaceInput = await screen.findByLabelText("Aerobic Threshold Pace (min/km)");
         expect(screen.getByLabelText("Effective From")).toHaveValue("2026-03-01");
         expect(screen.getByRole("button", {name: /create new period/i})).toBeInTheDocument();
-        expect(screen.getByText(/old periods stay in history automatically/i)).toBeInTheDocument();
+        expect(screen.getByRole("heading", {name: /edit thresholds/i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
         expect(screen.getByLabelText("Aerobic Threshold Pace (min/km)")).toHaveValue("5:24");
+        expect(screen.queryByText(/old periods stay in history automatically/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/change the values below/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/session model/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/profile image/i)).not.toBeInTheDocument();
         fireEvent.change(aerobicPaceInput, {target: {value: "5:20"}});

@@ -677,6 +677,7 @@ button {
 
 .profile-period-toolbar.simple {
     align-items: start;
+    grid-template-columns: 1fr;
 }
 
 .threshold-selected-summary,
