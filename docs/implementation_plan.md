@@ -97,7 +97,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 ### Architecture and Codebase Cleanup
 
 - [ ] Review the current code structure against the clean-architecture target in the specification and close remaining boundary leaks.
-- [ ] Refactor the frontend out of the current single-file `App.jsx` composition into screens, reusable hooks, API utilities, and focused components.
+- [x] Refactor the frontend out of the current single-file `App.jsx` composition into screens, reusable hooks, API utilities, and focused components.
 
 ### Local Workflow Hardening
 

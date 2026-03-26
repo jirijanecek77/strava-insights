@@ -1,6 +1,8 @@
 import {act, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 
-import App, {buildThresholdGuides, formatAltitudeAxisValue, formatAxisValue, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./App";
+import App from "./App";
+import {buildThresholdGuides, buildCalendarSummary, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./utils/data";
+import {formatAltitudeAxisValue, formatAxisValue} from "./utils/formatters";
 
 function jsonResponse(body, status = 200) {
     return {
@@ -1890,5 +1892,22 @@ describe("activity detail chart baselines", () => {
         expect(heartRateGuides.bands[0].y2).toBe(145);
         expect(heartRateGuides.bands[2].y1).toBe(168);
         expect(heartRateGuides.bands[2].y2).toBe(180);
+    });
+
+    it("builds calendar summaries with dominant sport, primary activity, and scaled distance", () => {
+        expect(
+            buildCalendarSummary([
+                {id: 10, sport_type: "Run", distance_km: 8.2},
+                {id: 11, sport_type: "Ride", distance_km: 24.5},
+                {id: 12, sport_type: "Ride", distance_km: 12.3},
+            ]),
+        ).toEqual({
+            activityCount: 3,
+            colorClass: "is-ride",
+            distanceKm: 45,
+            dominantSport: "Ride",
+            primaryActivityId: 11,
+            sizePx: 31,
+        });
     });
 });
