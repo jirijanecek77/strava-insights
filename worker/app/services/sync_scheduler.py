@@ -30,6 +30,8 @@ class DailyIncrementalSyncScheduler:
                 sync_type="incremental_sync",
                 metadata_json={"source": "daily_schedule"},
             )
+            # Persist the queued job before enqueuing the Celery task so workers can load it immediately.
+            self.session.commit()
             celery_app.send_task(
                 "app.tasks.sync.run_incremental_sync",
                 kwargs={"sync_job_id": sync_job.id, "user_id": user_id},

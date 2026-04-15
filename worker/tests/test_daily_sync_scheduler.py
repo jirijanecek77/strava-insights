@@ -6,9 +6,13 @@ from app.services.sync_scheduler import DailyIncrementalSyncScheduler
 class SessionStub:
     def __init__(self) -> None:
         self.flushes = 0
+        self.commits = 0
 
     def flush(self) -> None:
         self.flushes += 1
+
+    def commit(self) -> None:
+        self.commits += 1
 
 
 class UserRepositoryStub:
@@ -74,6 +78,7 @@ def test_daily_scheduler_creates_jobs_for_users_without_active_sync(monkeypatch)
             "kwargs": {"sync_job_id": 102, "user_id": 3},
         },
     ]
+    assert session.commits == 2
 
 
 def test_daily_scheduler_returns_zero_when_all_users_have_active_jobs(monkeypatch) -> None:
@@ -109,3 +114,34 @@ def test_daily_scheduler_logs_candidate_and_skip_counts(monkeypatch, caplog) -> 
     assert scheduled_jobs == 1
     assert any("Loaded incremental sync candidates." in message for message in caplog.messages)
     assert any("Skipping scheduled sync because an active job exists." in message for message in caplog.messages)
+
+
+def test_daily_scheduler_commits_job_before_enqueuing(monkeypatch) -> None:
+    events: list[str] = []
+
+    class SyncJobRepositoryWithEvents(SyncJobRepositoryStub):
+        def create_queued(self, *, user_id: int, sync_type: str, metadata_json: dict | None = None) -> SyncJobStub:
+            events.append("create")
+            return super().create_queued(user_id=user_id, sync_type=sync_type, metadata_json=metadata_json)
+
+    class SessionWithEvents(SessionStub):
+        def commit(self) -> None:
+            super().commit()
+            events.append("commit")
+
+    class CeleryAppWithEvents(CeleryAppStub):
+        def send_task(self, name: str, kwargs: dict) -> None:
+            events.append("enqueue")
+            super().send_task(name, kwargs)
+
+    session = SessionWithEvents()
+    scheduler = DailyIncrementalSyncScheduler(session)
+    scheduler.users = UserRepositoryStub([1])
+    scheduler.sync_jobs = SyncJobRepositoryWithEvents({1: None})
+    celery_app_stub = CeleryAppWithEvents()
+    monkeypatch.setattr("app.services.sync_scheduler.celery_app", celery_app_stub)
+
+    scheduled_jobs = scheduler.run()
+
+    assert scheduled_jobs == 1
+    assert events == ["create", "commit", "enqueue"]
