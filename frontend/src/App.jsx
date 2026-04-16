@@ -376,6 +376,15 @@ export default function App() {
             });
             window.location.assign(payload.authorization_url);
         } catch (error) {
+            if (authForm.mode === "saved") {
+                setAuthForm((current) => ({
+                    ...current,
+                    clientId: current.clientId || landingCredentialState.client_id || "",
+                    clientSecret: "",
+                    mode: "manual",
+                }));
+                setSetupModalOpen(true);
+            }
             setErrorMessage(error.message ?? "Failed to start Strava login.");
         } finally {
             setAuthBusy(false);
@@ -511,18 +520,7 @@ export default function App() {
                 onChangeAuthField={(field, value) => {
                     setAuthForm((current) => ({...current, [field]: value}));
                 }}
-                onCloseSetupModal={() => setSetupModalOpen(false)}
-                onEditSavedCredentials={() => {
-                    setAuthForm((current) => ({
-                        ...current,
-                        clientId: current.clientId || landingCredentialState.client_id || "",
-                        clientSecret: "",
-                        mode: "manual",
-                    }));
-                    setSetupModalOpen(true);
-                }}
                 onLogin={handleAuthPrimaryAction}
-                onOpenSetupModal={() => setSetupModalOpen(true)}
             />
         );
     }

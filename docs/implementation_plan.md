@@ -65,8 +65,8 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
-- [x] Added landing/login credential capture, saved-credential reconnect behavior after logout, and a Strava API settings link for user-managed app credentials.
-- [x] Redesigned the landing/login page into a simpler Strava-first hero with a separate setup modal for client credentials, a dominant login action, and bundled local hero artwork.
+- [x] Added landing/login credential capture with saved-credential reconnect behavior after logout.
+- [x] Simplified the landing/login flow to a single `Login to Strava` action that attempts immediate OAuth and falls back to a setup modal with Strava credential setup guidance when credentials are missing.
 
 ### Completed Validation and Hardening Work
 

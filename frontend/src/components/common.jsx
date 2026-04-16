@@ -16,28 +16,21 @@ export function LoadingScreen() {
 }
 
 export function AuthScreen({
-    authBusy,
-    authForm,
-    errorMessage,
-    isLoggedOut,
-    isSetupModalOpen,
-    landingCredentialState,
-    onChangeAuthField,
-    onCloseSetupModal,
-    onEditSavedCredentials,
-    onLogin,
-    onOpenSetupModal,
-}) {
+                               authBusy,
+                               authForm,
+                               errorMessage,
+                               isLoggedOut,
+                               isSetupModalOpen,
+                               landingCredentialState,
+                               onChangeAuthField,
+                               onLogin,
+                           }) {
     const hasSavedCredentials = authForm.mode === "saved" && landingCredentialState.can_connect;
     const hasManualCredentials = authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
     const canConnect = hasSavedCredentials || hasManualCredentials;
     const primaryButtonLabel = authBusy ? "Opening Strava..." : "Login to Strava";
     const heroTitle = isLoggedOut ? "Back to your training archive." : "Your Strava history, kept simple.";
-    const heroCopy = isLoggedOut
-        ? "Your data is still here. Connect again and continue."
-        : "Login once. Review everything locally.";
-    const secondaryButtonLabel = "Set Strava credentials";
-    const subCopy = hasSavedCredentials ? "Ready when you are." : "First time? Set up your app, then log in.";
+    const subCopy = hasSavedCredentials ? "Your data is still here. Log in again and continue." : "First time? Set up your app, then log in.";
 
     return (
         <main className="app-shell landing-shell">
@@ -46,7 +39,6 @@ export function AuthScreen({
                 <div className="landing-copy landing-copy-simple">
                     <p className="eyebrow">Strava Insights</p>
                     <h1>{heroTitle}</h1>
-                    <p className="copy landing-copy-compact">{heroCopy}</p>
                     <p className="copy landing-subcopy">{hasManualCredentials ? "Ready for login." : subCopy}</p>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
                     <div className="landing-actions">
@@ -56,9 +48,6 @@ export function AuthScreen({
                                 <span className="strava-connect-chevron short"/>
                             </span>
                             <span>{primaryButtonLabel}</span>
-                        </button>
-                        <button className="ghost-button landing-setup-button" onClick={hasSavedCredentials ? onEditSavedCredentials : onOpenSetupModal} type="button">
-                            {secondaryButtonLabel}
                         </button>
                     </div>
                 </div>
@@ -70,9 +59,8 @@ export function AuthScreen({
                             <span className="auth-brand-word">Strava</span>
                         </div>
                         <p className="auth-brand-mark">Compatible with Strava</p>
-                        <p className="copy">Fast local dashboard. Less text. One clear login path.</p>
                         <p className="copy landing-legal-copy">
-                            Separate app. Not developed or sponsored by Strava.
+                            Not developed or sponsored by Strava.
                         </p>
                     </div>
                 </div>
@@ -84,11 +72,14 @@ export function AuthScreen({
                             <div>
                                 <p className="eyebrow">Strava App</p>
                                 <h2 id="setup-dialog-title">Set up your Strava app</h2>
-                                <p className="copy">Paste your client ID and secret, then return to login.</p>
+                                <p className="copy">
+                                    Get your Client ID and Client Secret from your Strava app settings. </p>
+                                <p className="copy">For more information, see the {" "}
+                                    <a href="https://developers.strava.com/docs/getting-started/#account" >
+                                        "Strava developer getting started"
+                                    </a> guide.
+                                </p>
                             </div>
-                            <button aria-label="Close setup" className="ghost-button compact-inline-button" onClick={onCloseSetupModal} type="button">
-                                Close
-                            </button>
                         </div>
                         <div className="auth-credential-grid">
                             <label className="control-chip">
@@ -112,11 +103,8 @@ export function AuthScreen({
                             </label>
                         </div>
                         <div className="setup-modal-actions">
-                            <button className="primary-button" onClick={onCloseSetupModal} type="button">
-                                Save for next login
-                            </button>
-                            <button className="ghost-button" onClick={onLogin} type="button">
-                                {canConnect ? "Save and login" : "Login after setup"}
+                            <button className="primary-button" disabled={authBusy || !canConnect} onClick={onLogin} type="button">
+                                {primaryButtonLabel}
                             </button>
                         </div>
                     </section>
@@ -150,18 +138,18 @@ export function Sidebar({availableViews, selectedView, user, onSelectView}) {
 }
 
 export function Toolbar({
-    calendarMonth,
-    dateFrom,
-    dateTo,
-    selectedSport,
-    selectedView,
-    selectedWindow,
-    onChangeCalendarMonth,
-    onChangeDateFrom,
-    onChangeDateTo,
-    onSelectSport,
-    onSelectWindow,
-}) {
+                            calendarMonth,
+                            dateFrom,
+                            dateTo,
+                            selectedSport,
+                            selectedView,
+                            selectedWindow,
+                            onChangeCalendarMonth,
+                            onChangeDateFrom,
+                            onChangeDateTo,
+                            onSelectSport,
+                            onSelectWindow,
+                        }) {
     const showSportFilter = selectedView === "dashboard" || selectedView === "calendar" || selectedView === "activities" || selectedView === "best-efforts";
     const showWindowFilter = selectedView === "dashboard";
     const showDateFilters = selectedView === "activities";

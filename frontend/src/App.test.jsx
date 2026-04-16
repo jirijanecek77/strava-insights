@@ -42,14 +42,18 @@ describe("App", () => {
 
         expect(await screen.findByRole("heading", {name: /your strava history, kept simple/i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
-        expect(screen.getByText(/login once\. review everything locally\./i)).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /set strava credentials/i})).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: /set strava credentials/i})).not.toBeInTheDocument();
         expect(screen.queryByText(/setup required/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/flow/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", {name: /login to strava/i}));
-        expect(await screen.findByRole("dialog", {name: /set up your strava app/i})).toBeInTheDocument();
+        const dialog = await screen.findByRole("dialog", {name: /set up your strava app/i});
+        expect(dialog).toBeInTheDocument();
+        expect(within(dialog).getByRole("link", {name: /strava developer getting started/i})).toHaveAttribute(
+            "href",
+            "https://developers.strava.com/docs/getting-started/#account",
+        );
         expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
     });
 
@@ -120,8 +124,8 @@ describe("App", () => {
         expect(await screen.findByRole("heading", {name: /back to your training archive\./i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
         expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
-        expect(screen.getByText(/ready when you are\./i)).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /set strava credentials/i})).toBeInTheDocument();
+        expect(screen.getByText(/your data is still here\. log in again and continue\./i)).toBeInTheDocument();
+        expect(screen.queryByRole("button", {name: /set strava credentials/i})).not.toBeInTheDocument();
         expect(screen.getByText(/compatible with strava/i)).toBeInTheDocument();
         expect(screen.getByText(/not developed or sponsored by strava/i)).toBeInTheDocument();
     });
@@ -156,15 +160,11 @@ describe("App", () => {
 
         render(<App/>);
 
-        fireEvent.click(await screen.findByRole("button", {name: /set strava credentials/i}));
-        fireEvent.change(screen.getByLabelText("Strava Client ID"), {target: {value: "45678"}});
-        fireEvent.change(screen.getByLabelText("Strava Client Secret"), {target: {value: "super-secret"}});
-        fireEvent.click(screen.getByRole("button", {name: /save for next login/i}));
-
-        expect(screen.queryByRole("dialog", {name: /set up your strava app/i})).not.toBeInTheDocument();
-        expect(screen.getByText(/ready for login\./i)).toBeInTheDocument();
-
-        fireEvent.click(screen.getByRole("button", {name: /login to strava/i}));
+        fireEvent.click(await screen.findByRole("button", {name: /login to strava/i}));
+        const dialog = await screen.findByRole("dialog", {name: /set up your strava app/i});
+        fireEvent.change(within(dialog).getByLabelText("Strava Client ID"), {target: {value: "45678"}});
+        fireEvent.change(within(dialog).getByLabelText("Strava Client Secret"), {target: {value: "super-secret"}});
+        fireEvent.click(within(dialog).getByRole("button", {name: /login to strava/i}));
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
@@ -1096,6 +1096,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         expect(await screen.findByText(/2 activities/i)).toBeInTheDocument();
         const bubble = screen.getByRole("button", {name: /15 km/i});
@@ -1143,6 +1144,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         const bubble = await screen.findByRole("button", {name: /42 km/i});
         expect(bubble).toHaveClass("is-ride");
@@ -1204,6 +1206,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         const shortBubble = await screen.findByRole("button", {name: /^8 km$/i});
         const mediumBubble = await screen.findByRole("button", {name: /^18 km$/i});
@@ -1262,6 +1265,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         const shortRideBubble = await screen.findByRole("button", {name: /^20 km$/i});
         const longRideBubble = await screen.findByRole("button", {name: /^100 km$/i});
@@ -1432,6 +1436,7 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
+        fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         expect(await screen.findByText(/march 2026/i)).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /^10 km$/i})).toBeInTheDocument();
