@@ -234,6 +234,21 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
     const thresholdGuides = useMemo(() => buildThresholdGuides({maxValue, minValue, thresholds, valueKind, xMax, xMin}), [maxValue, minValue, thresholds, valueKind, xMax, xMin]);
     const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, chartData.length - 1);
     const activePoint = useMemo(() => (clampedActiveIndex == null ? null : chartData[clampedActiveIndex]), [chartData, clampedActiveIndex]);
+    const maxValuePoint = useMemo(() => {
+        let candidate = null;
+        for (const point of chartData) {
+            if (!Number.isFinite(point.value) || !Number.isFinite(point.distance)) {
+                continue;
+            }
+            const isBetterCandidate = valueKind === "pace"
+                ? !candidate || point.value < candidate.value
+                : !candidate || point.value > candidate.value;
+            if (isBetterCandidate) {
+                candidate = point;
+            }
+        }
+        return candidate;
+    }, [chartData, valueKind]);
     const [isTooltipVisible, setIsTooltipVisible] = useState(false);
     const gradientId = `detail-elevation-${accent}-${valueKind}`;
 
@@ -287,6 +302,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                     {thresholdGuides.lines.map((line) => (
                         <ReferenceLine ifOverflow="extendDomain" key={`threshold-line-${valueKind}-${line.label}`} label={{fill: line.color, fontSize: 10, position: "insideTopRight", value: line.label}} stroke={line.color} strokeDasharray="3 4" strokeWidth={1} y={line.value}/>
                     ))}
+                    {maxValuePoint ? <ReferenceLine stroke={referenceLineColor} strokeDasharray="3 3" strokeWidth={1.8} x={maxValuePoint.distance}/> : null}
                     {activePoint && Number.isFinite(activePoint.distance) ? <ReferenceLine stroke="rgba(29, 122, 243, 0.32)" strokeDasharray="4 4" x={activePoint.distance}/> : null}
                     {activePoint && Number.isFinite(activePoint.distance) && Number.isFinite(activePoint.value) ? <ReferenceDot fill="#ffffff" r={4} stroke={lineColor} strokeWidth={2} x={activePoint.distance} y={activePoint.value}/> : null}
                 </ComposedChart>
