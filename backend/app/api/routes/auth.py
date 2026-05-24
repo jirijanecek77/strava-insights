@@ -7,6 +7,7 @@ from app.application.auth.current_user import CurrentUserService
 from app.application.auth.oauth import StravaOAuthService
 from app.application.sync.orchestrator import SyncOrchestrator
 from app.core.config import settings
+from app.core.logging import set_log_user_name
 from app.domain.schemas.auth import StartStravaLoginRequest, StartStravaLoginResponse, StravaCredentialStateResponse
 from app.domain.schemas.user import CurrentUserResponse
 
@@ -60,6 +61,7 @@ def strava_callback(
         "profile_picture_url": authenticated_user.profile_picture_url,
     }
     request.session["remembered_user_id"] = authenticated_user.id
+    set_log_user_name(authenticated_user.display_name)
     logger.info("Completed Strava OAuth callback.", extra={"user.id": authenticated_user.id})
 
     return RedirectResponse(url=settings.frontend_public_url, status_code=status.HTTP_302_FOUND)

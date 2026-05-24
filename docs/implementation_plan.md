@@ -85,6 +85,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Removed dead frontend helpers and stale backend-only code paths with no production call sites.
 - [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
 - [x] Added backend, worker, and beat logging to Docker console with request and task lifecycle coverage.
+- [x] Standardized backend, worker, and frontend log prefixes with readable timestamps, service labels, and frontend INFO-level filtering.
 
 ## Remaining Work
 

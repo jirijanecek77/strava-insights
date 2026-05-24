@@ -1,4 +1,5 @@
 import {apiBaseUrl} from "../constants";
+import {logFrontend} from "./logger";
 
 export function generateRequestId() {
     if (globalThis.crypto?.randomUUID) {
@@ -8,15 +9,14 @@ export function generateRequestId() {
 }
 
 function logFrontendRequest(level, payload) {
-    const logger = level === "error" ? console.error : console.info;
-    logger("[api]", payload);
+    logFrontend(level, "api", payload);
 }
 
 export async function fetchJson(path, options = {}) {
     const {headers: optionHeaders, requestId = generateRequestId(), requestLabel = path, ...fetchOptions} = options;
     const url = `${apiBaseUrl}${path}`;
     const startedAt = performance.now();
-    logFrontendRequest("info", {
+    logFrontendRequest("debug", {
         phase: "start",
         requestId,
         requestLabel,
@@ -96,7 +96,7 @@ export async function fetchJson(path, options = {}) {
     }
 
     if (response.status === 204) {
-        logFrontendRequest("info", {
+        logFrontendRequest("debug", {
             durationMs: Math.round(performance.now() - startedAt),
             phase: "success",
             requestId: responseRequestId,
@@ -109,7 +109,7 @@ export async function fetchJson(path, options = {}) {
     }
 
     const payload = await response.json();
-    logFrontendRequest("info", {
+    logFrontendRequest("debug", {
         durationMs: Math.round(performance.now() - startedAt),
         phase: "success",
         requestId: responseRequestId,

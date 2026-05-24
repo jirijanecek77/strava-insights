@@ -21,6 +21,7 @@ import {
     formatDateInput,
     parsePaceInput,
 } from "./utils/formatters";
+import {setFrontendLoggerUser} from "./utils/logger";
 
 export default function App() {
     const [sessionState, setSessionState] = useState("loading");
@@ -78,6 +79,10 @@ export default function App() {
     );
     const isAdmin = user?.strava_athlete_id === adminStravaAthleteId;
     const availableViews = isAdmin ? [...views, "admin"] : views;
+
+    useEffect(() => {
+        setFrontendLoggerUser(user);
+    }, [user]);
 
     const loadLandingCredentialState = useEffectEvent(async () => {
         try {

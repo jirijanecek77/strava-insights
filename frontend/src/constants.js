@@ -13,7 +13,7 @@ export const sports = [
     {id: "Ride", label: "Ride"},
     {id: "EBikeRide", label: "E-Bike"},
 ];
-export const syncPollIntervalMs = 3000;
+export const syncPollIntervalMs = 60*1000;
 export const defaultLandingCredentialState = {
     client_id: "",
     has_saved_secret: false,

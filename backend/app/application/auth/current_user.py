@@ -3,6 +3,7 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
+from app.core.logging import set_log_user_name
 from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.repositories.user_repository import UserRepository
 
@@ -15,6 +16,7 @@ class CurrentUserService:
         session_user = request.session.get("user")
         if not session_user:
             return None
+        set_log_user_name(session_user.get("display_name"))
 
         if self.db_session is None:
             return CurrentUserResponse.model_validate(session_user)
@@ -22,6 +24,8 @@ class CurrentUserService:
         persisted_user = UserRepository(self.db_session).get_by_id(session_user["id"])
         if persisted_user is None or not persisted_user.is_active:
             request.session.clear()
+            set_log_user_name(None)
             return None
 
+        set_log_user_name(persisted_user.display_name)
         return CurrentUserResponse.model_validate(persisted_user)

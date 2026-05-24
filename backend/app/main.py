@@ -1,4 +1,7 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
+import base64
+import json
 import logging
 import time
 from uuid import uuid4
@@ -7,11 +10,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
+from itsdangerous import BadSignature, TimestampSigner
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.logging import configure_logging
+from app.core.logging import configure_logging, get_log_user_name, reset_log_user_name, set_log_user_name
 from app.infrastructure.db.bootstrap import upgrade_database
 
 
@@ -22,7 +26,30 @@ logger = logging.getLogger("app.main")
 
 
 def _emit_console_log(message: str) -> None:
-    print(message, flush=True)
+    timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S%z")
+    print(f"{timestamp} INFO [be] [user={get_log_user_name()}] [app.main] {message}", flush=True)
+
+
+def _get_session_user_for_logging(request: Request) -> dict:
+    session = request.scope.get("session")
+    if isinstance(session, dict):
+        session_user = session.get("user")
+        if isinstance(session_user, dict):
+            return session_user
+
+    raw_cookie = request.cookies.get(settings.session_cookie_name)
+    if not raw_cookie:
+        return {}
+
+    signer = TimestampSigner(str(settings.session_secret_key))
+    try:
+        data = signer.unsign(raw_cookie, max_age=settings.session_max_age_seconds)
+        session_payload = json.loads(base64.b64decode(data))
+    except (BadSignature, ValueError, json.JSONDecodeError):
+        return {}
+
+    session_user = session_payload.get("user")
+    return session_user if isinstance(session_user, dict) else {}
 
 
 @asynccontextmanager
@@ -56,6 +83,8 @@ app.include_router(api_router)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    session_user = _get_session_user_for_logging(request)
+    log_user_token = set_log_user_name(session_user.get("display_name"))
     start_time = time.perf_counter()
     request_id = request.headers.get("x-request-id") or str(uuid4())
     request.state.request_id = request_id
@@ -89,57 +118,60 @@ async def log_requests(request: Request, call_next):
     )
     _emit_console_log(started_message)
     try:
-        response = await call_next(request)
-    except Exception:
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            failed_message = (
+                f"request_id={request_id} "
+                f"Request failed method={request.method} "
+                f"path={request.url.path} "
+                f"duration_ms={duration_ms:.2f}"
+            )
+            logger.exception(
+                "Request failed request_id=%s method=%s path=%s duration_ms=%.2f",
+                request_id,
+                request.method,
+                request.url.path,
+                duration_ms,
+                extra={
+                    "request.id": request_id,
+                    "http.method": request.method,
+                    "url.path": request.url.path,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+            _emit_console_log(failed_message)
+            raise
+
         duration_ms = (time.perf_counter() - start_time) * 1000
-        failed_message = (
+        completed_message = (
             f"request_id={request_id} "
-            f"Request failed method={request.method} "
+            f"Request completed method={request.method} "
             f"path={request.url.path} "
+            f"status={response.status_code} "
             f"duration_ms={duration_ms:.2f}"
         )
-        logger.exception(
-            "Request failed request_id=%s method=%s path=%s duration_ms=%.2f",
+        logger.info(
+            "Request completed request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
             request_id,
             request.method,
             request.url.path,
+            response.status_code,
             duration_ms,
             extra={
                 "request.id": request_id,
                 "http.method": request.method,
                 "url.path": request.url.path,
+                "http.status_code": response.status_code,
                 "duration_ms": round(duration_ms, 2),
             },
         )
-        _emit_console_log(failed_message)
-        raise
-
-    duration_ms = (time.perf_counter() - start_time) * 1000
-    completed_message = (
-        f"request_id={request_id} "
-        f"Request completed method={request.method} "
-        f"path={request.url.path} "
-        f"status={response.status_code} "
-        f"duration_ms={duration_ms:.2f}"
-    )
-    logger.info(
-        "Request completed request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
-        request_id,
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-        extra={
-            "request.id": request_id,
-            "http.method": request.method,
-            "url.path": request.url.path,
-            "http.status_code": response.status_code,
-            "duration_ms": round(duration_ms, 2),
-        },
-    )
-    response.headers["X-Request-ID"] = request_id
-    _emit_console_log(completed_message)
-    return response
+        response.headers["X-Request-ID"] = request_id
+        _emit_console_log(completed_message)
+        return response
+    finally:
+        reset_log_user_name(log_user_token)
 
 
 @app.exception_handler(Exception)

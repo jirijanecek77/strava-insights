@@ -1,8 +1,11 @@
 import logging
+import base64
+import json
 from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
+from itsdangerous import TimestampSigner
 
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
@@ -13,6 +16,7 @@ from app.application.read_models.dashboard import DashboardReadService
 from app.application.sync.dto import CreatedSyncJob
 from app.application.sync.orchestrator import SyncOrchestrator
 from app.application.sync.status import SyncStatusService
+from app.core.config import settings
 from app.domain.schemas.activity import ActivityDetailResponse, ActivityKpis, ActivityListResponse, ActivityListRow, ActivityMap, ActivitySeries
 from app.domain.schemas.best_effort import BestEffortItem, BestEffortsResponse
 from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
@@ -337,6 +341,27 @@ def test_request_logging_logs_start_and_completion(client, capsys) -> None:
     assert "Request started method=GET path=/health" in captured.out
     assert "request_id=req-health-test" in captured.out
     assert "Request completed method=GET path=/health status=200" in captured.out
+
+
+def test_request_logging_includes_session_user_name(client, capsys) -> None:
+    session_payload = {
+        "user": {
+            "id": 1,
+            "strava_athlete_id": 162181,
+            "display_name": "Test Athlete",
+            "profile_picture_url": None,
+        }
+    }
+    serialized_session = base64.b64encode(json.dumps(session_payload).encode("utf-8")).decode("utf-8")
+    signed_session = TimestampSigner(str(settings.session_secret_key)).sign(serialized_session).decode("utf-8")
+
+    client.cookies.set(settings.session_cookie_name, signed_session)
+    response = client.get("/health", headers={"x-request-id": "req-health-user-test"})
+    captured = capsys.readouterr()
+
+    assert response.status_code == 200
+    assert "[user=Test Athlete]" in captured.out
+    assert "request_id=req-health-user-test Request started method=GET path=/health" in captured.out
 
 
 def test_request_logging_logs_unhandled_exceptions(client, capsys) -> None:

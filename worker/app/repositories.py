@@ -20,6 +20,9 @@ class UserRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def get_by_id(self, user_id: int) -> User | None:
+        return self.session.query(User).filter(User.id == user_id).one_or_none()
+
     def list_incremental_sync_candidates(self) -> list[int]:
         rows = (
             self.session.query(User.id)
