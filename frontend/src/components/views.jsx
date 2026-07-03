@@ -9,7 +9,6 @@ import {
     formatDateTime,
     formatDistanceMeters,
     formatDuration,
-    formatHeartRateDrift,
     formatLabel,
     formatMetricValue,
     formatNumber,
@@ -23,6 +22,7 @@ import {ActivityDetail} from "./activity-detail";
 import {EmptyState, FilterSelect} from "./common";
 
 export function DashboardView({
+    aerobicEfficiency,
     comparisons,
     currentComparisonStart,
     dashboard,
@@ -43,7 +43,7 @@ export function DashboardView({
                         <h2>{trends ? formatLabel(trends.period_type) : "Rolling 30d"}</h2>
                     </div>
                 </div>
-                {trends ? <TrendList items={trends.items}/> : <EmptyState text="Rolling 30-day mode compares windows directly."/>}
+                {trends ? <TrendList efficiencyItems={aerobicEfficiency?.items ?? []} items={trends.items}/> : <EmptyState text="Rolling 30-day mode compares windows directly."/>}
             </article>
             <article className="panel panel-span-full">
                 <div className="panel-header">
@@ -425,20 +425,32 @@ function ComparisonCard({comparison}) {
     );
 }
 
-function TrendList({items}) {
+function TrendList({efficiencyItems, items}) {
     if (!items.length) {
         return <EmptyState text="No trend points yet."/>;
     }
     const points = aggregateTrendItems(items);
     const periodType = items[0]?.period_type ?? "month";
-    const chartData = points.map((point) => ({...point, axisLabel: formatTrendAxisLabel(point.periodStart, periodType)}));
+    const efficiencyByPeriod = useMemo(() => {
+        const map = new Map();
+        (efficiencyItems ?? []).forEach((item) => {
+            map.set(item.period_start, item.aerobic_efficiency);
+        });
+        return map;
+    }, [efficiencyItems]);
+    const chartData = points.map((point) => ({
+        ...point,
+        axisLabel: formatTrendAxisLabel(point.periodStart, periodType),
+        aerobicEfficiency: efficiencyByPeriod.get(point.periodStart) ?? null,
+    }));
+    const hasEfficiency = efficiencyItems != null && efficiencyItems.length > 0;
 
     return (
         <div className="trend-chart-shell">
             <div className="trend-chart-legend" aria-hidden="true">
                 <span className="trend-legend-item"><span className="trend-legend-swatch distance"/>Km</span>
                 <span className="trend-legend-item"><span className="trend-legend-swatch sessions"/>Sessions</span>
-                <span className="trend-legend-item"><span className="trend-legend-swatch hr-drift"/>HR Drift</span>
+                {hasEfficiency ? <span className="trend-legend-item"><span className="trend-legend-swatch efficiency"/>Efficiency</span> : null}
             </div>
             <div aria-label="Trend graph" className="trend-chart" role="img">
                 <ResponsiveContainer height="100%" width="100%">
@@ -447,11 +459,11 @@ function TrendList({items}) {
                         <XAxis axisLine={false} dataKey="axisLabel" tick={{fill: "#6f6b62", fontSize: 11}} tickLine={false}/>
                         <YAxis axisLine={false} domain={[0, "dataMax"]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => `${Math.round(value)}`} tickLine={false} width={28}/>
                         <YAxis axisLine={false} dataKey="sessions" domain={[0, "dataMax"]} hide orientation="right" yAxisId="sessions"/>
-                        <YAxis axisLine={false} dataKey="hrDrift" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="hrDrift"/>
+                        {hasEfficiency ? <YAxis axisLine={false} dataKey="aerobicEfficiency" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="efficiency"/> : null}
                         <Tooltip content={<TrendChartTooltip/>} cursor={{fill: "rgba(252, 76, 2, 0.08)"}}/>
                         <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]}/>
                         <Line dataKey="sessions" dot={{fill: "#1d7af3", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#1d7af3" strokeWidth={2} type="monotone" yAxisId="sessions"/>
-                        <Line connectNulls dataKey="hrDrift" dot={{fill: "#2f9e44", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#2f9e44" strokeWidth={2} type="monotone" yAxisId="hrDrift"/>
+                        {hasEfficiency ? <Line connectNulls dataKey="aerobicEfficiency" dot={{fill: "#2f9e44", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#2f9e44" strokeWidth={2} type="monotone" yAxisId="efficiency"/> : null}
                         <Brush dataKey="axisLabel" defaultEndIndex={points.length - 1} defaultStartIndex={Math.max(points.length - 12, 0)} fill="rgba(252, 76, 2, 0.08)" height={22} stroke="#fc4c02" travellerWidth={12}/>
                     </ComposedChart>
                 </ResponsiveContainer>
@@ -470,7 +482,7 @@ function TrendChartTooltip({active, payload}) {
             <strong>{formatDateLabel(point.periodStart)}</strong>
             <span>{formatNumber(point.distanceKm)} km</span>
             <span>{point.sessions} sessions</span>
-            {point.hrDrift != null ? <span>{formatHeartRateDrift(point.hrDrift)} hr drift</span> : null}
+            {point.aerobicEfficiency != null ? <span>{formatNumber(point.aerobicEfficiency)} m/beat (efficiency)</span> : null}
         </div>
     );
 }

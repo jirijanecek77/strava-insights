@@ -134,7 +134,9 @@ class ActivityReadService:
             kpis=ActivityKpis(
                 distance_km=activity.distance_km,
                 moving_time_display=activity.moving_time_display,
+                elapsed_time_display=_format_elapsed_time(activity.elapsed_time_seconds, activity.moving_time_seconds),
                 summary_metric_display=_format_summary_metric_value(activity),
+                aerobic_efficiency_m_per_beat=_compute_aerobic_efficiency(activity.average_speed_mps, activity.average_heartrate_bpm),
                 summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
@@ -170,6 +172,24 @@ def _map_bounds(polyline: list[list[float]]) -> dict[str, float]:
         "min_lng": min(longitudes),
         "max_lng": max(longitudes),
     }
+
+
+def _compute_aerobic_efficiency(speed_mps, heartrate_bpm) -> float | None:
+    if speed_mps is None or heartrate_bpm is None or float(heartrate_bpm) == 0:
+        return None
+    return round((float(speed_mps) * 3.6 * 1000) / (float(heartrate_bpm) * 60), 2)
+
+
+def _format_elapsed_time(elapsed_seconds: int | None, moving_seconds: int | None) -> str | None:
+    if elapsed_seconds is None or moving_seconds is None:
+        return None
+    if elapsed_seconds - moving_seconds <= 30:
+        return None
+    hours, remainder = divmod(elapsed_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes}:{seconds:02d}"
 
 
 def _summary_metric_kind(activity) -> str | None:

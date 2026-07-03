@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.application.auth.current_user import CurrentUserService
 from app.application.read_models.dashboard import DashboardReadService
-from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, TrendsResponse
+from app.domain.schemas.dashboard import AerobicEfficiencyResponse, DashboardResponse, PeriodComparisonSchema, TrendsResponse
 
 
 router = APIRouter()
@@ -38,6 +38,18 @@ def get_trends(
 ) -> TrendsResponse:
     user = _require_user(request, current_user_service)
     return dashboard_read_service.get_trends(user.id, period_type=period_type, sport_type=sport_type)
+
+
+@router.get("/aerobic-efficiency", response_model=AerobicEfficiencyResponse)
+def get_aerobic_efficiency(
+    request: Request,
+    period_type: str = Query(..., pattern="^(week|month|year)$"),
+    sport_type: str | None = Query(None),
+    current_user_service: CurrentUserService = Depends(CurrentUserService),
+    dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
+) -> AerobicEfficiencyResponse:
+    user = _require_user(request, current_user_service)
+    return dashboard_read_service.get_aerobic_efficiency(user.id, period_type=period_type, sport_type=sport_type)
 
 
 @router.get("/comparisons", response_model=list[PeriodComparisonSchema])

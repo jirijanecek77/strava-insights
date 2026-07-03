@@ -1,11 +1,12 @@
+from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
-from app.application.analytics.aggregations import ActivityAggregateInput, compare_periods, summarize_window
-from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
+from app.application.analytics.aggregations import ActivityAggregateInput, compare_periods, summarize_window, _period_start
+from app.domain.schemas.dashboard import AerobicEfficiencyPoint, AerobicEfficiencyResponse, DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
 from app.infrastructure.repositories.activity_repository import ActivityRepository
 from app.infrastructure.repositories.period_summary_repository import PeriodSummaryRepository
 
@@ -49,6 +50,30 @@ class DashboardReadService:
             period_type=period_type,
             items=[PeriodSummarySchema.model_validate(item, from_attributes=True) for item in items],
         )
+
+    def get_aerobic_efficiency(
+        self, user_id: int, *, period_type: str, sport_type: str | None = None
+    ) -> AerobicEfficiencyResponse:
+        activities = self.activities.list_with_hr_and_speed(user_id, sport_type=sport_type)
+        buckets: dict[tuple[str, date], list[tuple[float, float]]] = defaultdict(list)
+        for activity in activities:
+            activity_date = (activity.start_date_local or activity.start_date_utc).date()
+            key = (activity.sport_type, _period_start(period_type, activity_date))
+            speed_kph = float(activity.average_speed_mps) * 3.6
+            buckets[key].append((float(activity.average_heartrate_bpm), speed_kph))
+        items = []
+        for (sport, period), pairs in sorted(buckets.items(), key=lambda x: x[0][1]):
+            avg_hr = sum(hr for hr, _ in pairs) / len(pairs)
+            avg_speed = sum(spd for _, spd in pairs) / len(pairs)
+            items.append(
+                AerobicEfficiencyPoint(
+                    period_start=period,
+                    sport_type=sport,
+                    aerobic_efficiency=round((avg_speed * 1000) / (avg_hr * 60), 2),
+                    activity_count=len(pairs),
+                )
+            )
+        return AerobicEfficiencyResponse(period_type=period_type, items=items)
 
     def get_comparisons(
         self,

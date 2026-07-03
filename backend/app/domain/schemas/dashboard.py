@@ -13,8 +13,19 @@ class PeriodSummarySchema(BaseModel):
     total_moving_time_seconds: int
     average_speed_mps: Decimal | None = None
     average_pace_seconds_per_km: Decimal | None = None
-    average_heart_rate_drift_bpm: Decimal | None = None
     total_elevation_gain_meters: Decimal | None = None
+
+
+class AerobicEfficiencyPoint(BaseModel):
+    period_start: date
+    sport_type: str
+    aerobic_efficiency: float
+    activity_count: int
+
+
+class AerobicEfficiencyResponse(BaseModel):
+    period_type: str
+    items: list[AerobicEfficiencyPoint]
 
 
 class PeriodComparisonSchema(BaseModel):

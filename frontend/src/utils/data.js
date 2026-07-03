@@ -24,23 +24,12 @@ export function aggregateTrendItems(items) {
             timestamp: new Date(key).getTime(),
             distanceKm: 0,
             sessions: 0,
-            hrDriftTotal: 0,
-            hrDriftCount: 0,
         };
         current.distanceKm += Number(item.total_distance_meters ?? 0) / 1000;
         current.sessions += Number(item.activity_count ?? 0);
-        if (item.average_heart_rate_drift_bpm != null) {
-            current.hrDriftTotal += Number(item.average_heart_rate_drift_bpm);
-            current.hrDriftCount += 1;
-        }
         byDate.set(key, current);
     });
-    return Array.from(byDate.values())
-        .map((point) => ({
-            ...point,
-            hrDrift: point.hrDriftCount > 0 ? point.hrDriftTotal / point.hrDriftCount : null,
-        }))
-        .sort((left, right) => left.timestamp - right.timestamp);
+    return Array.from(byDate.values()).sort((left, right) => left.timestamp - right.timestamp);
 }
 
 export function parseMonthInput(value) {

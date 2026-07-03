@@ -32,3 +32,16 @@ class ActivityRepository:
         if date_to is not None:
             query = query.filter(Activity.start_date_local < date_to)
         return query.order_by(Activity.start_date_local.desc()).all()
+
+    def list_with_hr_and_speed(self, user_id: int, *, sport_type: str | None = None) -> list[Activity]:
+        query = (
+            self.session.query(Activity)
+            .filter(
+                Activity.user_id == user_id,
+                Activity.average_heartrate_bpm.isnot(None),
+                Activity.average_speed_mps.isnot(None),
+            )
+        )
+        if sport_type is not None:
+            query = query.filter(Activity.sport_type == sport_type)
+        return query.order_by(Activity.start_date_local.asc()).all()

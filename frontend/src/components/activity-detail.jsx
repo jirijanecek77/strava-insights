@@ -29,7 +29,6 @@ import {
     formatClimbingSummary,
     formatDateTime,
     formatDistanceKm,
-    formatHeartRateDrift,
     formatNumber,
     formatPercentage,
     formatSummaryMetricDisplay,
@@ -88,11 +87,11 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex})
             <div className="kpi-grid">
                 <MetricTile label="Distance" value={detail.kpis.distance_km != null ? `${detail.kpis.distance_km} km` : "n/a"}/>
                 <MetricTile label="Moving Time" value={detail.kpis.moving_time_display ?? "n/a"}/>
+                {detail.kpis.elapsed_time_display != null ? <MetricTile label="Elapsed Time" value={detail.kpis.elapsed_time_display}/> : null}
                 <MetricTile label={detail.kpis.summary_metric_kind === "speed" ? "Speed" : "Pace"} value={formatSummaryMetricDisplay(detail.kpis.summary_metric_display, detail.kpis.summary_metric_kind)}/>
                 <MetricTile label="Elevation" value={detail.kpis.total_elevation_gain_meters != null ? `${detail.kpis.total_elevation_gain_meters} m` : "n/a"}/>
                 <MetricTile label="Average HR" value={detail.kpis.average_heartrate_bpm != null ? `${detail.kpis.average_heartrate_bpm} bpm` : "n/a"}/>
-                {isRide ? <MetricTile label="Cadence" value={detail.kpis.average_cadence != null ? `${formatNumber(detail.kpis.average_cadence)} rpm` : "n/a"}/> : null}
-                <MetricTile label="HR Drift" value={formatHeartRateDrift(detail.kpis.heart_rate_drift_bpm)}/>
+                <MetricTile label="Efficiency" value={detail.kpis.aerobic_efficiency_m_per_beat != null ? `${formatNumber(detail.kpis.aerobic_efficiency_m_per_beat)} m/beat` : "n/a"}/>
             </div>
             <div className="detail-grid">
                 <div className="detail-card detail-card-wide">

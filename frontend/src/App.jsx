@@ -30,6 +30,7 @@ export default function App() {
     const [dashboard, setDashboard] = useState(null);
     const [comparisons, setComparisons] = useState([]);
     const [trends, setTrends] = useState(null);
+    const [aerobicEfficiency, setAerobicEfficiency] = useState(null);
     const [activities, setActivities] = useState([]);
     const [bestEfforts, setBestEfforts] = useState([]);
     const [selectedView, setSelectedView] = useState("dashboard");
@@ -167,7 +168,7 @@ export default function App() {
 
         async function loadData() {
             try {
-                const [sync, overview, activityList, efforts, comparisonItems, trendItems] = await Promise.all([
+                const [sync, overview, activityList, efforts, comparisonItems, trendItems, efficiencyItems] = await Promise.all([
                     fetchJson("/sync/status"),
                     fetchJson(`/dashboard${buildQuery({sport_type: selectedSport || undefined})}`),
                     fetchJson(`/activities${activityQuery}`),
@@ -188,6 +189,14 @@ export default function App() {
                                 sport_type: selectedSport || undefined,
                             })}`,
                         ),
+                    selectedWindow === "rolling_30d" || !selectedSport
+                        ? Promise.resolve(null)
+                        : fetchJson(
+                            `/aerobic-efficiency${buildQuery({
+                                period_type: selectedWindow,
+                                sport_type: selectedSport,
+                            })}`,
+                        ),
                 ]);
 
                 if (!active) {
@@ -200,6 +209,7 @@ export default function App() {
                     setBestEfforts(efforts.items ?? []);
                     setComparisons(comparisonItems ?? []);
                     setTrends(trendItems);
+                    setAerobicEfficiency(efficiencyItems);
                     setErrorMessage("");
                 });
             } catch (error) {
@@ -557,6 +567,7 @@ export default function App() {
                     {errorMessage ? <div className="banner-error">{errorMessage}</div> : null}
                     {selectedView === "dashboard" ? (
                         <DashboardView
+                            aerobicEfficiency={aerobicEfficiency}
                             comparisons={comparisons}
                             currentComparisonStart={currentComparisonStart}
                             dashboard={dashboard}

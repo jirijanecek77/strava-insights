@@ -25,12 +25,14 @@ class ActivityListResponse(BaseModel):
 class ActivityKpis(BaseModel):
     distance_km: Decimal | None = None
     moving_time_display: str | None = None
+    elapsed_time_display: str | None = None
     summary_metric_display: str | None = None
     summary_metric_kind: str | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
     heart_rate_drift_bpm: Decimal | None = None
     average_cadence: Decimal | None = None
+    aerobic_efficiency_m_per_beat: float | None = None
 
 
 class ActivitySeries(BaseModel):
