@@ -282,12 +282,10 @@ describe("App", () => {
                                 matching_distance_km: 8.0,
                                 matching_share_percent: 80,
                                 pace_higher_distance_km: 1.0,
-                                pace_higher_share_percent: 10,
+                                pace_higher_share_percent: 55,
                                 heart_rate_higher_distance_km: 1.0,
                                 heart_rate_higher_share_percent: 10,
                             },
-                            steady_threshold_block: {start_distance_km: 2, end_distance_km: 7, distance_km: 5},
-                            above_threshold_block: {start_distance_km: 8.5, end_distance_km: 10, distance_km: 1.5},
                             interpretation: "Pace and heart rate aligned well, with most work sitting at aet to ant.",
                             activity_evaluation: "This looked like a controlled steady run with most of the work staying in the AeT to AnT range.",
                             further_training_suggestion: "A similar threshold session is reasonable next time if recovery stays good; otherwise use an easy aerobic day.",
@@ -406,6 +404,11 @@ describe("App", () => {
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
+        expect(screen.getByText(/pace above hr/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/improving signal/i)).toBeInTheDocument();
+        expect(screen.queryByLabelText(/strain warning/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/longest aet to ant/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/longest above ant/i)).not.toBeInTheDocument();
         expect(screen.getByText(/activity evaluation/i)).toBeInTheDocument();
         const activityEvaluationText = screen.getByText(/controlled steady run/i);
         expect(activityEvaluationText).toBeInTheDocument();
@@ -823,8 +826,6 @@ describe("App", () => {
                             descending_distance_km: 8,
                             descending_share_percent: 19,
                         },
-                        steady_aerobic_block: {start_distance_km: 0, end_distance_km: 12, distance_km: 12},
-                        above_threshold_block: {start_distance_km: 31, end_distance_km: 36, distance_km: 5},
                         average_cadence: 88,
                         activity_evaluation: "This looked like a hilly ride with meaningful high-cardiac-load segments on the climbs.",
                         further_training_suggestion: "Follow this with an easier spin or recovery day so the harder cardiovascular load has room to absorb.",
@@ -871,6 +872,8 @@ describe("App", () => {
         expect(screen.getByText(/cycling analysis/i)).toBeInTheDocument();
         expect(screen.getByText(/speed bands/i)).toBeInTheDocument();
         expect(screen.getByText(/average cadence/i)).toBeInTheDocument();
+        expect(screen.queryByText(/longest aerobic block/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/longest above ant/i)).not.toBeInTheDocument();
         expect(screen.getAllByText(/88 rpm/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/hilly ride with meaningful high-cardiac-load segments/i)).toBeInTheDocument();
         expect(screen.getByLabelText("km/h chart")).toBeInTheDocument();

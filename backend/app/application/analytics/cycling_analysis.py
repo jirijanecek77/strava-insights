@@ -19,10 +19,6 @@ def _heart_rate_band(value_bpm: float, *, aet: float, ant: float) -> str:
     return "above_ant"
 
 
-def _block_or_none(block: dict[str, float]) -> dict[str, float] | None:
-    return block if block["distance_km"] > 0 else None
-
-
 def _distribution(items: dict[str, float], total_distance: float, labels: dict[str, str]) -> list[dict[str, float | str]]:
     return [
         {
@@ -33,44 +29,6 @@ def _distribution(items: dict[str, float], total_distance: float, labels: dict[s
         }
         for code in labels
     ]
-
-
-def _activity_evaluation(
-    *,
-    heart_rate_distribution: list[dict[str, float | str]] | None,
-    climbing_share_percent: float,
-    heart_rate_drift_bpm: float | None,
-    above_threshold_block_distance: float,
-) -> str:
-    if heart_rate_distribution:
-        below_aet_share = next(item["share_percent"] for item in heart_rate_distribution if item["code"] == "below_aet")
-        above_ant_share = next(item["share_percent"] for item in heart_rate_distribution if item["code"] == "above_ant")
-        if above_ant_share >= 15 or above_threshold_block_distance >= 1.0:
-            if climbing_share_percent >= 30:
-                return "This looked like a hilly ride with meaningful high-cardiac-load segments on the climbs."
-            return "This looked like a harder ride, with meaningful time above your heart-rate threshold."
-        if below_aet_share >= 60:
-            return "This looked like an aerobic ride, with most of the work staying below your aerobic heart-rate threshold."
-    if climbing_share_percent >= 35:
-        return "This looked like a terrain-driven ride, with a large share of the distance spent climbing."
-    if heart_rate_drift_bpm is not None and heart_rate_drift_bpm >= 5:
-        return "This ride stayed moderate on speed, but heart-rate drift suggests the effort became more demanding over time."
-    return "This looked like a mostly steady ride, with load shaped more by terrain and pacing than by repeated hard surges."
-
-
-def _further_training_suggestion(
-    *,
-    heart_rate_distribution: list[dict[str, float | str]] | None,
-    heart_rate_drift_bpm: float | None,
-    above_threshold_block_distance: float,
-) -> str:
-    if heart_rate_distribution:
-        above_ant_share = next(item["share_percent"] for item in heart_rate_distribution if item["code"] == "above_ant")
-        if above_ant_share >= 15 or above_threshold_block_distance >= 1.0:
-            return "Follow this with an easier spin or recovery day so the harder cardiovascular load has room to absorb."
-    if heart_rate_drift_bpm is not None and heart_rate_drift_bpm >= 5:
-        return "Use the next ride as a steady aerobic spin and check whether heart rate stays more stable for the same speed."
-    return "If this matched the plan, repeat a similar steady ride on another endurance day and keep the effort controlled."
 
 
 def build_cycling_analysis(
@@ -182,18 +140,5 @@ def build_cycling_analysis(
         "speed_distribution": speed_distribution,
         "heart_rate_distribution": heart_rate_distribution,
         "climbing_summary": climbing_summary,
-        "steady_aerobic_block": _block_or_none(steady_aerobic_block),
-        "above_threshold_block": _block_or_none(above_threshold_block),
         "average_cadence": _round_metric(float(average_cadence)) if average_cadence is not None else None,
-        "activity_evaluation": _activity_evaluation(
-            heart_rate_distribution=heart_rate_distribution,
-            climbing_share_percent=climbing_summary["climbing_share_percent"],
-            heart_rate_drift_bpm=heart_rate_drift_bpm,
-            above_threshold_block_distance=above_threshold_block["distance_km"],
-        ),
-        "further_training_suggestion": _further_training_suggestion(
-            heart_rate_distribution=heart_rate_distribution,
-            heart_rate_drift_bpm=heart_rate_drift_bpm,
-            above_threshold_block_distance=above_threshold_block["distance_km"],
-        ),
     }

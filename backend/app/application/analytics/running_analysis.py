@@ -89,39 +89,26 @@ def _interpret_analysis(
     return f"Most work landed at {pace_label}, while heart rate sat mostly at {heart_rate_label}."
 
 
-def _activity_evaluation(
-    *,
-    dominant_pace_label: str,
-    matching_share: float,
-    heart_rate_higher_share: float,
-    above_threshold_distance: float,
-    steady_threshold_distance: float,
-) -> str:
-    if matching_share >= 75:
-        if above_threshold_distance > 1.0:
-            return f"This looked like a controlled hard session, with pace and heart rate aligned and meaningful time spent above AnT."
-        if steady_threshold_distance > 1.0:
-            return f"This looked like a steady threshold session, with pace and heart rate staying well aligned around AeT to AnT."
-        return f"This looked controlled overall, with pace and heart rate aligning well and most work centered on {dominant_pace_label}."
-    if heart_rate_higher_share >= 25:
-        return "This looked more physiologically demanding than pace alone suggests, which can happen with fatigue, heat, hills, or incomplete recovery."
-    return "This session looked mixed rather than fully settled, with pace and heart rate drifting between bands."
+def _distribution_share(distribution: Iterable[dict[str, float | str]], code: str) -> float:
+    for item in distribution:
+        if item["code"] == code:
+            return float(item["share_percent"])
+    return 0.0
 
 
-def _further_training_suggestion(
+def _is_interval_like(
     *,
-    matching_share: float,
-    heart_rate_higher_share: float,
-    above_threshold_distance: float,
-    steady_threshold_distance: float,
-) -> str:
-    if heart_rate_higher_share >= 25:
-        return "Use the next run as an easy aerobic session and watch whether heart rate settles more easily at the same pace."
-    if above_threshold_distance > 1.0:
-        return "Follow this with recovery or easy aerobic work so the high-intensity load has room to absorb."
-    if steady_threshold_distance > 1.0 and matching_share >= 70:
-        return "If this session matched the plan, you can repeat similar threshold work on a future quality day and build it gradually."
-    return "Keep the next session aligned with your training goal, and use the pace-vs-heart-rate match to check whether the effort stays controlled."
+    pace_distribution: Iterable[dict[str, float | str]],
+    pace_band_transitions: int,
+    total_distance: float,
+) -> bool:
+    if total_distance < 2.0:
+        return False
+    below_aet_share = _distribution_share(pace_distribution, "below_aet")
+    above_ant_share = _distribution_share(pace_distribution, "above_ant")
+    mixed_low_high_intensity = below_aet_share >= 15 and above_ant_share >= 15
+    frequent_pace_changes = pace_band_transitions >= max(4, int(total_distance // 2))
+    return mixed_low_high_intensity and frequent_pace_changes
 
 
 def build_running_analysis(
@@ -148,6 +135,8 @@ def build_running_analysis(
     above_threshold_block = _empty_block()
     current_steady: dict[str, float] | None = None
     current_above: dict[str, float] | None = None
+    previous_pace_band: str | None = None
+    pace_band_transitions = 0
 
     for index in range(1, series_length):
         start_distance = float(distance_km[index - 1])
@@ -168,6 +157,10 @@ def build_running_analysis(
             ant=ant_heart_rate_bpm,
             higher_is_harder=True,
         )
+
+        if previous_pace_band is not None and pace_band != previous_pace_band:
+            pace_band_transitions += 1
+        previous_pace_band = pace_band
 
         pace_distances[pace_band] += segment_distance
         heart_rate_distances[heart_rate_band] += segment_distance
@@ -214,28 +207,9 @@ def build_running_analysis(
         "heart_rate_higher_distance_km": _round_metric(heart_rate_higher_distance),
         "heart_rate_higher_share_percent": _share(heart_rate_higher_distance, total_distance),
     }
-    dominant_pace = max(pace_distribution, key=lambda item: float(item["distance_km"]))
-    activity_evaluation = _activity_evaluation(
-        dominant_pace_label=str(dominant_pace["label"]).lower(),
-        matching_share=agreement["matching_share_percent"],
-        heart_rate_higher_share=agreement["heart_rate_higher_share_percent"],
-        above_threshold_distance=above_threshold_block["distance_km"],
-        steady_threshold_distance=steady_threshold_block["distance_km"],
-    )
-    further_training_suggestion = _further_training_suggestion(
-        matching_share=agreement["matching_share_percent"],
-        heart_rate_higher_share=agreement["heart_rate_higher_share_percent"],
-        above_threshold_distance=above_threshold_block["distance_km"],
-        steady_threshold_distance=steady_threshold_block["distance_km"],
-    )
-
     return {
         "pace_distribution": pace_distribution,
         "heart_rate_distribution": heart_rate_distribution,
         "agreement": agreement,
-        "steady_threshold_block": steady_threshold_block,
-        "above_threshold_block": above_threshold_block,
         "interpretation": _interpret_analysis(pace_distribution, heart_rate_distribution, agreement),
-        "activity_evaluation": activity_evaluation,
-        "further_training_suggestion": further_training_suggestion,
     }

@@ -47,10 +47,67 @@ def test_running_analysis_builds_threshold_distributions_and_agreement() -> None
     assert analysis["pace_distribution"][1]["distance_km"] == 2.0
     assert analysis["heart_rate_distribution"][2]["distance_km"] == 1.0
     assert analysis["agreement"]["matching_distance_km"] == 4.0
-    assert analysis["steady_threshold_block"]["distance_km"] == 2.0
-    assert analysis["above_threshold_block"]["distance_km"] == 1.0
-    assert analysis["activity_evaluation"]
-    assert analysis["further_training_suggestion"]
+    assert "steady_threshold_block" not in analysis
+    assert "above_threshold_block" not in analysis
+
+
+def test_running_analysis_flags_pace_above_heart_rate_as_positive_with_caveats() -> None:
+    analysis = build_running_analysis(
+        distance_km=[0.0, 1.0, 2.0, 3.0],
+        pace_minutes_per_km=[4.3, 4.3, 4.3, 4.3],
+        heart_rate_bpm=[138, 138, 138, 138],
+        aet_pace_min_per_km=5.8,
+        ant_pace_min_per_km=4.8,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+    )
+
+    assert analysis is not None
+    assert analysis["agreement"]["pace_higher_share_percent"] == 100
+
+
+def test_running_analysis_flags_heart_rate_above_pace_as_strain() -> None:
+    analysis = build_running_analysis(
+        distance_km=[0.0, 1.0, 2.0, 3.0],
+        pace_minutes_per_km=[6.2, 6.2, 6.2, 6.2],
+        heart_rate_bpm=[171, 171, 171, 171],
+        aet_pace_min_per_km=5.8,
+        ant_pace_min_per_km=4.8,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+    )
+
+    assert analysis is not None
+    assert analysis["agreement"]["heart_rate_higher_share_percent"] == 100
+
+
+def test_running_analysis_interprets_repeated_band_changes_as_interval_work() -> None:
+    analysis = build_running_analysis(
+        distance_km=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        pace_minutes_per_km=[6.2, 6.2, 4.3, 6.2, 4.3, 6.2, 4.3],
+        heart_rate_bpm=[138, 138, 171, 138, 171, 138, 171],
+        aet_pace_min_per_km=5.8,
+        ant_pace_min_per_km=4.8,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+    )
+
+    assert analysis is not None
+
+
+def test_running_analysis_treats_hr_lag_as_expected_in_interval_work() -> None:
+    analysis = build_running_analysis(
+        distance_km=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+        pace_minutes_per_km=[6.2, 4.3, 6.2, 6.2, 4.3, 6.2, 4.3, 6.2],
+        heart_rate_bpm=[171, 171, 171, 171, 171, 171, 171, 171],
+        aet_pace_min_per_km=5.8,
+        ant_pace_min_per_km=4.8,
+        aet_heart_rate_bpm=145,
+        ant_heart_rate_bpm=165,
+    )
+
+    assert analysis is not None
+    assert analysis["agreement"]["heart_rate_higher_share_percent"] > 50
 
 
 def test_activity_detail_service_builds_threshold_running_analysis() -> None:
@@ -75,8 +132,6 @@ def test_activity_detail_service_builds_threshold_running_analysis() -> None:
     assert payload["heart_rate_drift_bpm"] == Decimal("3.00")
     assert payload["running_analysis"] is not None
     assert payload["running_analysis"]["agreement"]["matching_distance_km"] >= 0
-    assert payload["running_analysis"]["activity_evaluation"]
-    assert payload["running_analysis"]["further_training_suggestion"]
 
 
 def test_activity_detail_service_omits_running_analysis_without_complete_thresholds() -> None:
@@ -123,8 +178,6 @@ def test_activity_detail_service_builds_cycling_analysis() -> None:
     assert payload["cycling_analysis"]["heart_rate_distribution"][0]["label"] == "Below AeT"
     assert payload["cycling_analysis"]["climbing_summary"]["climbing_distance_km"] >= 0
     assert payload["cycling_analysis"]["average_cadence"] == 88.0
-    assert payload["cycling_analysis"]["activity_evaluation"]
-    assert payload["cycling_analysis"]["further_training_suggestion"]
     assert payload["running_analysis"] is None
 
 

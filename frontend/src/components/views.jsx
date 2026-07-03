@@ -417,9 +417,9 @@ function ComparisonCard({comparison}) {
             <MetricRow label="Activity Count" current={current?.activity_count} previous={previous?.activity_count}/>
             <MetricRow
                 label={isPace ? "Average Pace" : "Average Speed"}
-                current={current?.average_pace_seconds_per_km ?? current?.average_speed_mps}
-                previous={previous?.average_pace_seconds_per_km ?? previous?.average_speed_mps}
-                renderValue={isPace ? formatPaceSeconds : (value) => formatMetricValue(value, "m/s")}
+                current={current?.average_pace_seconds_per_km ?? (current?.average_speed_mps != null ? current.average_speed_mps * 3.6 : undefined)}
+                previous={previous?.average_pace_seconds_per_km ?? (previous?.average_speed_mps != null ? previous.average_speed_mps * 3.6 : undefined)}
+                renderValue={isPace ? formatPaceSeconds : (value) => formatMetricValue(value, "km/h")}
             />
         </div>
     );

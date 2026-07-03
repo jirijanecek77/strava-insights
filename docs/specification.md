@@ -369,18 +369,19 @@ For running activities with complete threshold inputs and heart-rate plus pace s
 - heart-rate distribution across the three bands
 - pace-vs-heart-rate agreement share
 - mismatch shares where pace intensity is higher than heart-rate intensity and vice versa
-- longest continuous block where both pace and heart rate stay in `AeT -> AnT`
-- longest continuous block where pace or heart rate is above `AnT`
 - a short explanatory interpretation sentence
 - a concise activity evaluation sentence
 - a concise further-training suggestion sentence
 
 This is descriptive feedback, not prescriptive coaching.
+Pace intensity above heart-rate intensity for more than half of the run can be treated as a positive condition or freshness signal when route, weather, intent, and heart-rate data quality are comparable. Heart-rate intensity above pace intensity for more than half of the run should be treated as a strain warning rather than an improvement signal. Interval-like sessions must be evaluated with the expectation that tempo and heart rate change repeatedly and that heart rate can lag behind pace changes.
 
 The running-analysis UI should:
 
 - show compact question-mark help affordances beside each metric label
 - use those tooltips to explain what each metric means and how to read it
+- show a green improving-condition icon beside `Pace Above HR` when its share is above 50%
+- show a red decreasing-condition warning icon beside `HR Above Pace` when its share is above 50%
 - keep evaluation and further-training guidance as separate summary points rather than mixing them into metric-level help
 
 ## Cycling Analysis
@@ -392,8 +393,6 @@ The first cycling-analysis version should use only currently stored data:
 - ride speed distribution using session-relative speed bands
 - heart-rate distribution across `below_aet`, `between_aet_ant`, and `above_ant` when HR thresholds and HR data are available
 - climbing, flat, and descending distance share from slope-derived terrain classification
-- longest continuous aerobic heart-rate block when HR thresholds and HR data are available
-- longest continuous above-threshold heart-rate block when HR thresholds and HR data are available
 - average cadence when available on the activity
 - a concise activity evaluation sentence
 - a concise further-training suggestion sentence

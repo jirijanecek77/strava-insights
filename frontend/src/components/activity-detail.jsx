@@ -41,18 +41,14 @@ const RUNNING_ANALYSIS_TOOLTIPS = {
     pace_bands: "Shows how your running pace was distributed across Below AeT, AeT to AnT, and Above AnT bands during the activity.",
     hr_bands: "Shows how your heart rate was distributed across the same threshold bands, so you can compare internal effort with pace output.",
     agreement: "Measures how often pace intensity and heart-rate intensity landed in the same threshold band at the same point of the run.",
-    pace_above_hr: "Highlights sections where pace looked harder than heart-rate response, which can happen early in a run or in favorable conditions.",
-    hr_above_pace: "Highlights sections where heart rate looked harder than pace output, which can point to fatigue, heat, hills, or drift.",
-    longest_aet_to_ant: "The longest continuous stretch where both pace and heart rate stayed in the AeT to AnT range, indicating steady threshold work.",
-    longest_above_ant: "The longest continuous stretch where pace or heart rate stayed above AnT, showing your longest hard-intensity segment.",
+    pace_above_hr: "Highlights sections where pace looked harder than heart-rate response. Above 50% can suggest freshness or improving condition when conditions and HR data are reliable.",
+    hr_above_pace: "Highlights sections where heart rate looked harder than pace output. Above 50% usually points to higher strain from fatigue, heat, hills, dehydration, or incomplete recovery.",
 };
 
 const CYCLING_ANALYSIS_TOOLTIPS = {
     speed_bands: "Shows how ride distance was distributed across slower, steady, and faster-than-steady speed segments relative to your own session average.",
     hr_bands: "Shows how your heart rate was distributed across Below AeT, AeT to AnT, and Above AnT bands during the ride.",
     climbing_share: "Shows how much of the ride distance was spent climbing, flat, or descending based on the local slope profile.",
-    longest_aerobic_block: "The longest continuous section where heart rate stayed below AeT, indicating your longest steady aerobic segment.",
-    longest_above_ant: "The longest continuous section where heart rate stayed above AnT, indicating your longest hard cardiovascular segment.",
     average_cadence: "Shows the average pedaling cadence recorded for the ride in revolutions per minute.",
 };
 
@@ -135,12 +131,20 @@ function RunningAnalysisCard({analysis}) {
             <div className="settings-row"><MetricHelpLabel label="Pace Bands" tooltipKey="pace_bands"/><strong>{formatBandDistribution(analysis.pace_distribution)}</strong></div>
             <div className="settings-row"><MetricHelpLabel label="HR Bands" tooltipKey="hr_bands"/><strong>{formatBandDistribution(analysis.heart_rate_distribution)}</strong></div>
             <div className="settings-row"><MetricHelpLabel label="Agreement" tooltipKey="agreement"/><strong>{formatPercentage(analysis.agreement.matching_share_percent)}</strong></div>
-            <div className="settings-row"><MetricHelpLabel label="Pace Above HR" tooltipKey="pace_above_hr"/><strong>{formatPercentage(analysis.agreement.pace_higher_share_percent)}</strong></div>
-            <div className="settings-row"><MetricHelpLabel label="HR Above Pace" tooltipKey="hr_above_pace"/><strong>{formatPercentage(analysis.agreement.heart_rate_higher_share_percent)}</strong></div>
-            <div className="settings-row"><MetricHelpLabel label="Longest AeT to AnT" tooltipKey="longest_aet_to_ant"/><strong>{formatDistanceKm(analysis.steady_threshold_block.distance_km)}</strong></div>
-            <div className="settings-row"><MetricHelpLabel label="Longest Above AnT" tooltipKey="longest_above_ant"/><strong>{formatDistanceKm(analysis.above_threshold_block.distance_km)}</strong></div>
-            <div className="settings-row"><span>Activity Evaluation</span><span className="running-analysis-copy">{analysis.activity_evaluation}</span></div>
-            <div className="settings-row"><span>Further Training Suggestion</span><span className="running-analysis-copy">{analysis.further_training_suggestion}</span></div>
+            <AnalysisSignalRow kind="positive" label="Pace Above HR" showSignal={Number(analysis.agreement.pace_higher_share_percent) > 50} tooltipKey="pace_above_hr" value={formatPercentage(analysis.agreement.pace_higher_share_percent)}/>
+            <AnalysisSignalRow kind="negative" label="HR Above Pace" showSignal={Number(analysis.agreement.heart_rate_higher_share_percent) > 50} tooltipKey="hr_above_pace" value={formatPercentage(analysis.agreement.heart_rate_higher_share_percent)}/>
+        </div>
+    );
+}
+
+function AnalysisSignalRow({kind, label, showSignal, tooltipKey, value}) {
+    return (
+        <div className="settings-row">
+            <MetricHelpLabel label={label} tooltipKey={tooltipKey}/>
+            <strong className="analysis-signal-value">
+                {showSignal ? <span aria-label={kind === "positive" ? "Improving signal: condition may be improving" : "Strain warning: condition may be decreasing"} className={`analysis-signal-icon ${kind}`}>{kind === "positive" ? "↑" : "↓"}</span> : null}
+                {value}
+            </strong>
         </div>
     );
 }
@@ -151,11 +155,7 @@ function CyclingAnalysisCard({analysis}) {
             <div className="settings-row"><MetricHelpLabel label="Speed Bands" tooltipKey="speed_bands" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{formatBandDistribution(analysis.speed_distribution)}</strong></div>
             {analysis.heart_rate_distribution ? <div className="settings-row"><MetricHelpLabel label="HR Bands" tooltipKey="hr_bands" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{formatBandDistribution(analysis.heart_rate_distribution)}</strong></div> : null}
             <div className="settings-row"><MetricHelpLabel label="Climbing Share" tooltipKey="climbing_share" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{formatClimbingSummary(analysis.climbing_summary)}</strong></div>
-            {analysis.steady_aerobic_block ? <div className="settings-row"><MetricHelpLabel label="Longest Aerobic Block" tooltipKey="longest_aerobic_block" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{formatDistanceKm(analysis.steady_aerobic_block.distance_km)}</strong></div> : null}
-            {analysis.above_threshold_block ? <div className="settings-row"><MetricHelpLabel label="Longest Above AnT" tooltipKey="longest_above_ant" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{formatDistanceKm(analysis.above_threshold_block.distance_km)}</strong></div> : null}
             <div className="settings-row"><MetricHelpLabel label="Average Cadence" tooltipKey="average_cadence" tooltipMap={CYCLING_ANALYSIS_TOOLTIPS}/><strong>{analysis.average_cadence != null ? `${formatNumber(analysis.average_cadence)} rpm` : "n/a"}</strong></div>
-            <div className="settings-row"><span>Activity Evaluation</span><span className="running-analysis-copy">{analysis.activity_evaluation}</span></div>
-            <div className="settings-row"><span>Further Training Suggestion</span><span className="running-analysis-copy">{analysis.further_training_suggestion}</span></div>
         </div>
     );
 }

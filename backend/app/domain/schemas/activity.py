@@ -64,21 +64,11 @@ class RunningAgreementSummary(BaseModel):
     heart_rate_higher_share_percent: float
 
 
-class RunningBlockSummary(BaseModel):
-    start_distance_km: float
-    end_distance_km: float
-    distance_km: float
-
-
 class RunningAnalysisResponse(BaseModel):
     pace_distribution: list[RunningBandSummary]
     heart_rate_distribution: list[RunningBandSummary]
     agreement: RunningAgreementSummary
-    steady_threshold_block: RunningBlockSummary
-    above_threshold_block: RunningBlockSummary
     interpretation: str
-    activity_evaluation: str
-    further_training_suggestion: str
 
 
 class CyclingBandSummary(BaseModel):
@@ -97,21 +87,11 @@ class CyclingClimbingSummary(BaseModel):
     descending_share_percent: float
 
 
-class CyclingBlockSummary(BaseModel):
-    start_distance_km: float
-    end_distance_km: float
-    distance_km: float
-
-
 class CyclingAnalysisResponse(BaseModel):
     speed_distribution: list[CyclingBandSummary]
     heart_rate_distribution: list[CyclingBandSummary] | None = None
     climbing_summary: CyclingClimbingSummary
-    steady_aerobic_block: CyclingBlockSummary | None = None
-    above_threshold_block: CyclingBlockSummary | None = None
     average_cadence: float | None = None
-    activity_evaluation: str
-    further_training_suggestion: str
 
 
 class ActivityDetailThresholds(BaseModel):
