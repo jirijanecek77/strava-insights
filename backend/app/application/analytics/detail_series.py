@@ -40,7 +40,7 @@ def calculate_pace_minutes_per_km(
         total_distance_meters = distances_meters[end_index] - distances_meters[start_index]
 
         if total_distance_meters == 0:
-            paces.append(float("inf"))
+            paces.append(16.0)
             continue
 
         total_time_minutes = total_time_seconds / 60
@@ -52,9 +52,6 @@ def calculate_pace_minutes_per_km(
 def format_pace_minutes_per_km(paces: list[float]) -> list[str]:
     formatted: list[str] = []
     for pace in paces:
-        if pace == float("inf"):
-            formatted.append("0:00")
-            continue
         whole_minutes = int(pace)
         seconds = int((pace - whole_minutes) * 60)
         formatted.append(f"{whole_minutes}:{seconds:02d}")

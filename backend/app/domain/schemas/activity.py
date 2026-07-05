@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 
 class ActivityListRow(BaseModel):
@@ -9,6 +9,12 @@ class ActivityListRow(BaseModel):
     sport_type: str
     name: str
     start_date_local: datetime | None = None
+
+    @field_serializer("start_date_local")
+    def serialize_start_date_local(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=None).isoformat()
     distance_km: Decimal | None = None
     moving_time_display: str | None = None
     summary_metric_display: str | None = None
@@ -115,3 +121,9 @@ class ActivityDetailResponse(BaseModel):
     thresholds: ActivityDetailThresholds | None = None
     running_analysis: RunningAnalysisResponse | None = None
     cycling_analysis: CyclingAnalysisResponse | None = None
+
+    @field_serializer("start_date_local")
+    def serialize_start_date_local(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=None).isoformat()
