@@ -29,8 +29,14 @@ def _clear_test_tables(session: Session) -> None:
 
 
 @pytest.fixture(scope="session")
-def prepare_test_database() -> Generator[None, None, None]:
+def patch_app_startup() -> Generator[None, None, None]:
+    """Suppress the real DB migration that runs inside the app lifespan."""
     main_module.upgrade_database = lambda: None
+    yield
+
+
+@pytest.fixture(scope="session")
+def prepare_test_database(patch_app_startup) -> Generator[None, None, None]:
     with TEST_ENGINE.begin() as connection:
         connection.execute(text(f'DROP SCHEMA IF EXISTS "{TEST_SCHEMA}" CASCADE'))
         connection.execute(text(f'CREATE SCHEMA "{TEST_SCHEMA}"'))
@@ -61,7 +67,7 @@ def db_session(prepare_test_database) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def override_test_dependencies(prepare_test_database) -> Generator[None, None, None]:
+def override_test_dependencies() -> Generator[None, None, None]:
     def _get_test_db_session() -> Generator[Session, None, None]:
         session = TestSessionLocal()
         try:
@@ -78,6 +84,6 @@ def override_test_dependencies(prepare_test_database) -> Generator[None, None, N
 
 
 @pytest.fixture(scope="session")
-def client(prepare_test_database) -> Generator[TestClient, None, None]:
+def client(patch_app_startup) -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client

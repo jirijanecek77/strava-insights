@@ -53,7 +53,6 @@ class ActivityReadService:
                     summary_metric_kind=_summary_metric_kind(item),
                     total_elevation_gain_meters=item.total_elevation_gain_meters,
                     average_heartrate_bpm=item.average_heartrate_bpm,
-                    heart_rate_drift_bpm=item.heart_rate_drift_bpm,
                 )
                 for item in items
             ]
@@ -78,8 +77,8 @@ class ActivityReadService:
             average_cadence=float(activity.average_cadence) if activity.average_cadence is not None else None,
             aet_heart_rate_bpm=None if profile is None else profile.aet_heart_rate_bpm,
             ant_heart_rate_bpm=None if profile is None else profile.ant_heart_rate_bpm,
-            aet_pace_min_per_km=None if profile is None else profile.aet_pace_min_per_km,
-            ant_pace_min_per_km=None if profile is None else profile.ant_pace_min_per_km,
+            aet_pace_min_per_km=float(profile.aet_pace_min_per_km) if profile is not None and profile.aet_pace_min_per_km is not None else None,
+            ant_pace_min_per_km=float(profile.ant_pace_min_per_km) if profile is not None and profile.ant_pace_min_per_km is not None else None,
         )
 
         latlng = (stream.latlng_stream or {}).get("data", []) if stream and stream.latlng_stream else []

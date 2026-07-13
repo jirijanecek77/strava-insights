@@ -23,6 +23,7 @@ class ActivityStub:
         self.distance_meters = Decimal(distance_meters)
         self.moving_time_seconds = moving_time_seconds
         self.total_elevation_gain_meters = None if total_elevation_gain_meters is None else Decimal(total_elevation_gain_meters)
+        self.heart_rate_drift_bpm = None
 
 
 class ActivityStreamStub:

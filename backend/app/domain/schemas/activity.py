@@ -21,7 +21,6 @@ class ActivityListRow(BaseModel):
     summary_metric_kind: str | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
-    heart_rate_drift_bpm: Decimal | None = None
 
 
 class ActivityListResponse(BaseModel):
@@ -36,7 +35,6 @@ class ActivityKpis(BaseModel):
     summary_metric_kind: str | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
-    heart_rate_drift_bpm: Decimal | None = None
     average_cadence: Decimal | None = None
     aerobic_efficiency_m_per_beat: float | None = None
 

@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import JSON, BigInteger, DateTime, Integer, Numeric, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -71,25 +72,25 @@ class Activity(Base):
     sport_type: Mapped[str] = mapped_column(String(50), nullable=False)
     start_date_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     start_date_local: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    distance_meters: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    distance_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
+    distance_meters: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    distance_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     moving_time_seconds: Mapped[int] = mapped_column(nullable=False)
     moving_time_display: Mapped[str | None] = mapped_column(String(32))
     elapsed_time_seconds: Mapped[int | None]
-    total_elevation_gain_meters: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    elev_high_meters: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    elev_low_meters: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    average_speed_mps: Mapped[float | None] = mapped_column(Numeric(10, 4))
-    average_speed_kph: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    max_speed_mps: Mapped[float | None] = mapped_column(Numeric(10, 4))
-    average_heartrate_bpm: Mapped[float | None] = mapped_column(Numeric(6, 2))
-    heart_rate_drift_bpm: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    total_elevation_gain_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    elev_high_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    elev_low_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    average_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    average_speed_kph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    max_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    average_heartrate_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     max_heartrate_bpm: Mapped[int | None]
-    average_cadence: Mapped[float | None] = mapped_column(Numeric(6, 2))
-    average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
+    average_cadence: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
+    average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    start_latlng: Mapped[dict | None] = mapped_column(JSON)
+    start_latlng: Mapped[list | None] = mapped_column(JSON)
 
 
 class ActivityStream(Base):
@@ -114,12 +115,12 @@ class PeriodSummary(Base):
     period_type: Mapped[str] = mapped_column(String(20), nullable=False)
     period_start: Mapped[date] = mapped_column(nullable=False)
     activity_count: Mapped[int] = mapped_column(nullable=False, default=0)
-    total_distance_meters: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    total_distance_meters: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     total_moving_time_seconds: Mapped[int] = mapped_column(nullable=False, default=0)
-    average_speed_mps: Mapped[float | None] = mapped_column(Numeric(10, 4))
-    average_pace_seconds_per_km: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    average_heart_rate_drift_bpm: Mapped[float | None] = mapped_column(Numeric(10, 2))
-    total_elevation_gain_meters: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    average_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    average_heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    total_elevation_gain_meters: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
 
 class BestEffort(Base):
@@ -130,7 +131,7 @@ class BestEffort(Base):
     sport_type: Mapped[str] = mapped_column(String(50), nullable=False)
     effort_code: Mapped[str] = mapped_column(String(50), nullable=False)
     best_time_seconds: Mapped[int] = mapped_column(nullable=False)
-    distance_meters: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    distance_meters: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     activity_id: Mapped[int | None] = mapped_column(Integer)
     achieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

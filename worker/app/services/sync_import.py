@@ -194,7 +194,7 @@ class BaseImportService:
         activity.description = payload.get("description")
         activity.sport_type = payload["type"]
         activity.name = payload.get("name") or activity.name
-        activity.start_date_utc = self._parse_datetime(payload["start_date"])
+        activity.start_date_utc = self._parse_datetime(payload["start_date"])  # type: ignore[assignment]
         activity.start_date_local = self._parse_datetime(payload.get("start_date_local"))
         activity.distance_meters = Decimal(str(payload.get("distance") or 0))
         activity.moving_time_seconds = int(payload.get("moving_time") or 0)

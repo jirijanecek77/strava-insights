@@ -50,8 +50,13 @@ def calculate_pace_minutes_per_km(
 
 
 def format_pace_minutes_per_km(paces: list[float]) -> list[str]:
+    import math
+
     formatted: list[str] = []
     for pace in paces:
+        if not math.isfinite(pace):
+            formatted.append("0:00")
+            continue
         whole_minutes = int(pace)
         seconds = int((pace - whole_minutes) * 60)
         formatted.append(f"{whole_minutes}:{seconds:02d}")

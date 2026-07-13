@@ -256,7 +256,6 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     assert service.activities.by_id[100].moving_time_display == "45:00"
     assert service.activities.by_id[100].average_pace_display == "4:30"
     assert service.activities.by_id[100].summary_metric_display == "4:30 /km"
-    assert service.activities.by_id[100].heart_rate_drift_bpm == 5
     assert service.activity_streams.by_activity_id[1].heartrate_stream == {"data": [145, 146, 150, 152]}
     assert service.read_model_builder.user_ids == [1]
     assert service.cache_invalidator.user_ids == [1]

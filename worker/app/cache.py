@@ -17,7 +17,7 @@ class RedisCache:
         key_list = [key for key in keys if key]
         if not key_list:
             return 0
-        return int(self.client.delete(*key_list))
+        return int(self.client.delete(*key_list))  # type: ignore[arg-type]
 
     def delete_pattern(self, pattern: str) -> int:
         keys = list(self.client.scan_iter(match=pattern))

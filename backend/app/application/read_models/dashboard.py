@@ -57,6 +57,8 @@ class DashboardReadService:
         activities = self.activities.list_with_hr_and_speed(user_id, sport_type=sport_type)
         buckets: dict[tuple[str, date], list[tuple[float, float]]] = defaultdict(list)
         for activity in activities:
+            if activity.average_speed_mps is None or activity.average_heartrate_bpm is None:
+                continue
             activity_date = (activity.start_date_local or activity.start_date_utc).date()
             key = (activity.sport_type, _period_start(period_type, activity_date))
             speed_kph = float(activity.average_speed_mps) * 3.6
@@ -193,5 +195,4 @@ class DashboardReadService:
             distance_meters=activity.distance_meters,
             moving_time_seconds=activity.moving_time_seconds,
             total_elevation_gain_meters=activity.total_elevation_gain_meters,
-            heart_rate_drift_bpm=activity.heart_rate_drift_bpm,
         )

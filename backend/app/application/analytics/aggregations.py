@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Protocol
 
 
 RUN_SPORT = "Run"
@@ -18,7 +19,6 @@ class ActivityAggregateInput:
     distance_meters: Decimal
     moving_time_seconds: int
     total_elevation_gain_meters: Decimal | None
-    heart_rate_drift_bpm: Decimal | None
 
 
 @dataclass(slots=True)
@@ -31,7 +31,6 @@ class PeriodSummaryResult:
     total_moving_time_seconds: int
     average_speed_mps: Decimal | None
     average_pace_seconds_per_km: Decimal | None
-    average_heart_rate_drift_bpm: Decimal | None
     total_elevation_gain_meters: Decimal | None
 
 
@@ -63,10 +62,8 @@ def aggregate_period_summaries(
             (activity.total_elevation_gain_meters or Decimal("0") for activity in grouped_activities),
             Decimal("0"),
         )
-        drift_values = [activity.heart_rate_drift_bpm for activity in grouped_activities if activity.heart_rate_drift_bpm is not None]
         average_speed_mps: Decimal | None = None
         average_pace_seconds_per_km: Decimal | None = None
-        average_heart_rate_drift_bpm: Decimal | None = None
         if total_distance > 0 and total_moving_time > 0:
             if sport_type == RUN_SPORT:
                 average_pace_seconds_per_km = _quantize(
@@ -75,8 +72,6 @@ def aggregate_period_summaries(
                 )
             elif sport_type in RIDE_SPORTS:
                 average_speed_mps = _quantize(total_distance / Decimal(total_moving_time), "0.0001")
-        if drift_values:
-            average_heart_rate_drift_bpm = _quantize(sum(drift_values, Decimal("0")) / Decimal(len(drift_values)), "0.01")
 
         summaries.append(
             PeriodSummaryResult(
@@ -88,7 +83,6 @@ def aggregate_period_summaries(
                 total_moving_time_seconds=total_moving_time,
                 average_speed_mps=average_speed_mps,
                 average_pace_seconds_per_km=average_pace_seconds_per_km,
-                average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
                 total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
             )
         )
@@ -96,7 +90,15 @@ def aggregate_period_summaries(
     return sorted(summaries, key=lambda summary: (summary.sport_type, summary.period_start, summary.period_type))
 
 
-def compare_periods(*, current: PeriodSummaryResult | None, previous: PeriodSummaryResult | None) -> dict:
+class _PeriodSummaryLike(Protocol):
+    activity_count: int
+    total_distance_meters: Decimal
+    total_moving_time_seconds: int
+    average_speed_mps: Decimal | None
+    average_pace_seconds_per_km: Decimal | None
+
+
+def compare_periods(*, current: _PeriodSummaryLike | None, previous: _PeriodSummaryLike | None) -> dict:
     return {
         "current": current,
         "previous": previous,
@@ -122,10 +124,8 @@ def summarize_window(
     total_distance = sum((activity.distance_meters for activity in filtered), Decimal("0"))
     total_moving_time = sum(activity.moving_time_seconds for activity in filtered)
     total_elevation = sum((activity.total_elevation_gain_meters or Decimal("0") for activity in filtered), Decimal("0"))
-    drift_values = [activity.heart_rate_drift_bpm for activity in filtered if activity.heart_rate_drift_bpm is not None]
     average_speed_mps: Decimal | None = None
     average_pace_seconds_per_km: Decimal | None = None
-    average_heart_rate_drift_bpm: Decimal | None = None
     if total_distance > 0 and total_moving_time > 0:
         if sport_type == RUN_SPORT:
             average_pace_seconds_per_km = _quantize(
@@ -134,8 +134,6 @@ def summarize_window(
             )
         elif sport_type in RIDE_SPORTS:
             average_speed_mps = _quantize(total_distance / Decimal(total_moving_time), "0.0001")
-    if drift_values:
-        average_heart_rate_drift_bpm = _quantize(sum(drift_values, Decimal("0")) / Decimal(len(drift_values)), "0.01")
 
     return PeriodSummaryResult(
         sport_type=sport_type,
@@ -146,7 +144,6 @@ def summarize_window(
         total_moving_time_seconds=total_moving_time,
         average_speed_mps=average_speed_mps,
         average_pace_seconds_per_km=average_pace_seconds_per_km,
-        average_heart_rate_drift_bpm=average_heart_rate_drift_bpm,
         total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
     )
 

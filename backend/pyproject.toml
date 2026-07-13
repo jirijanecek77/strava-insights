@@ -25,6 +25,13 @@ mypy = "^1.20.2"
 black = "^26.5.1"
 isort = "^7.0.0"
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.mypy]
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+ignore_missing_imports = true
+
 [tool.isort]
 profile = "black"
 

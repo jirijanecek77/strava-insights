@@ -128,7 +128,6 @@ def test_activity_detail_service_builds_threshold_running_analysis() -> None:
     )
 
     assert payload["pace_display"][0] == "4:00"
-    assert payload["heart_rate_drift_bpm"] == Decimal("3.00")
     assert payload["running_analysis"] is not None
     assert payload["running_analysis"]["agreement"]["matching_distance_km"] >= 0
 
