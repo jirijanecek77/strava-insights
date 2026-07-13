@@ -43,11 +43,10 @@ This document tracks implementation status against [specification.md](C:/Users/j
 ### Completed Analytics and API Work
 
 - [x] Ported activity-detail derivations for smoothed heart rate, smoothed speed, derived running pace, slope, and running-specific detail analytics.
-- [x] Implemented reusable backend analytics for activity detail, aggregations, best efforts, and heart-rate drift.
+- [x] Implemented reusable backend analytics for activity detail, aggregations, best efforts.
 - [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
-- [x] Added heart-rate drift as an activity KPI derived from stored streams and exposed in activity list/detail payloads.
 - [x] Added admin-only user audit APIs plus admin UI for athlete `102168741`, including user disable/reject actions.
 - [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through Strava OAuth.
 - [x] Added user `last_login_at` persistence for admin audit visibility.

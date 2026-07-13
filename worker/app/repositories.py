@@ -125,9 +125,6 @@ class ActivityRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_by_id(self, activity_id: int) -> Activity | None:
-        return self.session.query(Activity).filter(Activity.id == activity_id).one_or_none()
-
     def get_by_strava_id(self, user_id: int, strava_activity_id: int) -> Activity | None:
         return (
             self.session.query(Activity)

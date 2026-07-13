@@ -38,7 +38,6 @@ def build_cycling_analysis(
     slope_percent: list[float],
     heart_rate_bpm: list[float],
     average_cadence: float | None,
-    heart_rate_drift_bpm: float | None,
     aet_heart_rate_bpm: float | None,
     ant_heart_rate_bpm: float | None,
 ) -> dict | None:
@@ -81,8 +80,8 @@ def build_cycling_analysis(
         if has_hr_thresholds and index < len(heart_rate_bpm):
             hr_band = _heart_rate_band(
                 float(heart_rate_bpm[index]),
-                aet=float(aet_heart_rate_bpm),
-                ant=float(ant_heart_rate_bpm),
+                aet=aet_heart_rate_bpm or 0.0,
+                ant=ant_heart_rate_bpm or 0.0,
             )
             heart_rate_distances[hr_band] += segment_distance
 

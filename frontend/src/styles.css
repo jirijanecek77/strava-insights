@@ -1083,6 +1083,7 @@ button {
     border: 1px solid var(--border);
     border-radius: 16px;
     display: grid;
+    grid-template-rows: auto 1fr;
     gap: 0.2rem;
     min-height: 4.45rem;
     padding: 0.28rem;
@@ -1117,8 +1118,6 @@ button {
     min-height: 18px;
     min-width: 18px;
     place-items: center;
-    position: relative;
-    top: -2px;
     width: var(--bubble-size, 20px);
 }
 

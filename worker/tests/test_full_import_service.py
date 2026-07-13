@@ -103,9 +103,6 @@ class ActivityRepositoryStub:
     def get_by_strava_id(self, _user_id: int, strava_activity_id: int):
         return self.by_id.get(strava_activity_id)
 
-    def get_by_id(self, activity_id: int):
-        return next((activity for activity in self.by_id.values() if activity.id == activity_id), None)
-
     def list_existing_strava_ids_for_user(self, _user_id: int, strava_activity_ids: list[int]):
         return {strava_activity_id for strava_activity_id in strava_activity_ids if strava_activity_id in self.existing_strava_ids}
 

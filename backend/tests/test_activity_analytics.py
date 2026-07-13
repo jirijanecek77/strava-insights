@@ -8,7 +8,6 @@ from app.application.analytics.detail_series import (
     moving_average,
     moving_average_speed_kph,
 )
-from app.application.analytics.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.application.analytics.running_analysis import build_running_analysis
 from app.application.analytics.service import ActivityDetailAnalyticsService
 
@@ -179,11 +178,3 @@ def test_activity_detail_service_builds_cycling_analysis() -> None:
     assert payload["cycling_analysis"]["climbing_summary"]["climbing_distance_km"] >= 0
     assert payload["cycling_analysis"]["average_cadence"] == 88.0
     assert payload["running_analysis"] is None
-
-
-def test_heart_rate_drift_uses_first_and_second_half_averages() -> None:
-    drift = calculate_heart_rate_drift_bpm(
-        distance_stream_meters=[0, 250, 750, 1250],
-        heartrate_stream_bpm=[145, 146, 150, 152],
-    )
-    assert drift == Decimal("5.00")

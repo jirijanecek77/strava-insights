@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.models import ActivityBestEffort, BestEffort, PeriodSummary
-from app.services.heart_rate_drift import calculate_heart_rate_drift_bpm
 from app.repositories import (
     ActivityBestEffortRepository,
     ActivityRepository,
@@ -57,7 +56,6 @@ class ReadModelBuilder:
     def rebuild_for_user(self, user_id: int) -> None:
         logger.info("Rebuilding read models for user.", extra={"user.id": user_id})
         activities = self.activities.list_for_user(user_id)
-        self._refresh_activity_heart_rate_drift(activities)
         self.period_summaries.replace_for_user(
             user_id=user_id,
             summaries=self._build_period_summaries(user_id, activities),
@@ -76,18 +74,6 @@ class ReadModelBuilder:
                 "best_effort_count": len(best_efforts),
             },
         )
-
-    def _refresh_activity_heart_rate_drift(self, activities: list) -> None:
-        streams = {stream.activity_id: stream for stream in self.activity_streams.get_by_activity_ids([activity.id for activity in activities])}
-        for activity in activities:
-            stream = streams.get(activity.id)
-            if stream is None:
-                continue
-            activity.heart_rate_drift_bpm = calculate_heart_rate_drift_bpm(
-                distance_stream_meters=(stream.distance_stream or {}).get("data", []),
-                heartrate_stream_bpm=(stream.heartrate_stream or {}).get("data", []),
-            )
-            self.activities.save(activity)
 
     def _build_period_summaries(self, user_id: int, activities: list) -> list[PeriodSummary]:
         aggregate_inputs = [

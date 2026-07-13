@@ -115,14 +115,6 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
                                     ) : (
                                         <div className="calendar-bubble calendar-bubble-empty"/>
                                     )}
-                                    {day.summary ? (
-                                        <div className="calendar-summary">
-                                            <strong>{formatLabel(day.summary.dominantSport)}</strong>
-                                            <span>{day.summary.activityCount} activities</span>
-                                        </div>
-                                    ) : (
-                                        <div className="calendar-summary empty">Rest day</div>
-                                    )}
                                 </div>
                             </div>
                         ))}

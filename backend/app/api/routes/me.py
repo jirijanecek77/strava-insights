@@ -110,7 +110,7 @@ def update_user_profile_details(
         "Saved threshold profile snapshot request_id=%s user_id=%s effective_from=%s profile_count=%s",
         getattr(request.state, "request_id", "unknown"),
         user.id,
-        profile.effective_from.isoformat(),
+        profile.effective_from.isoformat() if profile else None,
         len(profiles),
     )
     return UserProfileResponse(

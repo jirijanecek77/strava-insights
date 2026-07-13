@@ -49,7 +49,7 @@ class UserProfileRepository:
         ant_heart_rate_bpm,
         aet_pace_min_per_km,
         ant_pace_min_per_km,
-    ) -> UserThresholdProfile:
+    ) -> UserThresholdProfile | None:
         statement = (
             insert(UserThresholdProfile)
             .values(

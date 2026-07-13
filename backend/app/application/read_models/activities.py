@@ -140,12 +140,7 @@ class ActivityReadService:
                 summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
-                average_cadence=activity.average_cadence,
-                heart_rate_drift_bpm=(
-                    activity.heart_rate_drift_bpm
-                    if activity.heart_rate_drift_bpm is not None
-                    else analytics["heart_rate_drift_bpm"]
-                ),
+                average_cadence=activity.average_cadence
             ),
             map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),
             series=ActivitySeries(
