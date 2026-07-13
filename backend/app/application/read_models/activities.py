@@ -139,7 +139,9 @@ class ActivityReadService:
                 summary_metric_kind=_summary_metric_kind(activity),
                 total_elevation_gain_meters=activity.total_elevation_gain_meters,
                 average_heartrate_bpm=activity.average_heartrate_bpm,
-                average_cadence=activity.average_cadence
+                average_cadence=activity.average_cadence,
+                max_pace_display=_format_max_pace_display(activity.max_speed_mps) if activity.sport_type == "Run" else None,
+                max_speed_kph=_compute_max_speed_kph(activity.max_speed_mps) if activity.sport_type not in {"Run"} else None,
             ),
             map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),
             series=ActivitySeries(
@@ -166,6 +168,21 @@ def _map_bounds(polyline: list[list[float]]) -> dict[str, float]:
         "min_lng": min(longitudes),
         "max_lng": max(longitudes),
     }
+
+
+def _format_max_pace_display(max_speed_mps) -> str | None:
+    if max_speed_mps is None or float(max_speed_mps) == 0:
+        return None
+    pace_min_per_km = 1000 / (float(max_speed_mps) * 60)
+    whole = int(pace_min_per_km)
+    seconds = int((pace_min_per_km - whole) * 60)
+    return f"{whole}:{seconds:02d}"
+
+
+def _compute_max_speed_kph(max_speed_mps) -> float | None:
+    if max_speed_mps is None:
+        return None
+    return round(float(max_speed_mps) * 3.6, 2)
 
 
 def _compute_aerobic_efficiency(speed_mps, heartrate_bpm) -> float | None:

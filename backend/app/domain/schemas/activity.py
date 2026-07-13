@@ -37,6 +37,8 @@ class ActivityKpis(BaseModel):
     average_heartrate_bpm: Decimal | None = None
     average_cadence: Decimal | None = None
     aerobic_efficiency_m_per_beat: float | None = None
+    max_pace_display: str | None = None
+    max_speed_kph: float | None = None
 
 
 class ActivitySeries(BaseModel):

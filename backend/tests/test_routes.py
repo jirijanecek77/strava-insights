@@ -133,6 +133,8 @@ class ActivityReadServiceStub:
                 summary_metric_display="4:30",
                 summary_metric_kind="pace",
                 average_cadence=None,
+                max_pace_display="3:42",
+                max_speed_kph=None,
             ),
             map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
             series=ActivitySeries(
@@ -562,6 +564,8 @@ def test_activity_detail_returns_payload(client) -> None:
     assert response.status_code == 200
     assert response.json()["series"]["pace_display"][0] == "5:00"
     assert response.json()["series"]["altitude_meters"][0] == 200.0
+    assert response.json()["kpis"]["max_pace_display"] == "3:42"
+    assert response.json()["kpis"]["max_speed_kph"] is None
 
 
 def test_best_efforts_returns_items(client) -> None:

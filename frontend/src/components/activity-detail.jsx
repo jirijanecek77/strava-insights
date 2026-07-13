@@ -89,6 +89,8 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex})
                 <MetricTile label="Moving Time" value={detail.kpis.moving_time_display ?? "n/a"}/>
                 {detail.kpis.elapsed_time_display != null ? <MetricTile label="Elapsed Time" value={detail.kpis.elapsed_time_display}/> : null}
                 <MetricTile label={detail.kpis.summary_metric_kind === "speed" ? "Speed" : "Pace"} value={formatSummaryMetricDisplay(detail.kpis.summary_metric_display, detail.kpis.summary_metric_kind)}/>
+                {detail.kpis.max_pace_display != null ? <MetricTile label="Max Pace" value={`${detail.kpis.max_pace_display} /km`}/> : null}
+                {detail.kpis.max_speed_kph != null ? <MetricTile label="Max Speed" value={`${detail.kpis.max_speed_kph} km/h`}/> : null}
                 <MetricTile label="Elevation gain" value={detail.kpis.total_elevation_gain_meters != null ? `${detail.kpis.total_elevation_gain_meters} m` : "n/a"}/>
                 <MetricTile label="Average HR" value={detail.kpis.average_heartrate_bpm != null ? `${detail.kpis.average_heartrate_bpm} bpm` : "n/a"}/>
                 <MetricTile label="Efficiency" value={detail.kpis.aerobic_efficiency_m_per_beat != null ? `${formatNumber(detail.kpis.aerobic_efficiency_m_per_beat)} m/beat` : "n/a"}/>
