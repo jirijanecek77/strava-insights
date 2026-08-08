@@ -1,14 +1,14 @@
-# Strava Insights Implementation Plan
+# Intervals Insights Implementation Plan
 
 ## Purpose
 
-This document tracks implementation status against [specification.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/specification.md). It should record what is done, what remains, and what still needs validation. It should not restate the full product specification.
+This document tracks implementation status against [specification.md](specification.md). It should record what is done, what remains, and what still needs validation. It should not restate the full product specification.
 
 ## Status Rules
 
 - Mark work complete only after code is implemented and relevant validation has passed.
 - Every meaningful code change must include a successful `make build`.
-- Prefer Docker-based validation through the standard command surface in [development.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/development.md).
+- Prefer Docker-based validation through the standard command surface in [development.md](development.md).
 
 ## Current State
 
@@ -23,10 +23,10 @@ This document tracks implementation status against [specification.md](C:/Users/j
 
 - [x] Implemented the core PostgreSQL schema and Alembic migrations for users, auth tokens, activities, streams, summaries, sync tracking, and analytics-related tables.
 - [x] Added the required indexes described in the specification.
-- [x] Implemented Strava OAuth, secure token persistence, and cookie-based session auth.
+- [x] Replaced source OAuth with Intervals.icu athlete ID/API key credential login, Intervals-specific encrypted credential persistence, and cookie-based session auth.
 - [x] Added current-user and sync-status endpoints.
 - [x] Added Redis-backed cache utilities needed by current reads and sync behavior.
-- [x] Replaced shared env-based Strava app credentials with per-user Strava app credentials entered on the landing screen, persisted in the database, and reused for OAuth/token refresh.
+- [x] Replaced shared env-based source credentials with per-user Intervals.icu credentials entered on the landing screen and persisted encrypted in the database.
 
 ### Completed Sync and Import Work
 
@@ -36,9 +36,9 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Persisted normalized activity metadata and required stream data for local detail rendering.
 - [x] Persisted sync job status and progress.
 - [x] Invalidated or refreshed affected cache entries after sync.
-- [x] Ensured normal read endpoints do not depend on synchronous Strava calls.
+- [x] Ensured normal read endpoints do not depend on synchronous external-source calls.
 - [x] Made manual refresh remain incremental when a checkpoint is missing by falling back to the latest stored activity timestamp.
-- [x] Tolerated Strava activity-stream `404` responses by importing the activity without streams.
+- [x] Tolerated source activity-stream `404` responses by importing the activity without streams.
 
 ### Completed Analytics and API Work
 
@@ -47,8 +47,8 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
-- [x] Added admin-only user audit APIs plus admin UI for athlete `102168741`, including user disable/reject actions.
-- [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through Strava OAuth.
+- [x] Added admin-only user audit APIs plus admin UI for the configured admin athlete, including user disable/reject actions.
+- [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through Intervals.icu credentials.
 - [x] Added user `last_login_at` persistence for admin audit visibility.
 
 ### Completed Frontend Work
@@ -56,16 +56,16 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Implemented landing/login, dashboard, calendar, activity list, activity detail, best efforts, and settings/profile screens.
 - [x] Added shared sport and date filtering.
 - [x] Integrated map rendering for activity detail with local route fallback behavior.
-- [x] Restyled the UI toward the intended Strava-inspired visual direction.
+- [x] Restyled the UI toward the intended athlete training visual direction.
 - [x] Added sync-status progress refresh behavior in the frontend.
 - [x] Refined the calendar daily marker behavior and activity-detail chart presentation.
 - [x] Added editable profile inputs for explicit running threshold fields.
 - [x] Replaced single threshold profile values with dated threshold snapshots resolved by activity local date.
-- [x] Added running-analysis metric tooltips plus separate activity evaluation and further-training guidance in activity detail.
+- [x] Added running-analysis metric tooltips and condition/strain signal icons in activity detail.
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
 - [x] Added landing/login credential capture with saved-credential reconnect behavior after logout.
-- [x] Simplified the landing/login flow to a single `Login to Strava` action that attempts immediate OAuth and falls back to a setup modal with Strava credential setup guidance when credentials are missing.
+- [x] Simplified the landing/login flow to a single Intervals.icu connection action that uses saved credentials when available and falls back to an athlete ID/API key setup modal.
 
 ### Completed Validation and Hardening Work
 
@@ -75,7 +75,7 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Fixed frontend/backend local connectivity and credentialed CORS behavior.
 - [x] Fixed Docker session-secret handling.
 - [x] Fixed local-time calendar day grouping.
-- [x] Fixed handling for large Strava activity ids.
+- [x] Fixed handling for large external activity ids.
 - [x] Fixed migration bootstrap for databases created before Alembic tracking.
 - [x] Replaced the discontinued Mapy.cz JavaScript SDK integration with the supported current map approach.
 - [x] Normalized activity summary metric payloads so the frontend can render pace and speed consistently.
@@ -85,6 +85,9 @@ This document tracks implementation status against [specification.md](C:/Users/j
 - [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
 - [x] Added backend, worker, and beat logging to Docker console with request and task lifecycle coverage.
 - [x] Standardized backend, worker, and frontend log prefixes with readable timestamps, service labels, and frontend INFO-level filtering.
+- [x] Switched the import source to Intervals.icu while preserving the existing local activity/stream schema for the first iteration.
+- [x] Removed live source API/OAuth integration code and source-specific env configuration.
+- [x] Hardened activity detail reads for Intervals.icu stream compatibility, including scalar-only GPS streams and sparse null samples in numeric streams.
 
 ## Remaining Work
 

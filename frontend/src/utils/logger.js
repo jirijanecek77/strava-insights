@@ -49,11 +49,11 @@ export function setFrontendLoggerUser(user) {
 }
 
 export function installFrontendConsoleLogger() {
-    if (console.__stravaInsightsLoggerInstalled) {
+    if (console.__intervalsInsightsLoggerInstalled) {
         return;
     }
 
-    console.__stravaInsightsLoggerInstalled = true;
+    console.__intervalsInsightsLoggerInstalled = true;
     for (const method of ["debug", "info", "log", "warn", "error"]) {
         console[method] = (...args) => {
             logFrontend(method, undefined, ...args);

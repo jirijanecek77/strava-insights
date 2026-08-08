@@ -1,7 +1,7 @@
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
-export const adminStravaAthleteId = 102168741;
+export const adminAthleteId = Number(import.meta.env.VITE_ADMIN_ATHLETE_ID ?? 632291);
 export const windows = [
     {id: "week", label: "Week"},
     {id: "month", label: "Month"},
@@ -15,8 +15,8 @@ export const sports = [
 ];
 export const syncPollIntervalMs = 60*1000;
 export const defaultLandingCredentialState = {
-    client_id: "",
+    athlete_id: "",
     has_saved_secret: false,
     can_connect: false,
-    strava_api_settings_url: "https://www.strava.com/settings/api",
+    intervals_settings_url: "https://intervals.icu/settings",
 };

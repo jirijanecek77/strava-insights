@@ -8,10 +8,9 @@ from app.models import Activity, ActivityStream
 from app.repositories import (
     ActivityRepository,
     ActivityStreamRepository,
-    OauthTokenRepository,
+    IntervalsCredentialRepository,
     SyncCheckpointRepository,
     SyncJobRepository,
-    UserStravaAppCredentialRepository,
 )
 from app.security import TokenCipher
 from app.services.activity_summary import (
@@ -24,7 +23,7 @@ from app.services.activity_summary import (
 )
 from app.services.cache_invalidator import UserCacheInvalidator
 from app.services.read_model_builder import ReadModelBuilder
-from app.strava_client import StravaActivityStreamNotFoundError, StravaApiClient
+from app.intervals_client import IntervalsActivityStreamNotFoundError, IntervalsApiClient
 
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
@@ -37,14 +36,13 @@ class BaseImportService:
         self,
         session: Session,
         *,
-        strava_client: StravaApiClient | None = None,
+        intervals_client: IntervalsApiClient | None = None,
         token_cipher: TokenCipher | None = None,
     ) -> None:
         self.session = session
-        self.strava_client = strava_client or StravaApiClient()
+        self.intervals_client = intervals_client or IntervalsApiClient()
         self.token_cipher = token_cipher or TokenCipher()
-        self.oauth_tokens = OauthTokenRepository(session)
-        self.strava_app_credentials = UserStravaAppCredentialRepository(session)
+        self.intervals_credentials = IntervalsCredentialRepository(session)
         self.sync_jobs = SyncJobRepository(session)
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
@@ -68,26 +66,28 @@ class BaseImportService:
             },
         )
 
-        access_token = self._get_access_token(user_id)
+        athlete_id, api_key = self._get_intervals_credentials(user_id)
         activities_payload = [
             activity
-            for activity in self.strava_client.get_activities(access_token, after=after)
+            for activity in self.intervals_client.get_activities(athlete_id, api_key, after=after)
             if activity.get("type") in SUPPORTED_SPORTS
         ]
-        existing_strava_ids = self.activities.list_existing_strava_ids_for_user(
+        for activity in activities_payload:
+            activity["id"] = self.intervals_client.parse_activity_id(activity["id"])
+        existing_source_activity_ids = self.activities.list_existing_source_activity_ids_for_user(
             user_id,
             [activity["id"] for activity in activities_payload if activity.get("id") is not None],
         )
         activities_payload = [
-            activity for activity in activities_payload if activity.get("id") not in existing_strava_ids
+            activity for activity in activities_payload if activity.get("id") not in existing_source_activity_ids
         ]
         logger.info(
-            "Fetched Strava activities for import.",
+            "Fetched Intervals.icu activities for import.",
             extra={
                 "sync_job.id": sync_job_id,
                 "user.id": user_id,
                 "fetched_count": len(activities_payload),
-                "existing_count": len(existing_strava_ids),
+                "existing_count": len(existing_source_activity_ids),
             },
         )
         self.sync_jobs.update_running(sync_job, progress_total=len(activities_payload))
@@ -99,14 +99,14 @@ class BaseImportService:
         for index, activity_payload in enumerate(activities_payload, start=1):
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             try:
-                stream_payload = self.strava_client.get_activity_stream(access_token, activity.strava_activity_id)
-            except StravaActivityStreamNotFoundError:
+                stream_payload = self.intervals_client.get_activity_stream(api_key, activity.strava_activity_id)
+            except IntervalsActivityStreamNotFoundError:
                 logger.warning(
-                    "Skipping missing Strava streams for activity.",
+                    "Skipping missing Intervals.icu streams for activity.",
                     extra={
                         "sync_job.id": sync_job_id,
                         "user.id": user_id,
-                        "activity.strava_id": activity.strava_activity_id,
+                        "activity.source_id": activity.strava_activity_id,
                     },
                 )
             else:
@@ -123,7 +123,7 @@ class BaseImportService:
                 extra={
                     "sync_job.id": sync_job_id,
                     "user.id": user_id,
-                    "activity.strava_id": activity.strava_activity_id,
+                    "activity.source_id": activity.strava_activity_id,
                     "progress.completed": index,
                     "progress.total": len(activities_payload),
                 },
@@ -150,30 +150,12 @@ class BaseImportService:
         )
         return imported_count
 
-    def _get_access_token(self, user_id: int) -> str:
-        oauth_token = self.oauth_tokens.get_for_user(user_id)
-        if oauth_token is None:
-            raise ValueError("OAuth token not found for user.")
-        app_credential = self.strava_app_credentials.get_for_user(user_id)
-        if app_credential is None:
-            raise ValueError("Strava app credentials not found for user.")
+    def _get_intervals_credentials(self, user_id: int) -> tuple[str, str]:
+        credential = self.intervals_credentials.get_for_user(user_id)
+        if credential is None:
+            raise ValueError("Intervals.icu credentials not found for user.")
 
-        access_token = self.token_cipher.decrypt(oauth_token.access_token_encrypted)
-        if oauth_token.expires_at <= datetime.now(UTC):
-            logger.info("Refreshing expired Strava access token.", extra={"user.id": user_id})
-            refresh_payload = self.strava_client.refresh_access_token(
-                self.token_cipher.decrypt(oauth_token.refresh_token_encrypted),
-                client_id=app_credential.client_id,
-                client_secret=self.token_cipher.decrypt(app_credential.client_secret_encrypted),
-            )
-            oauth_token.access_token_encrypted = self.token_cipher.encrypt(refresh_payload["access_token"])
-            oauth_token.refresh_token_encrypted = self.token_cipher.encrypt(refresh_payload["refresh_token"])
-            oauth_token.expires_at = self.strava_client.parse_expires_at(refresh_payload)
-            oauth_token.scope = refresh_payload.get("scope")
-            access_token = refresh_payload["access_token"]
-            self.session.flush()
-            logger.info("Refreshed Strava access token.", extra={"user.id": user_id})
-        return access_token
+        return credential.athlete_id, self.token_cipher.decrypt(credential.api_key_encrypted)
 
     def _get_existing_checkpoint_value(self, user_id: int) -> str | None:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)
@@ -182,32 +164,32 @@ class BaseImportService:
         return checkpoint.checkpoint_value
 
     def _upsert_activity(self, *, user_id: int, payload: dict) -> Activity:
-        activity = self.activities.get_by_strava_id(user_id, payload["id"])
+        activity = self.activities.get_by_source_activity_id(user_id, payload["id"])
         if activity is None:
             activity = Activity(
                 user_id=user_id,
                 strava_activity_id=payload["id"],
                 name=payload.get("name") or "Unnamed activity",
                 sport_type=payload["type"],
-                start_date_utc=self._parse_datetime(payload["start_date"]),
+                start_date_utc=self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local")),
             )
         activity.description = payload.get("description")
         activity.sport_type = payload["type"]
         activity.name = payload.get("name") or activity.name
-        activity.start_date_utc = self._parse_datetime(payload["start_date"])  # type: ignore[assignment]
-        activity.start_date_local = self._parse_datetime(payload.get("start_date_local"))
-        activity.distance_meters = Decimal(str(payload.get("distance") or 0))
-        activity.moving_time_seconds = int(payload.get("moving_time") or 0)
-        activity.elapsed_time_seconds = payload.get("elapsed_time")
-        activity.total_elevation_gain_meters = self._decimal_or_none(payload.get("total_elevation_gain"))
+        activity.start_date_utc = self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local"))  # type: ignore[assignment]
+        activity.start_date_local = self._parse_datetime(payload.get("start_date_local") or payload.get("start_date"))
+        activity.distance_meters = Decimal(str(self._first_present(payload, "distance", "distance_meters") or 0))
+        activity.moving_time_seconds = int(self._first_present(payload, "moving_time", "moving_time_seconds") or 0)
+        activity.elapsed_time_seconds = self._first_present(payload, "elapsed_time", "elapsed_time_seconds") or activity.moving_time_seconds
+        activity.total_elevation_gain_meters = self._decimal_or_none(self._first_present(payload, "total_elevation_gain", "total_elevation_gain_meters"))
         activity.elev_high_meters = self._decimal_or_none(payload.get("elev_high"))
         activity.elev_low_meters = self._decimal_or_none(payload.get("elev_low"))
-        activity.average_speed_mps = self._decimal_or_none(payload.get("average_speed"), scale=4)
+        activity.average_speed_mps = self._decimal_or_none(self._first_present(payload, "average_speed", "avg_speed"), scale=4)
         activity.average_speed_kph = speed_kph(activity.average_speed_mps)
-        activity.max_speed_mps = self._decimal_or_none(payload.get("max_speed"), scale=4)
-        activity.average_heartrate_bpm = self._decimal_or_none(payload.get("average_heartrate"))
-        activity.max_heartrate_bpm = payload.get("max_heartrate")
-        activity.average_cadence = self._decimal_or_none(payload.get("average_cadence"))
+        activity.max_speed_mps = self._decimal_or_none(self._first_present(payload, "max_speed", "max_speed_mps"), scale=4)
+        activity.average_heartrate_bpm = self._decimal_or_none(self._first_present(payload, "average_heartrate", "avg_hr", "average_hr"))
+        activity.max_heartrate_bpm = self._first_present(payload, "max_heartrate", "max_hr")
+        activity.average_cadence = self._decimal_or_none(self._first_present(payload, "average_cadence", "avg_cadence"))
         activity.distance_km = distance_km(activity.distance_meters)
         activity.moving_time_display = format_moving_time(activity.moving_time_seconds)
         activity.average_pace_seconds_per_km = pace_seconds_per_km(
@@ -241,7 +223,10 @@ class BaseImportService:
     def _parse_datetime(value: str | None) -> datetime | None:
         if value is None:
             return None
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed
 
     @staticmethod
     def _decimal_or_none(value: float | int | None, *, scale: int = 2) -> Decimal | None:
@@ -249,6 +234,13 @@ class BaseImportService:
             return None
         quantize_value = "0." + ("0" * (scale - 1)) + "1"
         return Decimal(str(value)).quantize(Decimal(quantize_value))
+
+    @staticmethod
+    def _first_present(payload: dict, *keys: str):
+        for key in keys:
+            if payload.get(key) is not None:
+                return payload[key]
+        return None
 
     @staticmethod
     def _to_checkpoint_value(value: datetime | None) -> str | None:

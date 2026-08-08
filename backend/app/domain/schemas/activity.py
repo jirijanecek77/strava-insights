@@ -76,7 +76,6 @@ class RunningAnalysisResponse(BaseModel):
     pace_distribution: list[RunningBandSummary]
     heart_rate_distribution: list[RunningBandSummary]
     agreement: RunningAgreementSummary
-    interpretation: str
 
 
 class CyclingBandSummary(BaseModel):

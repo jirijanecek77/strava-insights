@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
 from app.application.auth.current_user import CurrentUserService
+from app.core.config import settings
 from app.domain.schemas.user import CurrentUserResponse
 from app.domain.schemas.admin import AdminUserAuditItem, AdminUserListResponse
 from app.infrastructure.repositories.user_repository import UserRepository
@@ -12,14 +13,14 @@ from app.infrastructure.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/admin")
 logger = logging.getLogger(__name__)
-ADMIN_STRAVA_ATHLETE_ID = 102168741
+ADMIN_ATHLETE_ID = settings.effective_admin_athlete_id
 
 
 def _require_admin_user(request: Request, current_user_service: CurrentUserService) -> CurrentUserResponse:
     user = current_user_service.get_current_user(request)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
-    if user.strava_athlete_id != ADMIN_STRAVA_ATHLETE_ID:
+    if user.strava_athlete_id != ADMIN_ATHLETE_ID:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
     return user
 
@@ -48,7 +49,7 @@ def disable_user(
     target_user = user_repository.get_by_id(user_id)
     if target_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    if target_user.strava_athlete_id == ADMIN_STRAVA_ATHLETE_ID:
+    if target_user.strava_athlete_id == ADMIN_ATHLETE_ID:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="The admin account cannot be disabled.")
     if not target_user.is_active:
         return Response(status_code=status.HTTP_204_NO_CONTENT)

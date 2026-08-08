@@ -1,12 +1,12 @@
-# Strava Insights
+# Intervals Insights
 
 > This project was fully implemented through collaboration with agentic AI coding agents. It is a practical demonstration of shipping a complete product with AI-assisted software delivery.
 
-Strava Insights is a web application for athletes who want a clearer view of their training history than the standard Strava experience provides. It imports your Strava data into a local application database, then serves dashboards, comparisons, and activity analysis from that local dataset so the app stays fast and usable without depending on live Strava API reads during everyday use.
+Intervals Insights is a web application for athletes who want a clearer view of their Garmin-backed training history. It imports your Intervals.icu data into a local application database, then serves dashboards, comparisons, and activity analysis from that local dataset so the app stays fast and usable without depending on live external API reads during everyday use.
 
 ## Who It Is For
 
-Strava Insights is designed for runners and cyclists who want to:
+Intervals Insights is designed for runners and cyclists who want to:
 
 - understand training progression over time
 - compare current performance with previous weeks, months, and years
@@ -25,9 +25,9 @@ The dashboard summarizes key metrics such as distance, moving time, activity cou
 - this year vs previous year
 - rolling 30 days vs previous rolling 30 days
 
-### Explore trends without waiting on Strava
+### Explore Trends Without Waiting On External APIs
 
-Because activity data is imported and stored locally, normal app screens do not need live Strava API calls. That makes the experience better suited for repeated analysis, historical browsing, and responsive dashboards.
+Because activity data is imported and stored locally, normal app screens do not need live Intervals.icu API calls. That makes the experience better suited for repeated analysis, historical browsing, and responsive dashboards.
 
 ### Browse training on a calendar
 
@@ -69,7 +69,7 @@ First login starts a historical import. After that, the system supports incremen
 ## Why This Product Is Different
 
 - It is built for athlete insight, not generic reporting.
-- It avoids live Strava reads on normal dashboard and analysis pages.
+- It avoids live external API reads on normal dashboard and analysis pages.
 - It keeps imported data available for richer derived metrics and faster repeat usage.
 - It combines dashboard summaries, day-level training views, and deep single-activity analysis in one place.
 
@@ -77,7 +77,7 @@ First login starts a historical import. After that, the system supports incremen
 
 Current v1 scope includes:
 
-- Strava OAuth login
+- Intervals.icu athlete ID and API key login
 - multi-user data isolation
 - running, ride, and e-bike ride support
 - dashboard, calendar, activity list, activity detail, best efforts, profile/settings, and sync status views
@@ -112,8 +112,8 @@ Copy-Item worker/.env.secrets.template worker/.env.secrets
 Fill in at least:
 
 - `frontend/.env`: `VITE_MAPYCZ_API_KEY`
-- `backend/.env.secrets`: `SESSION_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
-- `worker/.env.secrets`: `SESSION_SECRET_KEY`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
+- `backend/.env.secrets`: `SESSION_SECRET_KEY`
+- `worker/.env.secrets`: `SESSION_SECRET_KEY`
 
 ### 2. Build and start
 

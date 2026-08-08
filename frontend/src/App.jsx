@@ -2,7 +2,7 @@ import {startTransition, useEffect, useEffectEvent, useMemo, useRef, useState} f
 import "leaflet/dist/leaflet.css";
 
 import {
-    adminStravaAthleteId,
+    adminAthleteId,
     defaultLandingCredentialState,
     syncPollIntervalMs,
     views,
@@ -55,8 +55,8 @@ export default function App() {
     const [adminActionUserId, setAdminActionUserId] = useState(null);
     const [landingCredentialState, setLandingCredentialState] = useState(defaultLandingCredentialState);
     const [authForm, setAuthForm] = useState({
-        clientId: "",
-        clientSecret: "",
+        athleteId: "",
+        apiKey: "",
         mode: "manual",
     });
     const [setupModalOpen, setSetupModalOpen] = useState(false);
@@ -78,7 +78,7 @@ export default function App() {
             }),
         [dateFrom, dateTo, selectedSport],
     );
-    const isAdmin = user?.strava_athlete_id === adminStravaAthleteId;
+    const isAdmin = user?.strava_athlete_id === adminAthleteId;
     const availableViews = isAdmin ? [...views, "admin"] : views;
 
     useEffect(() => {
@@ -87,21 +87,21 @@ export default function App() {
 
     const loadLandingCredentialState = useEffectEvent(async () => {
         try {
-            const payload = await fetchJson("/auth/strava/credentials");
+            const payload = await fetchJson("/auth/intervals/credentials");
             setLandingCredentialState(payload);
             setAuthForm({
-                clientId: payload.client_id ?? "",
-                clientSecret: "",
+                athleteId: payload.athlete_id ?? "",
+                apiKey: "",
                 mode: payload.can_connect ? "saved" : "manual",
             });
         } catch (error) {
             setLandingCredentialState(defaultLandingCredentialState);
             setAuthForm({
-                clientId: "",
-                clientSecret: "",
+                athleteId: "",
+                apiKey: "",
                 mode: "manual",
             });
-            setErrorMessage(error.message ?? "Failed to load saved Strava app credentials.");
+            setErrorMessage(error.message ?? "Failed to load saved Intervals.icu credentials.");
         }
     });
 
@@ -377,30 +377,36 @@ export default function App() {
     async function handleLogin() {
         try {
             setAuthBusy(true);
-            const payload = await fetchJson("/auth/strava/login", {
+            await fetchJson("/auth/intervals/login", {
                 method: "POST",
                 body: JSON.stringify(
                     authForm.mode === "saved"
                         ? {use_saved_credentials: true}
                         : {
-                            client_id: authForm.clientId.trim(),
-                            client_secret: authForm.clientSecret.trim(),
+                            athlete_id: authForm.athleteId.trim(),
+                            api_key: authForm.apiKey.trim(),
                             use_saved_credentials: false,
                         },
                 ),
             });
-            window.location.assign(payload.authorization_url);
+            const session = await fetchJson("/auth/session");
+            startTransition(() => {
+                setUser(session);
+                setSessionState("authenticated");
+                setSetupModalOpen(false);
+                setErrorMessage("");
+            });
         } catch (error) {
             if (authForm.mode === "saved") {
                 setAuthForm((current) => ({
                     ...current,
-                    clientId: current.clientId || landingCredentialState.client_id || "",
-                    clientSecret: "",
+                    athleteId: current.athleteId || landingCredentialState.athlete_id || "",
+                    apiKey: "",
                     mode: "manual",
                 }));
                 setSetupModalOpen(true);
             }
-            setErrorMessage(error.message ?? "Failed to start Strava login.");
+            setErrorMessage(error.message ?? "Failed to connect Intervals.icu.");
         } finally {
             setAuthBusy(false);
         }
@@ -422,7 +428,7 @@ export default function App() {
     }
 
     function hasManualCredentials() {
-        return authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
+        return authForm.athleteId.trim().length > 0 && authForm.apiKey.trim().length > 0;
     }
 
     function handleAuthPrimaryAction() {

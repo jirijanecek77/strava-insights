@@ -1,4 +1,6 @@
 from datetime import date
+from numbers import Real
+from typing import Any
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -82,6 +84,7 @@ class ActivityReadService:
         )
 
         latlng = (stream.latlng_stream or {}).get("data", []) if stream and stream.latlng_stream else []
+        activity_map = _activity_map_from_latlng(latlng)
         thresholds = (
             ActivityDetailThresholds(
                 aet_heart_rate_bpm=(
@@ -143,7 +146,7 @@ class ActivityReadService:
                 max_pace_display=_format_max_pace_display(activity.max_speed_mps) if activity.sport_type == "Run" else None,
                 max_speed_kph=_compute_max_speed_kph(activity.max_speed_mps) if activity.sport_type not in {"Run"} else None,
             ),
-            map=None if not latlng else ActivityMap(polyline=latlng, bounds=_map_bounds(latlng)),
+            map=activity_map,
             series=ActivitySeries(
                 distance_km=analytics["distance_km"],
                 altitude_meters=analytics["altitude_meters"],
@@ -157,6 +160,32 @@ class ActivityReadService:
             running_analysis=analytics["running_analysis"],
             cycling_analysis=analytics["cycling_analysis"],
         )
+
+
+def _activity_map_from_latlng(raw_polyline: Any) -> ActivityMap | None:
+    polyline = _normalize_polyline(raw_polyline)
+    if not polyline:
+        return None
+    return ActivityMap(polyline=polyline, bounds=_map_bounds(polyline))
+
+
+def _normalize_polyline(raw_polyline: Any) -> list[list[float]]:
+    if not isinstance(raw_polyline, list):
+        return []
+
+    polyline: list[list[float]] = []
+    for point in raw_polyline:
+        if not isinstance(point, list | tuple) or len(point) < 2:
+            continue
+        latitude, longitude = point[0], point[1]
+        if not _is_coordinate(latitude) or not _is_coordinate(longitude):
+            continue
+        polyline.append([float(latitude), float(longitude)])
+    return polyline
+
+
+def _is_coordinate(value: Any) -> bool:
+    return isinstance(value, Real) and not isinstance(value, bool)
 
 
 def _map_bounds(polyline: list[list[float]]) -> dict[str, float]:

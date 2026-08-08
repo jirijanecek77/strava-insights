@@ -7,7 +7,7 @@ export function LoadingScreen() {
         <main className="app-shell loading-state">
             <AmbientBackdrop/>
             <div className="loading-card">
-                <p className="eyebrow">Strava Insights</p>
+                <p className="eyebrow">Athlete Insights</p>
                 <h1>Connecting to your local training archive.</h1>
                 <p className="copy">Reading session and cached summaries.</p>
             </div>
@@ -26,41 +26,41 @@ export function AuthScreen({
                                onLogin,
                            }) {
     const hasSavedCredentials = authForm.mode === "saved" && landingCredentialState.can_connect;
-    const hasManualCredentials = authForm.clientId.trim().length > 0 && authForm.clientSecret.trim().length > 0;
+    const hasManualCredentials = authForm.athleteId.trim().length > 0 && authForm.apiKey.trim().length > 0;
     const canConnect = hasSavedCredentials || hasManualCredentials;
-    const primaryButtonLabel = authBusy ? "Opening Strava..." : "Login to Strava";
-    const heroTitle = isLoggedOut ? "Back to your training archive." : "Your Strava history, kept simple.";
-    const subCopy = hasSavedCredentials ? "Your data is still here. Log in again and continue." : "First time? Set up your app, then log in.";
+    const primaryButtonLabel = authBusy ? "Connecting..." : "Connect Intervals.icu";
+    const heroTitle = isLoggedOut ? "Back to your training archive." : "Your Garmin history, kept simple.";
+    const subCopy = hasSavedCredentials ? "Your data is still here. Log in again and continue." : "Enter your Intervals.icu athlete ID and API key.";
 
     return (
         <main className="app-shell landing-shell">
             <AmbientBackdrop/>
             <section className="landing-panel auth-panel">
                 <div className="landing-copy landing-copy-simple">
-                    <p className="eyebrow">Strava Insights</p>
+                    <p className="eyebrow">Athlete Insights</p>
                     <h1>{heroTitle}</h1>
                     <p className="copy landing-subcopy">{hasManualCredentials ? "Ready for login." : subCopy}</p>
                     {errorMessage ? <p className="banner-error">{errorMessage}</p> : null}
                     <div className="landing-actions">
-                        <button className="strava-connect-button is-primary" disabled={authBusy} onClick={onLogin} type="button">
-                            <span className="strava-connect-mark" aria-hidden="true">
-                                <span className="strava-connect-chevron tall"/>
-                                <span className="strava-connect-chevron short"/>
+                        <button className="intervals-connect-button is-primary" disabled={authBusy} onClick={onLogin} type="button">
+                            <span className="intervals-connect-mark" aria-hidden="true">
+                                <span className="intervals-connect-chevron tall"/>
+                                <span className="intervals-connect-chevron short"/>
                             </span>
                             <span>{primaryButtonLabel}</span>
                         </button>
                     </div>
                 </div>
-                <div className="auth-brand-card landing-hero-card" aria-label="Strava compatibility notice">
+                <div className="auth-brand-card landing-hero-card" aria-label="Intervals.icu compatibility notice">
                     <div className="auth-brand-lockup landing-brand-copy">
-                        <div className="auth-brand-wordmark" aria-label="Strava">
-                            <span className="strava-connect-chevron tall"/>
-                            <span className="strava-connect-chevron short"/>
-                            <span className="auth-brand-word">Strava</span>
+                        <div className="auth-brand-wordmark" aria-label="Intervals.icu">
+                            <span className="intervals-connect-chevron tall"/>
+                            <span className="intervals-connect-chevron short"/>
+                            <span className="auth-brand-word">Intervals.icu</span>
                         </div>
-                        <p className="auth-brand-mark">Compatible with Strava</p>
+                        <p className="auth-brand-mark">Powered by your Intervals.icu archive</p>
                         <p className="copy landing-legal-copy">
-                            Not developed or sponsored by Strava.
+                            Connect with the API key from your Intervals.icu settings.
                         </p>
                     </div>
                 </div>
@@ -70,35 +70,34 @@ export function AuthScreen({
                     <section aria-labelledby="setup-dialog-title" aria-modal="true" className="setup-modal" role="dialog">
                         <div className="setup-modal-header">
                             <div>
-                                <p className="eyebrow">Strava App</p>
-                                <h2 id="setup-dialog-title">Set up your Strava app</h2>
+                                <p className="eyebrow">Intervals.icu</p>
+                                <h2 id="setup-dialog-title">Connect Intervals.icu</h2>
                                 <p className="copy">
-                                    Get your Client ID and Client Secret from your Strava app settings. </p>
+                                    Enter your athlete ID and personal API key from Intervals.icu settings. </p>
                                 <p className="copy">For more information, see the {" "}
-                                    <a href="https://developers.strava.com/docs/getting-started/#account" >
-                                        "Strava developer getting started"
+                                    <a href={landingCredentialState.intervals_settings_url || "https://intervals.icu/settings"} >
+                                        Intervals.icu settings
                                     </a> guide.
                                 </p>
                             </div>
                         </div>
                         <div className="auth-credential-grid">
                             <label className="control-chip">
-                                <span>Strava Client ID</span>
+                                <span>Intervals Athlete ID</span>
                                 <input
                                     autoComplete="off"
-                                    inputMode="numeric"
                                     type="text"
-                                    value={authForm.clientId}
-                                    onChange={(event) => onChangeAuthField("clientId", event.target.value)}
+                                    value={authForm.athleteId}
+                                    onChange={(event) => onChangeAuthField("athleteId", event.target.value)}
                                 />
                             </label>
                             <label className="control-chip">
-                                <span>Strava Client Secret</span>
+                                <span>Intervals API Key</span>
                                 <input
                                     autoComplete="off"
                                     type="password"
-                                    value={authForm.clientSecret}
-                                    onChange={(event) => onChangeAuthField("clientSecret", event.target.value)}
+                                    value={authForm.apiKey}
+                                    onChange={(event) => onChangeAuthField("apiKey", event.target.value)}
                                 />
                             </label>
                         </div>

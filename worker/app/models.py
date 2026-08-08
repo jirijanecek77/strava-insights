@@ -39,26 +39,13 @@ class SyncJob(Base):
     )
 
 
-class OauthToken(Base):
-    __tablename__ = "oauth_tokens"
+class IntervalsCredential(Base):
+    __tablename__ = "intervals_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    provider: Mapped[str] = mapped_column(String(50), nullable=False)
-    access_token_encrypted: Mapped[str] = mapped_column(String(2048), nullable=False)
-    refresh_token_encrypted: Mapped[str] = mapped_column(String(2048), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    scope: Mapped[str | None] = mapped_column(String(255))
-    strava_athlete_id: Mapped[int | None] = mapped_column(BigInteger)
-
-
-class UserStravaAppCredential(Base):
-    __tablename__ = "user_strava_app_credentials"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    client_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    client_secret_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
+    athlete_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    api_key_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
 
 
 class Activity(Base):

@@ -42,11 +42,11 @@ Required values:
 - `worker/.env.secrets`
   - `SESSION_SECRET_KEY`
 
-## Strava OAuth Setup
+## Intervals.icu API Setup
 
-- Each athlete must create or reuse their own Strava developer application and enter that app's `client_id` and `client_secret` on the landing/login screen before connecting.
-- The landing/login screen should link users to `https://www.strava.com/settings/api` for app creation and credential lookup.
-- Set the Strava authorization callback URL to `https://<your-domain>/auth/strava/callback`.
+- Each athlete must enter their Intervals.icu athlete ID and personal API key on the landing/login screen before connecting.
+- The landing/login screen should link users to `https://intervals.icu/settings` for credential lookup.
+- Callback configuration is not required; Intervals.icu access uses athlete ID plus API key credentials.
 - Keep `FRONTEND_VITE_API_BASE_URL` set to the same public origin, for example `https://app.example.com`.
 
 ## Deployment Commands

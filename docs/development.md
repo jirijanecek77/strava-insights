@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document describes how to run and validate the local stack. Product behavior, architecture, and delivery scope belong in [specification.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/specification.md).
+This document describes how to run and validate the local stack. Product behavior, architecture, and delivery scope belong in [specification.md](specification.md).
 
 ## Services
 
@@ -28,7 +28,7 @@ Expected env templates:
 - `worker/.env.secrets.template`
 - Log output is written to the Docker console for `backend`, `worker`, and `beat`.
 - The backend is started through a small Python Uvicorn runner so application logging remains authoritative in Docker.
-- Strava app `client_id` and `client_secret` are no longer provided through service env files; each athlete enters their own app credentials on the landing/login screen and the backend stores them in the database after a successful OAuth callback.
+- Intervals.icu API credentials are not provided through service env files; each athlete enters their Intervals.icu athlete ID and personal API key on the landing/login screen and the backend stores them encrypted after validation.
 
 ## Commands
 
@@ -76,4 +76,4 @@ Useful log inspection commands:
 
 - The legacy Flask/Dash application remains in place during the rebuild.
 - The new application lives in `frontend`, `backend`, and `worker`.
-- Single-host production deployment guidance lives in [deployment.md](C:/Users/jiri.janecek1/IdeaProjects/strava_insights/docs/deployment.md).
+- Single-host production deployment guidance lives in [deployment.md](deployment.md).

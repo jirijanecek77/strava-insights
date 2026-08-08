@@ -1,14 +1,16 @@
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from app.application.auth.current_user import CurrentUserService
-from app.application.auth.oauth import StravaOAuthService
+from app.application.auth.credentials import IntervalsCredentialService
 from app.application.sync.orchestrator import SyncOrchestrator
-from app.core.config import settings
 from app.core.logging import set_log_user_name
-from app.domain.schemas.auth import StartStravaLoginRequest, StartStravaLoginResponse, StravaCredentialStateResponse
+from app.domain.schemas.auth import (
+    IntervalsCredentialStateResponse,
+    StartIntervalsLoginRequest,
+    StartIntervalsLoginResponse,
+)
 from app.domain.schemas.user import CurrentUserResponse
 
 
@@ -16,41 +18,28 @@ router = APIRouter(prefix="/auth")
 logger = logging.getLogger(__name__)
 
 
-@router.get("/strava/credentials", response_model=StravaCredentialStateResponse)
-def get_strava_landing_credentials(
+@router.get("/intervals/credentials", response_model=IntervalsCredentialStateResponse)
+def get_intervals_landing_credentials(
     request: Request,
-    strava_oauth_service: StravaOAuthService = Depends(StravaOAuthService),
-) -> StravaCredentialStateResponse:
+    intervals_credential_service: IntervalsCredentialService = Depends(IntervalsCredentialService),
+) -> IntervalsCredentialStateResponse:
     remembered_user_id = request.session.get("remembered_user_id")
-    return strava_oauth_service.get_landing_credential_state(remembered_user_id)
+    return intervals_credential_service.get_landing_credential_state(remembered_user_id)
 
 
-@router.post("/strava/login", response_model=StartStravaLoginResponse)
-def start_strava_login(
+@router.post("/intervals/login", response_model=StartIntervalsLoginResponse)
+def start_intervals_login(
     request: Request,
-    payload: StartStravaLoginRequest = Body(...),
-    strava_oauth_service: StravaOAuthService = Depends(StravaOAuthService),
-) -> StartStravaLoginResponse:
-    authorization_url = strava_oauth_service.start_login(
-        client_id=payload.client_id,
-        client_secret=payload.client_secret,
+    payload: StartIntervalsLoginRequest = Body(...),
+    intervals_credential_service: IntervalsCredentialService = Depends(IntervalsCredentialService),
+    sync_orchestrator: SyncOrchestrator = Depends(SyncOrchestrator),
+) -> StartIntervalsLoginResponse:
+    authenticated_user = intervals_credential_service.authenticate_with_credentials(
+        athlete_id=payload.athlete_id,
+        api_key=payload.api_key,
         use_saved_credentials=payload.use_saved_credentials,
         remembered_user_id=request.session.get("remembered_user_id"),
-        request_client=request.client.host if request.client else "unknown",
     )
-    return StartStravaLoginResponse(authorization_url=authorization_url)
-
-
-@router.get("/strava/callback", response_class=RedirectResponse, status_code=status.HTTP_302_FOUND)
-def strava_callback(
-    request: Request,
-    code: str = Query(...),
-    state: str = Query(...),
-    strava_oauth_service: StravaOAuthService = Depends(StravaOAuthService),
-    sync_orchestrator: SyncOrchestrator = Depends(SyncOrchestrator),
-) -> RedirectResponse:
-    logger.info("Handling Strava OAuth callback.")
-    authenticated_user = strava_oauth_service.authenticate_from_code(code, state)
     if authenticated_user.is_new_user:
         logger.info("Queueing first import after new user login.", extra={"user.id": authenticated_user.id})
         sync_orchestrator.enqueue_first_import_if_needed(authenticated_user.id)
@@ -62,9 +51,8 @@ def strava_callback(
     }
     request.session["remembered_user_id"] = authenticated_user.id
     set_log_user_name(authenticated_user.display_name)
-    logger.info("Completed Strava OAuth callback.", extra={"user.id": authenticated_user.id})
-
-    return RedirectResponse(url=settings.frontend_public_url, status_code=status.HTTP_302_FOUND)
+    logger.info("Completed Intervals.icu credential login.", extra={"user.id": authenticated_user.id})
+    return StartIntervalsLoginResponse(user_id=authenticated_user.id, is_new_user=authenticated_user.is_new_user)
 
 
 @router.get("/session", response_model=CurrentUserResponse)

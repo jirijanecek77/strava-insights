@@ -27,12 +27,12 @@ describe("App", () => {
             if (url.includes("/auth/session")) {
                 return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
             }
-            if (url.includes("/auth/strava/credentials")) {
+            if (url.includes("/auth/intervals/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    client_id: null,
+                    athlete_id: null,
                     has_saved_secret: false,
                     can_connect: false,
-                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                    intervals_settings_url: "https://intervals.icu/settings",
                 }));
             }
             return Promise.reject(new Error(`Unhandled fetch: ${url}`));
@@ -40,21 +40,18 @@ describe("App", () => {
 
         render(<App/>);
 
-        expect(await screen.findByRole("heading", {name: /your strava history, kept simple/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
-        expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
-        expect(screen.queryByRole("button", {name: /set strava credentials/i})).not.toBeInTheDocument();
+        expect(await screen.findByRole("heading", {name: /your garmin history, kept simple/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect intervals\.icu/i})).toBeInTheDocument();
+        expect(screen.getByText(/^intervals\.icu$/i)).toBeInTheDocument();
         expect(screen.queryByText(/setup required/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/flow/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
-        fireEvent.click(screen.getByRole("button", {name: /login to strava/i}));
-        const dialog = await screen.findByRole("dialog", {name: /set up your strava app/i});
+        fireEvent.click(screen.getByRole("button", {name: /connect intervals\.icu/i}));
+        const dialog = await screen.findByRole("dialog", {name: /connect intervals\.icu/i});
         expect(dialog).toBeInTheDocument();
-        expect(within(dialog).getByRole("link", {name: /strava developer getting started/i})).toHaveAttribute(
+        expect(within(dialog).getByRole("link", {name: /intervals\.icu settings/i})).toHaveAttribute(
             "href",
-            "https://developers.strava.com/docs/getting-started/#account",
+            "https://intervals.icu/settings",
         );
-        expect(screen.queryByText(/strava api settings/i)).not.toBeInTheDocument();
     });
 
     it("renders the shared auth screen with saved credentials after logout", async () => {
@@ -72,12 +69,12 @@ describe("App", () => {
                 expect(init?.method).toBe("POST");
                 return Promise.resolve({ok: true, status: 204, headers: {get: vi.fn().mockReturnValue(null)}});
             }
-            if (url.includes("/auth/strava/credentials")) {
+            if (url.includes("/auth/intervals/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    client_id: "12345",
+                    athlete_id: "12345",
                     has_saved_secret: true,
                     can_connect: true,
-                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                    intervals_settings_url: "https://intervals.icu/settings",
                 }));
             }
             if (url.includes("/sync/status")) {
@@ -122,64 +119,88 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /log out/i}));
 
         expect(await screen.findByRole("heading", {name: /back to your training archive\./i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /login to strava/i})).toBeInTheDocument();
-        expect(screen.getByText(/^strava$/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect intervals\.icu/i})).toBeInTheDocument();
+        expect(screen.getByText(/^intervals\.icu$/i)).toBeInTheDocument();
         expect(screen.getByText(/your data is still here\. log in again and continue\./i)).toBeInTheDocument();
-        expect(screen.queryByRole("button", {name: /set strava credentials/i})).not.toBeInTheDocument();
-        expect(screen.getByText(/compatible with strava/i)).toBeInTheDocument();
-        expect(screen.getByText(/not developed or sponsored by strava/i)).toBeInTheDocument();
+        expect(screen.getByText(/powered by your intervals\.icu archive/i)).toBeInTheDocument();
     });
 
     it("stages manual credentials in the setup modal and uses them for login", async () => {
-        const assignSpy = vi.fn();
-        vi.stubGlobal("location", {...window.location, assign: assignSpy});
+        let loggedIn = false;
         vi.spyOn(global, "fetch").mockImplementation((input, init) => {
             const url = String(input);
             if (url.includes("/auth/session")) {
+                if (loggedIn) {
+                    return Promise.resolve(jsonResponse({
+                        id: 1,
+                        strava_athlete_id: 99,
+                        display_name: "Test Athlete",
+                        profile_picture_url: null,
+                    }));
+                }
                 return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
             }
-            if (url.includes("/auth/strava/credentials")) {
+            if (url.includes("/auth/intervals/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    client_id: null,
+                    athlete_id: null,
                     has_saved_secret: false,
                     can_connect: false,
-                    strava_api_settings_url: "https://www.strava.com/settings/api",
+                    intervals_settings_url: "https://intervals.icu/settings",
                 }));
             }
-            if (url.includes("/auth/strava/login")) {
+            if (url.includes("/auth/intervals/login")) {
                 expect(init?.method).toBe("POST");
                 expect(init?.body).toBe(JSON.stringify({
-                    client_id: "45678",
-                    client_secret: "super-secret",
+                    athlete_id: "45678",
+                    api_key: "super-secret",
                     use_saved_credentials: false,
                 }));
-                return Promise.resolve(jsonResponse({authorization_url: "https://www.strava.com/oauth/authorize"}));
+                loggedIn = true;
+                return Promise.resolve(jsonResponse({user_id: 1, is_new_user: false}));
+            }
+            if (url.includes("/sync/status")) {
+                return Promise.resolve(jsonResponse({status: "completed"}));
+            }
+            if (url.includes("/dashboard")) {
+                return Promise.resolve(jsonResponse({month: [], year: []}));
+            }
+            if (url.includes("/activities")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/best-efforts")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
+            if (url.includes("/comparisons")) {
+                return Promise.resolve(jsonResponse([]));
+            }
+            if (url.includes("/trends")) {
+                return Promise.resolve(jsonResponse({period_type: "month", items: []}));
             }
             return Promise.reject(new Error(`Unhandled fetch: ${url}`));
         });
 
         render(<App/>);
 
-        fireEvent.click(await screen.findByRole("button", {name: /login to strava/i}));
-        const dialog = await screen.findByRole("dialog", {name: /set up your strava app/i});
-        fireEvent.change(within(dialog).getByLabelText("Strava Client ID"), {target: {value: "45678"}});
-        fireEvent.change(within(dialog).getByLabelText("Strava Client Secret"), {target: {value: "super-secret"}});
-        fireEvent.click(within(dialog).getByRole("button", {name: /login to strava/i}));
+        fireEvent.click(await screen.findByRole("button", {name: /connect intervals\.icu/i}));
+        const dialog = await screen.findByRole("dialog", {name: /connect intervals\.icu/i});
+        fireEvent.change(within(dialog).getByLabelText("Intervals Athlete ID"), {target: {value: "45678"}});
+        fireEvent.change(within(dialog).getByLabelText("Intervals API Key"), {target: {value: "super-secret"}});
+        fireEvent.click(within(dialog).getByRole("button", {name: /connect intervals\.icu/i}));
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
-                expect.stringContaining("/auth/strava/login"),
+                expect.stringContaining("/auth/intervals/login"),
                 expect.objectContaining({
                     body: JSON.stringify({
-                        client_id: "45678",
-                        client_secret: "super-secret",
+                        athlete_id: "45678",
+                        api_key: "super-secret",
                         use_saved_credentials: false,
                     }),
                     method: "POST",
                 }),
             );
         });
-        expect(assignSpy).toHaveBeenCalledWith("https://www.strava.com/oauth/authorize");
+        expect(await screen.findByRole("heading", {name: /dashboard/i})).toBeInTheDocument();
     });
 
     it("renders dashboard data and activity detail from the backend payloads", async () => {
@@ -249,7 +270,7 @@ describe("App", () => {
                             summary_metric_display: "5:00 min/km",
                             total_elevation_gain_meters: 120,
                             average_heartrate_bpm: 150,
-                            heart_rate_drift_bpm: 6.5,
+                            aerobic_efficiency_m_per_beat: 66.7,
                         },
                         map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
                         series: {
@@ -286,9 +307,6 @@ describe("App", () => {
                                 heart_rate_higher_distance_km: 1.0,
                                 heart_rate_higher_share_percent: 10,
                             },
-                            interpretation: "Pace and heart rate aligned well, with most work sitting at aet to ant.",
-                            activity_evaluation: "This looked like a controlled steady run with most of the work staying in the AeT to AnT range.",
-                            further_training_suggestion: "A similar threshold session is reasonable next time if recovery stays good; otherwise use an easy aerobic day.",
                         },
                     }),
                 );
@@ -396,10 +414,10 @@ describe("App", () => {
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
         expect(screen.getByText(/^distance$/i)).toBeInTheDocument();
         expect(screen.getByText(/^moving time$/i)).toBeInTheDocument();
-        expect(screen.getByText(/^hr drift$/i)).toBeInTheDocument();
-        expect(screen.getAllByText("+6.5 bpm").length).toBeGreaterThan(0);
+        expect(screen.getByText(/^efficiency$/i)).toBeInTheDocument();
+        expect(screen.getByText("66.7 m/beat")).toBeInTheDocument();
         expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
-        expect(screen.getByText(/^elevation$/i)).toBeInTheDocument();
+        expect(screen.getByText(/^elevation gain$/i)).toBeInTheDocument();
         expect(screen.getByText(/^average hr$/i)).toBeInTheDocument();
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
@@ -409,14 +427,6 @@ describe("App", () => {
         expect(screen.queryByLabelText(/strain warning/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/longest aet to ant/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/longest above ant/i)).not.toBeInTheDocument();
-        expect(screen.getByText(/activity evaluation/i)).toBeInTheDocument();
-        const activityEvaluationText = screen.getByText(/controlled steady run/i);
-        expect(activityEvaluationText).toBeInTheDocument();
-        expect(activityEvaluationText.tagName).toBe("SPAN");
-        expect(screen.getByText(/further training suggestion/i)).toBeInTheDocument();
-        const trainingSuggestionText = screen.getByText(/similar threshold session is reasonable next time/i);
-        expect(trainingSuggestionText).toBeInTheDocument();
-        expect(trainingSuggestionText.tagName).toBe("SPAN");
         expect(screen.getByText(/80%/i)).toBeInTheDocument();
         fireEvent.mouseEnter(screen.getByRole("button", {name: /pace bands explanation/i}));
         expect(await screen.findByText(/shows how your running pace was distributed/i)).toBeInTheDocument();
@@ -827,8 +837,6 @@ describe("App", () => {
                             descending_share_percent: 19,
                         },
                         average_cadence: 88,
-                        activity_evaluation: "This looked like a hilly ride with meaningful high-cardiac-load segments on the climbs.",
-                        further_training_suggestion: "Follow this with an easier spin or recovery day so the harder cardiovascular load has room to absorb.",
                     },
                 }));
             }
@@ -860,6 +868,9 @@ describe("App", () => {
             if (url.includes("/trends")) {
                 return Promise.resolve(jsonResponse({period_type: "month", items: []}));
             }
+            if (url.includes("/aerobic-efficiency")) {
+                return Promise.resolve(jsonResponse({items: []}));
+            }
             return Promise.reject(new Error(`Unhandled fetch: ${url}`));
         });
 
@@ -875,7 +886,6 @@ describe("App", () => {
         expect(screen.queryByText(/longest aerobic block/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/longest above ant/i)).not.toBeInTheDocument();
         expect(screen.getAllByText(/88 rpm/i).length).toBeGreaterThan(0);
-        expect(screen.getByText(/hilly ride with meaningful high-cardiac-load segments/i)).toBeInTheDocument();
         expect(screen.getByLabelText("km/h chart")).toBeInTheDocument();
     });
 
@@ -923,6 +933,9 @@ describe("App", () => {
             }
             if (url.includes("/trends")) {
                 return Promise.resolve(jsonResponse({period_type: "month", items: []}));
+            }
+            if (url.includes("/aerobic-efficiency")) {
+                return Promise.resolve(jsonResponse({items: []}));
             }
             return Promise.reject(new Error(`Unhandled fetch: ${url}`));
         });
@@ -1101,8 +1114,7 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
         fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
-        expect(await screen.findByText(/2 activities/i)).toBeInTheDocument();
-        const bubble = screen.getByRole("button", {name: /15 km/i});
+        const bubble = await screen.findByRole("button", {name: /15 km, 2 activities/i});
         expect(bubble).toBeInTheDocument();
         expect(bubble).toHaveClass("is-run");
     });
@@ -1211,9 +1223,9 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
         fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
-        const shortBubble = await screen.findByRole("button", {name: /^8 km$/i});
-        const mediumBubble = await screen.findByRole("button", {name: /^18 km$/i});
-        const longBubble = await screen.findByRole("button", {name: /^30 km$/i});
+        const shortBubble = await screen.findByRole("button", {name: /^8 km/i});
+        const mediumBubble = await screen.findByRole("button", {name: /^18 km/i});
+        const longBubble = await screen.findByRole("button", {name: /^30 km/i});
 
         expect(shortBubble.style.getPropertyValue("--bubble-size")).toBe("22px");
         expect(mediumBubble.style.getPropertyValue("--bubble-size")).toBe("32px");
@@ -1270,8 +1282,8 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /calendar/i}));
         fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
-        const shortRideBubble = await screen.findByRole("button", {name: /^20 km$/i});
-        const longRideBubble = await screen.findByRole("button", {name: /^100 km$/i});
+        const shortRideBubble = await screen.findByRole("button", {name: /^20 km/i});
+        const longRideBubble = await screen.findByRole("button", {name: /^100 km/i});
 
         expect(shortRideBubble.style.getPropertyValue("--bubble-size")).toBe("23px");
         expect(longRideBubble.style.getPropertyValue("--bubble-size")).toBe("39px");
@@ -1442,12 +1454,12 @@ describe("App", () => {
         fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-03"}});
 
         expect(await screen.findByText(/march 2026/i)).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /^10 km$/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /^10 km/i})).toBeInTheDocument();
 
         fireEvent.change(screen.getByLabelText("Month"), {target: {value: "2026-02"}});
 
         expect(await screen.findByText(/february 2026/i)).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /^12 km$/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /^12 km/i})).toBeInTheDocument();
     });
 
     it("shows the admin page only for the admin athlete and lets them reject a user", async () => {
@@ -1456,7 +1468,7 @@ describe("App", () => {
             if (url.includes("/auth/session")) {
                 return Promise.resolve(jsonResponse({
                     id: 1,
-                    strava_athlete_id: 102168741,
+                    strava_athlete_id: 632291,
                     display_name: "Admin Athlete",
                     profile_picture_url: null,
                 }));
@@ -1484,7 +1496,7 @@ describe("App", () => {
                     items: [
                         {
                             id: 1,
-                            strava_athlete_id: 102168741,
+                            strava_athlete_id: 632291,
                             display_name: "Admin Athlete",
                             email: null,
                             is_active: true,

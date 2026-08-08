@@ -9,7 +9,7 @@ from itsdangerous import TimestampSigner
 
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
-from app.application.auth.oauth import StravaOAuthService
+from app.application.auth.credentials import IntervalsCredentialService
 from app.application.read_models.activities import ActivityReadService
 from app.application.read_models.best_efforts import BestEffortReadService
 from app.application.read_models.dashboard import DashboardReadService
@@ -43,22 +43,18 @@ class SyncStatusServiceStub:
         return self.response
 
 
-class OAuthServiceStub:
+class CredentialServiceStub:
     def get_landing_credential_state(self, _remembered_user_id):
         return {
-            "client_id": "12345",
+            "athlete_id": "12345",
             "has_saved_secret": True,
             "can_connect": True,
-            "strava_api_settings_url": "https://www.strava.com/settings/api",
+            "intervals_settings_url": "https://intervals.icu/settings",
         }
 
-    def start_login(self, **_kwargs) -> str:
-        return "https://example.com/oauth?state=signed-state"
-
-    def authenticate_from_code(self, code: str, state: str) -> AuthenticatedUser:
-        assert code == "valid-code"
-        if state != "signed-state":
-            raise HTTPException(status_code=400, detail="Invalid OAuth state.")
+    def authenticate_with_credentials(self, **kwargs) -> AuthenticatedUser:
+        if kwargs.get("athlete_id") == "disabled":
+            raise HTTPException(status_code=403, detail="This account has been disabled.")
         return AuthenticatedUser(
             id=1,
             strava_athlete_id=162181,
@@ -582,57 +578,33 @@ def test_best_efforts_returns_items(client) -> None:
     assert response.json()["items"][0]["effort_code"] == "5km"
 
 
-def test_oauth_credentials_returns_saved_state(client) -> None:
-    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+def test_intervals_credentials_returns_saved_state(client) -> None:
+    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
     with client as session_client:
-        session_client.cookies.set("strava_insights_session", "")
-        session = session_client.cookies
-        response = session_client.get("/auth/strava/credentials")
+        session_client.cookies.set("intervals_insights_session", "")
+        response = session_client.get("/auth/intervals/credentials")
     app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()["client_id"] == "12345"
+    assert response.json()["athlete_id"] == "12345"
     assert response.json()["can_connect"] is True
 
 
-def test_oauth_login_returns_authorization_url(client) -> None:
-    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+def test_intervals_login_sets_session(client) -> None:
+    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
     try:
-        response = client.post("/auth/strava/login", json={"client_id": "12345", "client_secret": "secret"})
+        response = client.post("/auth/intervals/login", json={"athlete_id": "12345", "api_key": "secret"})
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert response.json()["authorization_url"].startswith("https://example.com/oauth?state=")
+    assert response.json() == {"user_id": 1, "is_new_user": False}
 
 
-def test_oauth_callback_rejects_invalid_state(client) -> None:
-    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
-    try:
-        response = client.get("/auth/strava/callback?code=valid-code&state=bad-state")
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid OAuth state."}
-
-
-def test_oauth_logout_returns_no_content(client) -> None:
+def test_auth_logout_returns_no_content(client) -> None:
     response = client.post("/auth/logout")
 
     assert response.status_code == 204
-
-
-def test_oauth_callback_sets_session_and_redirects(client) -> None:
-    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
-
-    try:
-        response = client.get("/auth/strava/callback?code=valid-code&state=signed-state", follow_redirects=False)
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 302
-    assert response.headers["location"] == "http://localhost:5173"
 
 
 def test_disabled_user_session_is_rejected_on_authenticated_request(client, db_session) -> None:
@@ -646,18 +618,15 @@ def test_disabled_user_session_is_rejected_on_authenticated_request(client, db_s
         )
     )
     db_session.commit()
-    app.dependency_overrides[StravaOAuthService] = lambda: OAuthServiceStub()
+    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
     try:
         with client as session_client:
-            callback_response = session_client.get(
-                "/auth/strava/callback?code=valid-code&state=signed-state",
-                follow_redirects=False,
-            )
+            login_response = session_client.post("/auth/intervals/login", json={"athlete_id": "12345", "api_key": "secret"})
             response = session_client.get("/me")
     finally:
         app.dependency_overrides.clear()
 
-    assert callback_response.status_code == 302
+    assert login_response.status_code == 200
     assert response.status_code == 401
     assert response.json() == {"detail": "Authentication required."}
 
@@ -667,7 +636,7 @@ def test_admin_can_list_all_users(client, db_session) -> None:
         [
             User(
                 id=1,
-                strava_athlete_id=102168741,
+                strava_athlete_id=632291,
                 display_name="Admin Athlete",
                 profile_picture_url=None,
                 is_active=True,
@@ -686,7 +655,7 @@ def test_admin_can_list_all_users(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+            CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
     )
     try:
         response = client.get("/admin/users")
@@ -715,7 +684,7 @@ def test_admin_can_disable_other_user(client, db_session) -> None:
         [
             User(
                 id=1,
-                strava_athlete_id=102168741,
+                    strava_athlete_id=632291,
                 display_name="Admin Athlete",
                 profile_picture_url=None,
                 is_active=True,
@@ -732,7 +701,7 @@ def test_admin_can_disable_other_user(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+            CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
     )
     try:
         response = client.post("/admin/users/2/disable")
@@ -749,7 +718,7 @@ def test_admin_cannot_disable_self(client, db_session) -> None:
     db_session.add(
         User(
             id=1,
-            strava_athlete_id=102168741,
+            strava_athlete_id=632291,
             display_name="Admin Athlete",
             profile_picture_url=None,
             is_active=True,
@@ -758,7 +727,7 @@ def test_admin_cannot_disable_self(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=102168741, display_name="Admin Athlete", profile_picture_url=None)
+        CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
     )
     try:
         response = client.post("/admin/users/1/disable")

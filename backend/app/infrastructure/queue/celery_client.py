@@ -8,7 +8,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
-    "strava_insights_backend",
+    "intervals_insights_backend",
     broker=settings.redis_url,
     backend=settings.redis_url,
 )

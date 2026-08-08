@@ -18,11 +18,10 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    oauth_tokens = relationship("OauthToken", back_populates="user")
     activities = relationship("Activity", back_populates="user")
     period_summaries = relationship("PeriodSummary", back_populates="user")
     best_efforts = relationship("BestEffort", back_populates="user")
     sync_jobs = relationship("SyncJob", back_populates="user")
     sync_checkpoints = relationship("SyncCheckpoint", back_populates="user")
     threshold_profiles = relationship("UserThresholdProfile", back_populates="user")
-    strava_app_credential = relationship("UserStravaAppCredential", back_populates="user", uselist=False)
+    intervals_credential = relationship("IntervalsCredential", back_populates="user", uselist=False)

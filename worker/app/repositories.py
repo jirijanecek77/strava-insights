@@ -7,12 +7,11 @@ from app.models import (
     ActivityBestEffort,
     ActivityStream,
     BestEffort,
-    OauthToken,
+    IntervalsCredential,
     PeriodSummary,
     SyncCheckpoint,
     SyncJob,
     User,
-    UserStravaAppCredential,
 )
 
 
@@ -26,33 +25,21 @@ class UserRepository:
     def list_incremental_sync_candidates(self) -> list[int]:
         rows = (
             self.session.query(User.id)
-            .join(OauthToken, OauthToken.user_id == User.id)
-            .filter(User.is_active.is_(True), OauthToken.provider == "strava")
+            .join(IntervalsCredential, IntervalsCredential.user_id == User.id)
+            .filter(User.is_active.is_(True))
             .distinct()
             .all()
         )
         return [user_id for (user_id,) in rows]
 
-class OauthTokenRepository:
+class IntervalsCredentialRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_for_user(self, user_id: int, provider: str = "strava") -> OauthToken | None:
+    def get_for_user(self, user_id: int) -> IntervalsCredential | None:
         return (
-            self.session.query(OauthToken)
-            .filter(OauthToken.user_id == user_id, OauthToken.provider == provider)
-            .one_or_none()
-        )
-
-
-class UserStravaAppCredentialRepository:
-    def __init__(self, session: Session) -> None:
-        self.session = session
-
-    def get_for_user(self, user_id: int) -> UserStravaAppCredential | None:
-        return (
-            self.session.query(UserStravaAppCredential)
-            .filter(UserStravaAppCredential.user_id == user_id)
+            self.session.query(IntervalsCredential)
+            .filter(IntervalsCredential.user_id == user_id)
             .one_or_none()
         )
 
@@ -125,22 +112,22 @@ class ActivityRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_by_strava_id(self, user_id: int, strava_activity_id: int) -> Activity | None:
+    def get_by_source_activity_id(self, user_id: int, source_activity_id: int) -> Activity | None:
         return (
             self.session.query(Activity)
-            .filter(Activity.user_id == user_id, Activity.strava_activity_id == strava_activity_id)
+            .filter(Activity.user_id == user_id, Activity.strava_activity_id == source_activity_id)
             .one_or_none()
         )
 
-    def list_existing_strava_ids_for_user(self, user_id: int, strava_activity_ids: list[int]) -> set[int]:
-        if not strava_activity_ids:
+    def list_existing_source_activity_ids_for_user(self, user_id: int, source_activity_ids: list[int]) -> set[int]:
+        if not source_activity_ids:
             return set()
         rows = (
             self.session.query(Activity.strava_activity_id)
-            .filter(Activity.user_id == user_id, Activity.strava_activity_id.in_(strava_activity_ids))
+            .filter(Activity.user_id == user_id, Activity.strava_activity_id.in_(source_activity_ids))
             .all()
         )
-        return {strava_activity_id for (strava_activity_id,) in rows}
+        return {source_activity_id for (source_activity_id,) in rows}
 
     def save(self, activity: Activity) -> Activity:
         self.session.add(activity)

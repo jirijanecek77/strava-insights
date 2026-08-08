@@ -252,7 +252,7 @@ button {
     justify-self: start;
 }
 
-.strava-connect-button {
+.intervals-connect-button {
     align-items: center;
     background: var(--accent);
     border: 1px solid var(--accent);
@@ -265,11 +265,11 @@ button {
     font-weight: 700;
 }
 
-.strava-connect-button.is-primary {
+.intervals-connect-button.is-primary {
     box-shadow: 0 14px 32px rgba(252, 76, 2, 0.24);
 }
 
-.strava-connect-button:disabled {
+.intervals-connect-button:disabled {
     cursor: not-allowed;
     opacity: 0.6;
     transform: none;
@@ -279,13 +279,13 @@ button {
     min-width: 12rem;
 }
 
-.strava-connect-mark,
+.intervals-connect-mark,
 .auth-brand-icon {
     display: inline-flex;
     gap: 0.18rem;
 }
 
-.strava-connect-chevron,
+.intervals-connect-chevron,
 .auth-brand-chevron {
     background: currentColor;
     clip-path: polygon(50% 0, 100% 100%, 0 100%);
@@ -293,12 +293,12 @@ button {
     width: 0.7rem;
 }
 
-.strava-connect-chevron.tall,
+.intervals-connect-chevron.tall,
 .auth-brand-chevron.tall {
     height: 1rem;
 }
 
-.strava-connect-chevron.short,
+.intervals-connect-chevron.short,
 .auth-brand-chevron.short {
     align-self: end;
     height: 0.7rem;
@@ -1000,6 +1000,10 @@ button {
 
 .trend-legend-swatch.sessions {
     background: #1d7af3;
+}
+
+.trend-legend-swatch.hr-drift {
+    background: #c92a2a;
 }
 
 .trend-legend-swatch.efficiency {

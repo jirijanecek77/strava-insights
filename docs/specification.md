@@ -1,8 +1,8 @@
-# Strava Insights Specification
+# Intervals Insights Specification
 
 ## Purpose
 
-Strava Insights is a desktop-first web application for athletes who want fast analytics over their Strava history without depending on live Strava reads during normal app use. The system imports Strava data into local storage, computes derived metrics, and serves dashboards and activity detail views from the local database and cache.
+Intervals Insights is a desktop-first web application for athletes who want fast analytics over their Garmin-backed activity history without depending on live external-source reads during normal app use. The system imports Intervals.icu data into local storage, computes derived metrics, and serves dashboards and activity detail views from the local database and cache.
 
 ## Documentation Roles
 
@@ -14,15 +14,15 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 
 ### Core Requirements
 
-- Authentication uses Strava OAuth only.
-- Before a user can start Strava OAuth, the landing/login screen must collect that user's own Strava app `client_id` and `client_secret`.
+- Authentication uses Intervals.icu athlete ID plus personal API key in the first Intervals.icu integration iteration.
+- Before a user can connect, the landing/login screen must collect that user's Intervals.icu athlete ID and API key.
 - The system supports multiple users with isolated data.
 - Supported sports in v1 are running, cycling, and e-bike ride types.
 - First login triggers a background full historical import.
 - Ongoing synchronization runs daily, with optional refresh on startup when data is stale.
 - Users cannot export, delete, or disconnect their data in v1.
-- A single admin athlete with Strava athlete id `102168741` can review user access and disable other users.
-- Historical edits and deletions performed later in Strava are out of scope for v1.
+- A single admin athlete with source athlete id `632291` by default can review user access and disable other users.
+- Historical edits and deletions performed later in Intervals.icu are out of scope for v1.
 - Desktop is the primary target. Mobile optimization is not required for v1.
 
 ### Required Screens
@@ -40,11 +40,11 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 ## Performance and Operational Requirements
 
 - Normal UI reads should complete within 500 ms when served from local storage or cache.
-- Standard page rendering must not depend on synchronous Strava API calls.
+- Standard page rendering must not depend on synchronous Intervals.icu API calls.
 - Activity detail must be renderable from locally stored activity and stream data.
-- Duplicate activities must be upserted by Strava activity id.
+- Duplicate activities must be upserted by source activity id. Intervals.icu `i123` activity ids are stored as numeric `123` in the existing activity id column for the no-schema-change migration.
 - Token expiry during sync must trigger refresh and retry.
-- Temporary Strava API failures should retry with backoff before a sync job is marked failed.
+- Temporary Intervals.icu API failures should retry with backoff before a sync job is marked failed.
 - Partial import failure for one activity must not corrupt already persisted valid data.
 
 ## Technology and Delivery Constraints
@@ -71,10 +71,10 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 
 ## Administration
 
-- The admin identity is fixed to the athlete whose `strava_athlete_id` is `102168741`.
-- The admin screen must show all users with basic audit fields: display name, Strava athlete id, active status, created/updated timestamps, and last login timestamp.
+- The admin identity is fixed to the configured athlete whose stored source athlete id is `632291` by default.
+- The admin screen must show all users with basic audit fields: display name, source athlete id, active status, created/updated timestamps, and last login timestamp.
 - The admin can disable any non-admin user.
-- A disabled user must be blocked from further app use and from reconnecting through Strava OAuth.
+- A disabled user must be blocked from further app use and from reconnecting through Intervals.icu credentials.
 - The admin account cannot disable itself.
 
 ## Architecture
@@ -92,7 +92,7 @@ Strava Insights is a desktop-first web application for athletes who want fast an
 
 - Keep framework code at the edges.
 - Keep business logic in testable domain and application layers.
-- Isolate infrastructure concerns such as Strava access, persistence, cache, and background jobs.
+- Isolate infrastructure concerns such as Intervals.icu access, persistence, cache, and background jobs.
 - Avoid coupling UI code, HTTP handlers, and persistence logic directly.
 - Maintain clear separation between auth, sync, analytics, and read APIs.
 - Keep read APIs reusable so future machine-consumable or insight-oriented endpoints can be added without major redesign.
@@ -106,14 +106,14 @@ flowchart LR
     API --> R[(Redis)]
     API --> DB[(PostgreSQL)]
     API --> W[Celery Worker]
-    W --> STRAVA[Strava API]
+    W --> INTERVALS[Intervals.icu API]
     W --> DB
     W --> R
 ```
 
 ## Frontend Direction
 
-The frontend should feel closer to Strava web than to a generic admin dashboard.
+The frontend should feel closer to a modern athlete training platform than to a generic admin dashboard.
 
 ### Visual Direction
 
@@ -272,7 +272,7 @@ Each best-effort record should retain at least:
 
 Implementation rule:
 
-- prefer imported Strava best-effort or split-like data when available and trustworthy
+- prefer imported source best-effort or split-like data when available and trustworthy
 - otherwise derive best efforts locally from persisted activity and stream data
 
 ## Activity Detail Requirements
@@ -368,11 +368,8 @@ For running activities with complete threshold inputs and heart-rate plus pace s
 - heart-rate distribution across the three bands
 - pace-vs-heart-rate agreement share
 - mismatch shares where pace intensity is higher than heart-rate intensity and vice versa
-- a short explanatory interpretation sentence
-- a concise activity evaluation sentence
-- a concise further-training suggestion sentence
 
-This is descriptive feedback, not prescriptive coaching.
+This is descriptive analysis, not prescriptive coaching.
 Pace intensity above heart-rate intensity for more than half of the run can be treated as a positive condition or freshness signal when route, weather, intent, and heart-rate data quality are comparable. Heart-rate intensity above pace intensity for more than half of the run should be treated as a strain warning rather than an improvement signal. Interval-like sessions must be evaluated with the expectation that tempo and heart rate change repeatedly and that heart rate can lag behind pace changes.
 
 The running-analysis UI should:
@@ -381,7 +378,6 @@ The running-analysis UI should:
 - use those tooltips to explain what each metric means and how to read it
 - show a green improving-condition icon beside `Pace Above HR` when its share is above 50%
 - show a red decreasing-condition warning icon beside `HR Above Pace` when its share is above 50%
-- keep evaluation and further-training guidance as separate summary points rather than mixing them into metric-level help
 
 ## Cycling Analysis
 
@@ -393,8 +389,6 @@ The first cycling-analysis version should use only currently stored data:
 - heart-rate distribution across `below_aet`, `between_aet_ant`, and `above_ant` when HR thresholds and HR data are available
 - climbing, flat, and descending distance share from slope-derived terrain classification
 - average cadence when available on the activity
-- a concise activity evaluation sentence
-- a concise further-training suggestion sentence
 
 Cycling speed should not be treated as a physiological threshold proxy in the way running pace is.
 
@@ -403,7 +397,9 @@ Cycling speed should not be treated as a physiological threshold proxy in the wa
 - The activity detail page must still load when core activity metadata exists.
 - Missing heart-rate data must hide heart-rate KPIs and related graph content without failing the page.
 - Missing GPS data must hide the route map and hover-linked marker behavior.
+- Incomplete GPS coordinate streams, including scalar-only or null-containing Intervals.icu stream data, must be treated as missing GPS data unless valid `[latitude, longitude]` pairs are available.
 - Missing altitude data must hide elevation and slope visualizations.
+- Sparse null samples inside numeric streams must not fail activity detail rendering; valid numeric samples should remain usable for charts and analytics.
 - Slope must only be computed when both altitude and distance streams are available.
 - If an activity is only partially imported, valid local data must remain readable.
 
@@ -431,7 +427,7 @@ The UI should omit unavailable widgets rather than showing placeholder errors.
 - cycling days use orange
 - mixed-sport days use the color of the sport contributing the greater distance share
 
-The calendar should feel closer to a Strava-style training overview than to a traditional enterprise calendar widget.
+The calendar should feel closer to a training overview than to a traditional enterprise calendar widget.
 
 ## Sync Model
 
@@ -440,9 +436,9 @@ The calendar should feel closer to a Strava-style training overview than to a tr
 - Daily refresh imports only newly available activities.
 - Manual refresh is incremental only and must not trigger a full reimport.
 - New data invalidates affected cache entries and recomputes summaries as needed.
-- Deletions and later historical edits in Strava remain out of scope for v1.
+- Deletions and later historical edits in Intervals.icu remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
-- If Strava activity streams return `404`, import the activity and continue without streams.
+- If Intervals.icu activity streams return `404`, import the activity and continue without streams.
 
 ```mermaid
 sequenceDiagram
@@ -450,17 +446,16 @@ sequenceDiagram
     participant Frontend
     participant API
     participant Worker
-    participant Strava
+    participant Intervals
     participant DB
 
-    User->>Frontend: Enter personal Strava app credentials
-    User->>Frontend: Start Strava login
-    Frontend->>API: Start OAuth with submitted or remembered credentials
-    Frontend->>API: OAuth callback
+    User->>Frontend: Enter Intervals.icu athlete ID and API key
+    User->>Frontend: Connect Intervals.icu
+    Frontend->>API: Validate submitted or remembered credentials
     API->>DB: Create or update user
     API->>Worker: Enqueue full import
     API-->>Frontend: Auth success + sync pending
-    Worker->>Strava: Fetch activities and streams
+    Worker->>Intervals: Fetch activities and streams
     Worker->>DB: Store activities, streams, summaries
 ```
 
@@ -469,10 +464,8 @@ sequenceDiagram
 ### Core Entities
 
 - `users`
-- `user_strava_app_credentials`
+- `intervals_credentials`
 - `user_threshold_profiles`
-- `oauth_tokens`
-- `strava_oauth_states`
 - `activities`
 - `activity_streams`
 - `period_summaries`
@@ -485,7 +478,7 @@ sequenceDiagram
 
 The schema must support:
 
-- user-scoped Strava app credentials needed for OAuth start and token refresh
+- user-scoped Intervals.icu credentials needed for activity and stream imports
 - imported activity metadata
 - imported streams needed for local rendering
 - activity-level derived KPI inputs and normalized fields
@@ -504,7 +497,7 @@ The schema must support:
 
 The backend must expose:
 
-- auth endpoints for Strava credential-state lookup plus Strava login and callback
+- auth endpoints for Intervals.icu credential-state lookup plus credential login
 - current-user profile endpoint
 - sync-status endpoint
 - dashboard endpoint

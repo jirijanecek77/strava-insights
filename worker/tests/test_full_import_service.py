@@ -1,8 +1,7 @@
-import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
+from app.intervals_client import IntervalsActivityStreamNotFoundError, IntervalsApiClient
 from app.services.sync_import import FullImportService, IncrementalSyncService
-from app.strava_client import StravaActivityStreamNotFoundError
 
 
 class SyncJobStub:
@@ -19,18 +18,10 @@ class SyncJobStub:
         self.error_message = None
 
 
-class OAuthTokenStub:
-    def __init__(self, access_token_encrypted: str, refresh_token_encrypted: str, expires_at: datetime) -> None:
-        self.access_token_encrypted = access_token_encrypted
-        self.refresh_token_encrypted = refresh_token_encrypted
-        self.expires_at = expires_at
-        self.scope = None
-
-
-class StravaAppCredentialStub:
-    def __init__(self, client_id: str, client_secret_encrypted: str) -> None:
-        self.client_id = client_id
-        self.client_secret_encrypted = client_secret_encrypted
+class IntervalsCredentialStub:
+    def __init__(self, athlete_id: str, api_key_encrypted: str) -> None:
+        self.athlete_id = athlete_id
+        self.api_key_encrypted = api_key_encrypted
 
 
 class ActivityStub:
@@ -41,6 +32,11 @@ class ActivityStub:
 class ActivityStreamStub:
     def __init__(self, activity_id: int) -> None:
         self.activity_id = activity_id
+
+
+def test_intervals_api_client_formats_athlete_id_for_intervals_urls() -> None:
+    assert IntervalsApiClient.format_athlete_id("632291") == "i632291"
+    assert IntervalsApiClient.format_athlete_id("i632291") == "i632291"
 
 
 class SessionStub:
@@ -77,15 +73,7 @@ class SyncJobRepositoryStub:
         sync_job.progress_total = imported_activities
 
 
-class OAuthTokenRepositoryStub:
-    def __init__(self, oauth_token) -> None:
-        self.oauth_token = oauth_token
-
-    def get_for_user(self, _user_id: int, provider: str = "strava"):
-        return self.oauth_token
-
-
-class StravaAppCredentialRepositoryStub:
+class IntervalsCredentialRepositoryStub:
     def __init__(self, credential) -> None:
         self.credential = credential
 
@@ -98,13 +86,13 @@ class ActivityRepositoryStub:
         self.by_id = {}
         self.counter = 1
         self.latest_start_date_utc = None
-        self.existing_strava_ids = set()
+        self.existing_source_activity_ids = set()
 
-    def get_by_strava_id(self, _user_id: int, strava_activity_id: int):
-        return self.by_id.get(strava_activity_id)
+    def get_by_source_activity_id(self, _user_id: int, source_activity_id: int):
+        return self.by_id.get(source_activity_id)
 
-    def list_existing_strava_ids_for_user(self, _user_id: int, strava_activity_ids: list[int]):
-        return {strava_activity_id for strava_activity_id in strava_activity_ids if strava_activity_id in self.existing_strava_ids}
+    def list_existing_source_activity_ids_for_user(self, _user_id: int, source_activity_ids: list[int]):
+        return {source_activity_id for source_activity_id in source_activity_ids if source_activity_id in self.existing_source_activity_ids}
 
     def save(self, activity):
         if getattr(activity, "id", None) is None:
@@ -167,32 +155,23 @@ class TokenCipherStub:
         return value.replace("enc:", "", 1)
 
 
-class StravaClientStub:
+class IntervalsClientStub:
     def __init__(self) -> None:
         self.after = None
         self.stream_calls: list[int] = []
 
-    def refresh_access_token(self, refresh_token: str, *, client_id: str, client_secret: str):
-        assert refresh_token == "refresh-token"
-        assert client_id == "12345"
-        assert client_secret == "client-secret"
-        return {
-            "access_token": "fresh-access-token",
-            "refresh_token": "fresh-refresh-token",
-            "expires_at": int((datetime.now(UTC) + timedelta(hours=6)).timestamp()),
-            "scope": "read,activity:read_all",
-            "athlete": {"id": 162181, "firstname": "Jiri", "lastname": "Janecek", "profile": None},
-        }
+    @staticmethod
+    def parse_activity_id(value) -> int:
+        text = str(value)
+        return int(text[1:] if text.startswith("i") else text)
 
-    def parse_expires_at(self, payload):
-        return datetime.fromtimestamp(payload["expires_at"], tz=UTC)
-
-    def get_activities(self, access_token: str, *, after=None):
-        assert access_token in {"access-token", "fresh-access-token"}
+    def get_activities(self, athlete_id: str, api_key: str, *, after=None):
+        assert athlete_id == "12345"
+        assert api_key == "access-token"
         self.after = after
         return [
             {
-                "id": 100,
+                "id": "i100",
                 "name": "Morning Run",
                 "type": "Run",
                 "start_date": "2026-03-09T06:00:00Z",
@@ -212,8 +191,8 @@ class StravaClientStub:
             }
         ]
 
-    def get_activity_stream(self, access_token: str, activity_id: int):
-        assert access_token in {"access-token", "fresh-access-token"}
+    def get_activity_stream(self, api_key: str, activity_id: int):
+        assert api_key == "access-token"
         assert activity_id == 100
         self.stream_calls.append(activity_id)
         return {
@@ -226,19 +205,17 @@ class StravaClientStub:
         }
 
 
-class MissingStreamStravaClientStub(StravaClientStub):
-    def get_activity_stream(self, access_token: str, activity_id: int):
-        raise StravaActivityStreamNotFoundError(activity_id)
+class MissingStreamIntervalsClientStub(IntervalsClientStub):
+    def get_activity_stream(self, api_key: str, activity_id: int):
+        raise IntervalsActivityStreamNotFoundError(activity_id)
 
 
 def test_full_import_service_imports_activities_updates_progress_and_checkpoint() -> None:
     session = SessionStub()
     sync_job = SyncJobStub()
-    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
-    service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
+    service = FullImportService(session, intervals_client=IntervalsClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -261,53 +238,11 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     assert service.cache_invalidator.user_ids == [1]
 
 
-def test_full_import_service_refreshes_expired_token_before_import() -> None:
-    session = SessionStub()
-    sync_job = SyncJobStub()
-    oauth_token = OAuthTokenStub("enc:stale-access-token", "enc:refresh-token", datetime.now(UTC) - timedelta(minutes=5))
-    service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
-    service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
-    service.activities = ActivityRepositoryStub()
-    service.activity_streams = ActivityStreamRepositoryStub()
-    service.checkpoints = CheckpointRepositoryStub()
-    service.cache_invalidator = CacheInvalidatorStub()
-    service.read_model_builder = ReadModelBuilderStub()
-
-    service.run(sync_job_id=1, user_id=1)
-
-    assert oauth_token.access_token_encrypted == "enc:fresh-access-token"
-    assert oauth_token.refresh_token_encrypted == "enc:fresh-refresh-token"
-
-
-def test_full_import_service_logs_token_refresh(caplog) -> None:
-    session = SessionStub()
-    sync_job = SyncJobStub()
-    oauth_token = OAuthTokenStub("enc:stale-access-token", "enc:refresh-token", datetime.now(UTC) - timedelta(minutes=5))
-    service = FullImportService(session, strava_client=StravaClientStub(), token_cipher=TokenCipherStub())
-    service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
-    service.activities = ActivityRepositoryStub()
-    service.activity_streams = ActivityStreamRepositoryStub()
-    service.checkpoints = CheckpointRepositoryStub()
-    service.cache_invalidator = CacheInvalidatorStub()
-    service.read_model_builder = ReadModelBuilderStub()
-    caplog.set_level(logging.INFO)
-
-    service.run(sync_job_id=1, user_id=1)
-
-    assert any("Refreshing expired Strava access token." in message for message in caplog.messages)
-    assert any("Completed import service run." in message for message in caplog.messages)
-
-
 def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
-    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
-    strava_client = StravaClientStub()
+    intervals_client = IntervalsClientStub()
     checkpoint_repo = CheckpointRepositoryStub()
     checkpoint_repo.value = {
         "user_id": 1,
@@ -315,10 +250,9 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
         "checkpoint_value": "2026-03-01T06:00:00+00:00",
         "last_synced_at": datetime.now(UTC),
     }
-    service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = checkpoint_repo
@@ -328,7 +262,7 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     imported_count = service.run(sync_job_id=1, user_id=1)
 
     assert imported_count == 1
-    assert strava_client.after == datetime.fromisoformat("2026-03-01T06:00:00+00:00")
+    assert intervals_client.after == datetime.fromisoformat("2026-03-01T06:00:00+00:00")
     assert checkpoint_repo.value["sync_type"] == "activities"
 
 
@@ -336,11 +270,9 @@ def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
-    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
-    service = IncrementalSyncService(session, strava_client=MissingStreamStravaClientStub(), token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(session, intervals_client=MissingStreamIntervalsClientStub(), token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -359,12 +291,10 @@ def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing(
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
-    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
-    strava_client = StravaClientStub()
-    service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
+    intervals_client = IntervalsClientStub()
+    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
     service.activities = ActivityRepositoryStub()
     service.activities.latest_start_date_utc = datetime.fromisoformat("2026-03-07T06:00:00+00:00")
     service.activity_streams = ActivityStreamRepositoryStub()
@@ -375,21 +305,19 @@ def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing(
     imported_count = service.run(sync_job_id=1, user_id=1)
 
     assert imported_count == 1
-    assert strava_client.after == datetime.fromisoformat("2026-03-07T06:00:00+00:00")
+    assert intervals_client.after == datetime.fromisoformat("2026-03-07T06:00:00+00:00")
 
 
 def test_incremental_sync_skips_already_imported_activities() -> None:
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
-    oauth_token = OAuthTokenStub("enc:access-token", "enc:refresh-token", datetime.now(UTC) + timedelta(hours=1))
-    strava_client = StravaClientStub()
-    service = IncrementalSyncService(session, strava_client=strava_client, token_cipher=TokenCipherStub())
+    intervals_client = IntervalsClientStub()
+    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.oauth_tokens = OAuthTokenRepositoryStub(oauth_token)
-    service.strava_app_credentials = StravaAppCredentialRepositoryStub(StravaAppCredentialStub("12345", "enc:client-secret"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
     service.activities = ActivityRepositoryStub()
-    service.activities.existing_strava_ids = {100}
+    service.activities.existing_source_activity_ids = {100}
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
     service.cache_invalidator = CacheInvalidatorStub()
@@ -400,4 +328,4 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     assert imported_count == 0
     assert sync_job.status == "completed"
     assert sync_job.progress_total == 0
-    assert strava_client.stream_calls == []
+    assert intervals_client.stream_calls == []

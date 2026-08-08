@@ -20,6 +20,13 @@ def test_detail_series_match_legacy_formulas() -> None:
     assert format_pace_minutes_per_km([4.0, float("inf")]) == ["4:00", "0:00"]
 
 
+def test_detail_series_tolerate_intervals_null_samples() -> None:
+    assert moving_average_speed_kph([1.0, None, 3.0], range_points=0) == []
+    assert moving_average_speed_kph([1.0, None, 3.0], range_points=1) == [3.6, 6.0, 7.2]
+    paces = calculate_pace_minutes_per_km([0, 60, None, 180], [0, 250, 500, 750], range_points=1)
+    assert paces == [4.0, 2.0, 4.0, 8.0]
+
+
 def test_slope_is_clamped_and_padded_like_legacy_code() -> None:
     slopes = calculate_slope_percent(
         altitude_stream_meters=[0, 10, 20, 30, 1000],

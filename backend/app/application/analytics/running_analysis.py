@@ -1,6 +1,3 @@
-from collections.abc import Iterable
-
-
 BAND_ORDER = {
     "below_aet": 0,
     "between_aet_ant": 1,
@@ -69,46 +66,6 @@ def _update_longest_block(current: dict[str, float] | None, longest: dict[str, f
         longest["distance_km"] = _round_metric(current_distance)
     return None
 
-
-def _interpret_analysis(
-    pace_distribution: Iterable[dict[str, float | str]],
-    heart_rate_distribution: Iterable[dict[str, float | str]],
-    agreement: dict[str, float],
-) -> str:
-    dominant_pace = max(pace_distribution, key=lambda item: float(item["distance_km"]))
-    dominant_heart_rate = max(heart_rate_distribution, key=lambda item: float(item["distance_km"]))
-    pace_label = str(dominant_pace["label"]).lower()
-    heart_rate_label = str(dominant_heart_rate["label"]).lower()
-    matching_share = agreement["matching_share_percent"]
-    if matching_share >= 75:
-        return f"Pace and heart rate aligned well, with most work sitting at {pace_label}."
-    if agreement["heart_rate_higher_share_percent"] > agreement["pace_higher_share_percent"]:
-        return f"Heart rate ran hotter than pace, with the effort trending toward {heart_rate_label}."
-    if agreement["pace_higher_share_percent"] > 0:
-        return f"Pace ran ahead of heart rate, with most work landing at {pace_label}."
-    return f"Most work landed at {pace_label}, while heart rate sat mostly at {heart_rate_label}."
-
-
-def _distribution_share(distribution: Iterable[dict[str, float | str]], code: str) -> float:
-    for item in distribution:
-        if item["code"] == code:
-            return float(item["share_percent"])
-    return 0.0
-
-
-def _is_interval_like(
-    *,
-    pace_distribution: Iterable[dict[str, float | str]],
-    pace_band_transitions: int,
-    total_distance: float,
-) -> bool:
-    if total_distance < 2.0:
-        return False
-    below_aet_share = _distribution_share(pace_distribution, "below_aet")
-    above_ant_share = _distribution_share(pace_distribution, "above_ant")
-    mixed_low_high_intensity = below_aet_share >= 15 and above_ant_share >= 15
-    frequent_pace_changes = pace_band_transitions >= max(4, int(total_distance // 2))
-    return mixed_low_high_intensity and frequent_pace_changes
 
 
 def build_running_analysis(
@@ -211,5 +168,4 @@ def build_running_analysis(
         "pace_distribution": pace_distribution,
         "heart_rate_distribution": heart_rate_distribution,
         "agreement": agreement,
-        "interpretation": _interpret_analysis(pace_distribution, heart_rate_distribution, agreement),
     }

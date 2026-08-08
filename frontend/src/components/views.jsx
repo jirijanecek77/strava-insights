@@ -1,7 +1,7 @@
 import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {Bar, Brush, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 
-import {adminStravaAthleteId} from "../constants";
+import {adminAthleteId} from "../constants";
 import {aggregateTrendItems, buildCalendarWeeks, buildComparisonPeriodOptions, groupBestEffortsBySport, shiftMonth, sortComparisons} from "../utils/data";
 import {
     formatComparisonRange,
@@ -104,6 +104,7 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
                                 <div className="calendar-events">
                                     {day.summary ? (
                                         <button
+                                            aria-label={`${formatNumber(day.summary.distanceKm)} km, ${day.summary.activityCount} ${day.summary.activityCount === 1 ? "activity" : "activities"}`}
                                             className={`calendar-bubble ${day.summary.colorClass}`}
                                             onClick={() => onSelectActivity(day.summary.primaryActivityId)}
                                             style={{"--bubble-size": `${day.summary.sizePx}px`}}
@@ -253,7 +254,7 @@ export function SettingsView({
                     </div>
                 </div>
                 <div className="settings-list">
-                    <div className="settings-row"><span>Strava Athlete</span><strong>{user.strava_athlete_id}</strong></div>
+                    <div className="settings-row"><span>Intervals Athlete</span><strong>{user.strava_athlete_id}</strong></div>
                 </div>
                 <div className="profile-account-actions">
                     <button className="ghost-button inline-button logout-button" onClick={onLogout} type="button">Log out</button>
@@ -360,7 +361,7 @@ export function AdminView({actionUserId, adminUsers, busy, onDisableUser}) {
             {!busy && adminUsers.length > 0 ? (
                 <div aria-label="Users audit list" className="admin-user-list">
                     {adminUsers.map((item) => {
-                        const isSelf = item.strava_athlete_id === adminStravaAthleteId;
+                        const isSelf = item.strava_athlete_id === adminAthleteId;
                         const isDisabled = !item.is_active;
                         return (
                             <article key={item.id} className="admin-user-card">
@@ -436,12 +437,14 @@ function TrendList({efficiencyItems, items}) {
         aerobicEfficiency: efficiencyByPeriod.get(point.periodStart) ?? null,
     }));
     const hasEfficiency = efficiencyItems != null && efficiencyItems.length > 0;
+    const hasHeartRateDrift = chartData.some((point) => point.averageHeartRateDriftBpm != null);
 
     return (
         <div className="trend-chart-shell">
             <div className="trend-chart-legend" aria-hidden="true">
                 <span className="trend-legend-item"><span className="trend-legend-swatch distance"/>Km</span>
                 <span className="trend-legend-item"><span className="trend-legend-swatch sessions"/>Sessions</span>
+                {hasHeartRateDrift ? <span className="trend-legend-item"><span className="trend-legend-swatch hr-drift"/>HR Drift</span> : null}
                 {hasEfficiency ? <span className="trend-legend-item"><span className="trend-legend-swatch efficiency"/>Efficiency</span> : null}
             </div>
             <div aria-label="Trend graph" className="trend-chart" role="img">
@@ -451,10 +454,12 @@ function TrendList({efficiencyItems, items}) {
                         <XAxis axisLine={false} dataKey="axisLabel" tick={{fill: "#6f6b62", fontSize: 11}} tickLine={false}/>
                         <YAxis axisLine={false} domain={[0, "dataMax"]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => `${Math.round(value)}`} tickLine={false} width={28}/>
                         <YAxis axisLine={false} dataKey="sessions" domain={[0, "dataMax"]} hide orientation="right" yAxisId="sessions"/>
+                        {hasHeartRateDrift ? <YAxis axisLine={false} dataKey="averageHeartRateDriftBpm" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="hr-drift"/> : null}
                         {hasEfficiency ? <YAxis axisLine={false} dataKey="aerobicEfficiency" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="efficiency"/> : null}
                         <Tooltip content={<TrendChartTooltip/>} cursor={{fill: "rgba(252, 76, 2, 0.08)"}}/>
                         <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]}/>
                         <Line dataKey="sessions" dot={{fill: "#1d7af3", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#1d7af3" strokeWidth={2} type="monotone" yAxisId="sessions"/>
+                        {hasHeartRateDrift ? <Line connectNulls dataKey="averageHeartRateDriftBpm" dot={{fill: "#c92a2a", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#c92a2a" strokeWidth={2} type="monotone" yAxisId="hr-drift"/> : null}
                         {hasEfficiency ? <Line connectNulls dataKey="aerobicEfficiency" dot={{fill: "#2f9e44", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#2f9e44" strokeWidth={2} type="monotone" yAxisId="efficiency"/> : null}
                         <Brush dataKey="axisLabel" defaultEndIndex={points.length - 1} defaultStartIndex={Math.max(points.length - 12, 0)} fill="rgba(252, 76, 2, 0.08)" height={22} stroke="#fc4c02" travellerWidth={12}/>
                     </ComposedChart>
@@ -474,6 +479,7 @@ function TrendChartTooltip({active, payload}) {
             <strong>{formatDateLabel(point.periodStart)}</strong>
             <span>{formatNumber(point.distanceKm)} km</span>
             <span>{point.sessions} sessions</span>
+            {point.averageHeartRateDriftBpm != null ? <span>{formatNumber(point.averageHeartRateDriftBpm)} bpm (HR drift)</span> : null}
             {point.aerobicEfficiency != null ? <span>{formatNumber(point.aerobicEfficiency)} m/beat (efficiency)</span> : null}
         </div>
     );
