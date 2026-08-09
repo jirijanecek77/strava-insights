@@ -479,8 +479,7 @@ function TrendChartTooltip({active, payload}) {
             <strong>{formatDateLabel(point.periodStart)}</strong>
             <span>{formatNumber(point.distanceKm)} km</span>
             <span>{point.sessions} sessions</span>
-            {point.averageHeartRateDriftBpm != null ? <span>{formatNumber(point.averageHeartRateDriftBpm)} bpm (HR drift)</span> : null}
-            {point.aerobicEfficiency != null ? <span>{formatNumber(point.aerobicEfficiency)} m/beat (efficiency)</span> : null}
+            {point.aerobicEfficiency != null ? <span>{formatNumber(point.aerobicEfficiency)} m/beat</span> : null}
         </div>
     );
 }

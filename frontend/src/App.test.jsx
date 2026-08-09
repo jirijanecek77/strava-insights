@@ -418,7 +418,7 @@ describe("App", () => {
         expect(screen.getByText("66.7 m/beat")).toBeInTheDocument();
         expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^elevation gain$/i)).toBeInTheDocument();
-        expect(screen.getByText(/^average hr$/i)).toBeInTheDocument();
+        expect(screen.getByText(/^avg hr$/i)).toBeInTheDocument();
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
