@@ -361,8 +361,8 @@ function DetailChartTooltip({active, label, payload, position, valueKind}) {
     }
     return (
         <div className="detail-chart-tooltip" style={{left: `${position.leftPercent}%`, top: `${position.topPercent}%`, transform: position.preferBelow ? "translate(-50%, 12px)" : "translate(-50%, calc(-100% - 12px))"}}>
-            <span>Distance: {formatNumber(point.distance)} km</span>
             <span>{label}: {formatTooltipSeriesValue(valueKind, point.value)}</span>
+            <span>Distance: {formatNumber(point.distance)} km</span>
             {Number.isFinite(point.altitude) ? <span>Elevation: {formatAltitudeAxisValue(point.altitude)}</span> : null}
         </div>
     );
@@ -555,11 +555,12 @@ function MapPanel({activeIndex, onSelectIndex, pointIndices, polyline, segmentSt
 
     return (
         <div className="map-panel">
-            {mapState !== "ready" ? <div className="map-header-note">{mapyApiKey ? "Mapy.cz tiles unavailable, route preview fallback active." : "Route preview fallback active."}</div> : null}
+            {mapState === "loading" ? <div className="map-header-note">Loading map...</div> : null}
+            {mapState === "fallback" ? <div className="map-header-note">{mapyApiKey ? "Mapy.cz map unavailable, route preview fallback active." : "Route preview fallback active."}</div> : null}
             <div className={mapState === "fallback" || !mapyApiKey ? "mapycz-canvas hidden" : "mapycz-canvas"} ref={mapContainerRef}/>
-            {mapState !== "ready" ? (
+            {mapState === "fallback" ? (
                 <>
-                    {mapyApiKey ? <div className="map-loading-note">Mapy.cz background tiles could not be loaded. Check that the API key is valid, has Map Tiles access, and allows `http://localhost:5173`.</div> : null}
+                    {mapyApiKey ? <div className="map-loading-note">The interactive map could not be initialized.</div> : null}
                     <RoutePreview
                         activeIndex={activeIndex}
                         onSelectIndex={onSelectIndex}
@@ -634,31 +635,35 @@ async function loadMapyCzApi() {
     };
 }
 
-function createMapyCzMap(mapApi, container, polyline, pointIndices, segmentStarts, onSelectIndex) {
+export function createMapyCzMap(mapApi, container, polyline, pointIndices, segmentStarts, onSelectIndex) {
     if (!mapApi?.L || !mapApi?.tileConfig || !container || !polyline.length) {
         return null;
     }
 
+    let map = null;
     try {
         const {L, tileConfig} = mapApi;
         const coordinates = polyline.map(([lat, lng]) => [lat, lng]);
         const mappedPointIndices = pointIndices.length === polyline.length
             ? pointIndices
             : polyline.map((_, index) => index);
-        const routeSegments = buildRouteSegments(polyline, segmentStarts).map((segment) =>
-            segment.map(([lat, lng]) => [lat, lng]),
-        );
-        const map = L.map(container, {attributionControl: false, zoomControl: true});
+        const routeSegments = buildRouteSegments(polyline, segmentStarts)
+            .filter((segment) => segment.length >= 2)
+            .map((segment) => segment.map(([lat, lng]) => [lat, lng]));
+        map = L.map(container, {attributionControl: false, zoomControl: true});
+        const routeBounds = L.latLngBounds(coordinates);
+        if (!routeBounds.isValid()) {
+            map.remove();
+            return null;
+        }
 
+        map.fitBounds(routeBounds, {padding: [24, 24]});
         L.tileLayer(tileConfig.urlTemplate, {minZoom: tileConfig.minZoom, maxZoom: tileConfig.maxZoom, tileSize: tileConfig.tileSize, attribution: tileConfig.attribution}).addTo(map);
 
         const routeLayers = routeSegments.map((segment) =>
-            L.polyline(segment, {color: "#fc4c02", weight: 3, opacity: 0.95}),
+            L.polyline(segment, {color: "#fc4c02", weight: 3, opacity: 0.95}).addTo(map),
         );
-        const route = L.featureGroup(routeLayers).addTo(map);
         const activeMarker = L.circleMarker(coordinates[0], {color: "#1d7af3", fillColor: "#1d7af3", fillOpacity: 1, radius: 6, weight: 2}).addTo(map);
-
-        map.fitBounds(route.getBounds(), {padding: [24, 24]});
 
         const attribution = L.control.attribution({prefix: false});
         attribution.addAttribution(tileConfig.attribution);
@@ -689,7 +694,9 @@ function createMapyCzMap(mapApi, container, polyline, pointIndices, segmentStart
                 activeMarker.setLatLng(coordinates[pointIndex]);
             },
         };
-    } catch {
+    } catch (error) {
+        map?.remove();
+        console.error("Failed to initialize Mapy.cz map.", error);
         return null;
     }
 }
