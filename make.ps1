@@ -9,7 +9,7 @@ if (-not $Target) {
     exit 1
 }
 
-$composeArgs = switch ($Target) {
+$composeArgs = @(switch ($Target) {
     "build" { @("build") }
     "up" { @("up", "-d") }
     "down" { @("down", "--remove-orphans") }
@@ -19,7 +19,7 @@ $composeArgs = switch ($Target) {
     "down-prod" { @("--env-file", ".env.production", "-f", "docker-compose.prod.yml", "down", "--remove-orphans") }
     "logs-prod" { @("--env-file", ".env.production", "-f", "docker-compose.prod.yml", "logs", "-f") }
     "test" { $null }
-}
+})
 
 if ($Target -eq "test") {
     docker compose run --rm backend pytest

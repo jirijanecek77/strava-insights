@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     Activity,
-    ActivityBestEffort,
     ActivityStream,
     BestEffort,
     IntervalsCredential,
@@ -32,6 +31,7 @@ class UserRepository:
         )
         return [user_id for (user_id,) in rows]
 
+
 class IntervalsCredentialRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -58,12 +58,16 @@ class SyncJobRepository:
     def get_active_for_user(self, user_id: int) -> SyncJob | None:
         return (
             self.session.query(SyncJob)
-            .filter(SyncJob.user_id == user_id, SyncJob.status.in_(("queued", "running")))
+            .filter(
+                SyncJob.user_id == user_id, SyncJob.status.in_(("queued", "running"))
+            )
             .order_by(SyncJob.created_at.desc())
             .first()
         )
 
-    def create_queued(self, *, user_id: int, sync_type: str, metadata_json: dict | None = None) -> SyncJob:
+    def create_queued(
+        self, *, user_id: int, sync_type: str, metadata_json: dict | None = None
+    ) -> SyncJob:
         sync_job = SyncJob(
             user_id=user_id,
             status="queued",
@@ -81,7 +85,10 @@ class SyncJobRepository:
         sync_job.started_at = datetime.now(UTC)
         sync_job.progress_total = progress_total
         sync_job.progress_completed = 0
-        sync_job.metadata_json = {**(sync_job.metadata_json or {}), "phase": "importing"}
+        sync_job.metadata_json = {
+            **(sync_job.metadata_json or {}),
+            "phase": "importing",
+        }
         self.session.flush()
 
     def update_progress(self, sync_job: SyncJob, *, completed: int, total: int) -> None:
@@ -112,19 +119,29 @@ class ActivityRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_by_source_activity_id(self, user_id: int, source_activity_id: int) -> Activity | None:
+    def get_by_source_activity_id(
+        self, user_id: int, source_activity_id: int
+    ) -> Activity | None:
         return (
             self.session.query(Activity)
-            .filter(Activity.user_id == user_id, Activity.strava_activity_id == source_activity_id)
+            .filter(
+                Activity.user_id == user_id,
+                Activity.strava_activity_id == source_activity_id,
+            )
             .one_or_none()
         )
 
-    def list_existing_source_activity_ids_for_user(self, user_id: int, source_activity_ids: list[int]) -> set[int]:
+    def list_existing_source_activity_ids_for_user(
+        self, user_id: int, source_activity_ids: list[int]
+    ) -> set[int]:
         if not source_activity_ids:
             return set()
         rows = (
             self.session.query(Activity.strava_activity_id)
-            .filter(Activity.user_id == user_id, Activity.strava_activity_id.in_(source_activity_ids))
+            .filter(
+                Activity.user_id == user_id,
+                Activity.strava_activity_id.in_(source_activity_ids),
+            )
             .all()
         )
         return {source_activity_id for (source_activity_id,) in rows}
@@ -134,7 +151,9 @@ class ActivityRepository:
         self.session.flush()
         return activity
 
-    def list_for_user(self, user_id: int, sport_type: str | None = None) -> list[Activity]:
+    def list_for_user(
+        self, user_id: int, sport_type: str | None = None
+    ) -> list[Activity]:
         query = self.session.query(Activity).filter(Activity.user_id == user_id)
         if sport_type is not None:
             query = query.filter(Activity.sport_type == sport_type)
@@ -151,13 +170,47 @@ class ActivityRepository:
             return None
         return row[0]
 
+    def update_routes_for_user(
+        self,
+        user_id: int,
+        assignments: dict[int, tuple[str | None, str | None]],
+    ) -> int:
+        if not assignments:
+            return 0
+        activities = (
+            self.session.query(Activity)
+            .filter(
+                Activity.user_id == user_id,
+                Activity.strava_activity_id.in_(assignments),
+            )
+            .all()
+        )
+        changed_count = 0
+        for activity in activities:
+            route_id, route_name = assignments[activity.strava_activity_id]
+            if (
+                activity.intervals_route_id == route_id
+                and activity.intervals_route_name == route_name
+            ):
+                continue
+            activity.intervals_route_id = route_id
+            activity.intervals_route_name = route_name
+            changed_count += 1
+        if changed_count:
+            self.session.flush()
+        return changed_count
+
 
 class ActivityStreamRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
     def get_by_activity_id(self, activity_id: int) -> ActivityStream | None:
-        return self.session.query(ActivityStream).filter(ActivityStream.activity_id == activity_id).one_or_none()
+        return (
+            self.session.query(ActivityStream)
+            .filter(ActivityStream.activity_id == activity_id)
+            .one_or_none()
+        )
 
     def save(self, activity_stream: ActivityStream) -> ActivityStream:
         self.session.add(activity_stream)
@@ -167,7 +220,11 @@ class ActivityStreamRepository:
     def get_by_activity_ids(self, activity_ids: list[int]) -> list[ActivityStream]:
         if not activity_ids:
             return []
-        return self.session.query(ActivityStream).filter(ActivityStream.activity_id.in_(activity_ids)).all()
+        return (
+            self.session.query(ActivityStream)
+            .filter(ActivityStream.activity_id.in_(activity_ids))
+            .all()
+        )
 
 
 class PeriodSummaryRepository:
@@ -175,7 +232,9 @@ class PeriodSummaryRepository:
         self.session = session
 
     def replace_for_user(self, *, user_id: int, summaries: list[PeriodSummary]) -> None:
-        self.session.query(PeriodSummary).filter(PeriodSummary.user_id == user_id).delete()
+        self.session.query(PeriodSummary).filter(
+            PeriodSummary.user_id == user_id
+        ).delete()
         if summaries:
             self.session.add_all(summaries)
         self.session.flush()
@@ -192,20 +251,6 @@ class BestEffortRepository:
         self.session.flush()
 
 
-class ActivityBestEffortRepository:
-    def __init__(self, session: Session) -> None:
-        self.session = session
-
-    def replace_for_activities(self, *, activity_ids: list[int], efforts: list[ActivityBestEffort]) -> None:
-        if activity_ids:
-            self.session.query(ActivityBestEffort).filter(ActivityBestEffort.activity_id.in_(activity_ids)).delete(
-                synchronize_session=False
-            )
-        if efforts:
-            self.session.add_all(efforts)
-        self.session.flush()
-
-
 class SyncCheckpointRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -213,11 +258,20 @@ class SyncCheckpointRepository:
     def get_for_user(self, user_id: int, sync_type: str) -> SyncCheckpoint | None:
         return (
             self.session.query(SyncCheckpoint)
-            .filter(SyncCheckpoint.user_id == user_id, SyncCheckpoint.sync_type == sync_type)
+            .filter(
+                SyncCheckpoint.user_id == user_id, SyncCheckpoint.sync_type == sync_type
+            )
             .one_or_none()
         )
 
-    def upsert(self, *, user_id: int, sync_type: str, checkpoint_value: str | None, last_synced_at: datetime | None) -> None:
+    def upsert(
+        self,
+        *,
+        user_id: int,
+        sync_type: str,
+        checkpoint_value: str | None,
+        last_synced_at: datetime | None
+    ) -> None:
         checkpoint = self.get_for_user(user_id, sync_type)
         if checkpoint is None:
             checkpoint = SyncCheckpoint(

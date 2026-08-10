@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 
 class ActivityListRow(BaseModel):
@@ -15,6 +15,7 @@ class ActivityListRow(BaseModel):
         if value is None:
             return None
         return value.replace(tzinfo=None).isoformat()
+
     distance_km: Decimal | None = None
     moving_time_display: str | None = None
     summary_metric_display: str | None = None
@@ -53,7 +54,41 @@ class ActivitySeries(BaseModel):
 
 class ActivityMap(BaseModel):
     polyline: list[list[float]]
+    point_indices: list[int] = Field(default_factory=list)
+    segment_starts: list[int] = Field(default_factory=list)
     bounds: dict[str, float] | None = None
+
+
+class ActivityEffortRank(BaseModel):
+    rank: int
+    effort_code: str
+    best_time_seconds: int
+    distance_meters: Decimal
+    pace_seconds_per_km: float | None = None
+    average_speed_kph: float | None = None
+
+
+class RouteComparisonAttempt(BaseModel):
+    activity_id: int
+    start_date_local: datetime | None = None
+    moving_time_seconds: int
+    distance_km: Decimal | None = None
+    pace_seconds_per_km: float | None = None
+    average_speed_kph: float | None = None
+    average_heartrate_bpm: Decimal | None = None
+    rank: int
+    is_current: bool = False
+
+
+class RouteComparisonResponse(BaseModel):
+    route_id: str
+    route_name: str
+    current_rank: int
+    attempt_count: int
+    best_time_seconds: int
+    current_time_seconds: int
+    difference_seconds: int
+    attempts: list[RouteComparisonAttempt]
 
 
 class RunningBandSummary(BaseModel):
@@ -120,6 +155,8 @@ class ActivityDetailResponse(BaseModel):
     thresholds: ActivityDetailThresholds | None = None
     running_analysis: RunningAnalysisResponse | None = None
     cycling_analysis: CyclingAnalysisResponse | None = None
+    best_efforts: list[ActivityEffortRank] = Field(default_factory=list)
+    route_comparison: RouteComparisonResponse | None = None
 
     @field_serializer("start_date_local")
     def serialize_start_date_local(self, value: datetime | None) -> str | None:

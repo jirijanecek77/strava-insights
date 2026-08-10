@@ -1,6 +1,9 @@
 from datetime import UTC, datetime
 
-from app.intervals_client import IntervalsActivityStreamNotFoundError, IntervalsApiClient
+from app.intervals_client import (
+    IntervalsActivityStreamNotFoundError,
+    IntervalsApiClient,
+)
 from app.services.sync_import import FullImportService, IncrementalSyncService
 
 
@@ -91,8 +94,14 @@ class ActivityRepositoryStub:
     def get_by_source_activity_id(self, _user_id: int, source_activity_id: int):
         return self.by_id.get(source_activity_id)
 
-    def list_existing_source_activity_ids_for_user(self, _user_id: int, source_activity_ids: list[int]):
-        return {source_activity_id for source_activity_id in source_activity_ids if source_activity_id in self.existing_source_activity_ids}
+    def list_existing_source_activity_ids_for_user(
+        self, _user_id: int, source_activity_ids: list[int]
+    ):
+        return {
+            source_activity_id
+            for source_activity_id in source_activity_ids
+            if source_activity_id in self.existing_source_activity_ids
+        }
 
     def save(self, activity):
         if getattr(activity, "id", None) is None:
@@ -103,6 +112,17 @@ class ActivityRepositoryStub:
 
     def get_latest_start_date_utc_for_user(self, _user_id: int):
         return self.latest_start_date_utc
+
+    def update_routes_for_user(self, _user_id: int, assignments):
+        changed = 0
+        for source_activity_id, (route_id, route_name) in assignments.items():
+            activity = self.by_id.get(source_activity_id)
+            if activity is None:
+                continue
+            activity.intervals_route_id = route_id
+            activity.intervals_route_name = route_name
+            changed += 1
+        return changed
 
 
 class ActivityStreamRepositoryStub:
@@ -119,15 +139,16 @@ class ActivityStreamRepositoryStub:
 
 class CheckpointRepositoryStub:
     def __init__(self) -> None:
-        self.value = None
+        self.values = {}
 
-    def get_for_user(self, _user_id: int, _sync_type: str):
-        if self.value is None:
+    def get_for_user(self, _user_id: int, sync_type: str):
+        value = self.values.get(sync_type)
+        if value is None:
             return None
-        return type("CheckpointStub", (), self.value)()
+        return type("CheckpointStub", (), value)()
 
     def upsert(self, **kwargs):
-        self.value = kwargs
+        self.values[kwargs["sync_type"]] = kwargs
 
 
 class CacheInvalidatorStub:
@@ -142,9 +163,11 @@ class CacheInvalidatorStub:
 class ReadModelBuilderStub:
     def __init__(self) -> None:
         self.user_ids: list[int] = []
+        self.source_run_efforts = None
 
-    def rebuild_for_user(self, user_id: int) -> None:
+    def rebuild_for_user(self, user_id: int, *, source_run_efforts=None) -> None:
         self.user_ids.append(user_id)
+        self.source_run_efforts = source_run_efforts
 
 
 class TokenCipherStub:
@@ -180,14 +203,11 @@ class IntervalsClientStub:
                 "moving_time": 2700,
                 "elapsed_time": 2800,
                 "total_elevation_gain": 100.0,
-                "elev_high": 300.0,
-                "elev_low": 200.0,
                 "average_speed": 3.7,
                 "max_speed": 4.5,
                 "average_heartrate": 150.0,
-                "max_heartrate": 170,
                 "average_cadence": 84.0,
-                "start_latlng": [50.0, 14.0],
+                "route_id": 42,
             }
         ]
 
@@ -204,18 +224,41 @@ class IntervalsClientStub:
             "heartrate": {"data": [145, 146, 150, 152]},
         }
 
+    def get_activity_route_assignments(self, athlete_id: str, api_key: str):
+        assert athlete_id == "12345"
+        assert api_key == "access-token"
+        return [{"id": "i100", "route_id": 42}]
+
+    def get_routes(self, athlete_id: str, api_key: str):
+        assert athlete_id == "12345"
+        assert api_key == "access-token"
+        return [{"id": 42, "name": "River Loop"}]
+
+    def get_run_pace_curves(self, athlete_id: str, api_key: str, *, distances_meters):
+        assert distances_meters == [1000.0, 5000.0, 10000.0, 21097.5]
+        return {
+            "distances": distances_meters,
+            "curves": [{"id": "i100", "secs": [240, 1400, 3000]}],
+        }
+
 
 class MissingStreamIntervalsClientStub(IntervalsClientStub):
     def get_activity_stream(self, api_key: str, activity_id: int):
         raise IntervalsActivityStreamNotFoundError(activity_id)
 
 
-def test_full_import_service_imports_activities_updates_progress_and_checkpoint() -> None:
+def test_full_import_service_imports_activities_updates_progress_and_checkpoint() -> (
+    None
+):
     session = SessionStub()
     sync_job = SyncJobStub()
-    service = FullImportService(session, intervals_client=IntervalsClientStub(), token_cipher=TokenCipherStub())
+    service = FullImportService(
+        session, intervals_client=IntervalsClientStub(), token_cipher=TokenCipherStub()
+    )
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(
+        IntervalsCredentialStub("12345", "enc:access-token")
+    )
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -227,13 +270,20 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     assert imported_count == 1
     assert sync_job.status == "completed"
     assert sync_job.progress_completed == 1
-    assert service.checkpoints.value["checkpoint_value"] == "2026-03-09T06:00:00+00:00"
+    assert (
+        service.checkpoints.values["activities"]["checkpoint_value"]
+        == "2026-03-09T06:00:00+00:00"
+    )
+    assert service.checkpoints.values["analytics_model"]["checkpoint_value"] == "2"
     assert 100 in service.activities.by_id
     assert service.activities.by_id[100].distance_km == 10
     assert service.activities.by_id[100].moving_time_display == "45:00"
     assert service.activities.by_id[100].average_pace_display == "4:30"
     assert service.activities.by_id[100].summary_metric_display == "4:30 /km"
-    assert service.activity_streams.by_activity_id[1].heartrate_stream == {"data": [145, 146, 150, 152]}
+    assert service.activity_streams.by_activity_id[1].heartrate_stream == {
+        "data": [145, 146, 150, 152]
+    }
+    assert service.activities.by_id[100].intervals_route_name == "River Loop"
     assert service.read_model_builder.user_ids == [1]
     assert service.cache_invalidator.user_ids == [1]
 
@@ -244,15 +294,19 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     sync_job.sync_type = "incremental_sync"
     intervals_client = IntervalsClientStub()
     checkpoint_repo = CheckpointRepositoryStub()
-    checkpoint_repo.value = {
+    checkpoint_repo.values["activities"] = {
         "user_id": 1,
         "sync_type": "activities",
         "checkpoint_value": "2026-03-01T06:00:00+00:00",
         "last_synced_at": datetime.now(UTC),
     }
-    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(
+        session, intervals_client=intervals_client, token_cipher=TokenCipherStub()
+    )
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(
+        IntervalsCredentialStub("12345", "enc:access-token")
+    )
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = checkpoint_repo
@@ -263,16 +317,22 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
 
     assert imported_count == 1
     assert intervals_client.after == datetime.fromisoformat("2026-03-01T06:00:00+00:00")
-    assert checkpoint_repo.value["sync_type"] == "activities"
+    assert checkpoint_repo.values["activities"]["sync_type"] == "activities"
 
 
 def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
-    service = IncrementalSyncService(session, intervals_client=MissingStreamIntervalsClientStub(), token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(
+        session,
+        intervals_client=MissingStreamIntervalsClientStub(),
+        token_cipher=TokenCipherStub(),
+    )
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(
+        IntervalsCredentialStub("12345", "enc:access-token")
+    )
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
@@ -287,16 +347,24 @@ def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     assert service.activity_streams.by_activity_id == {}
 
 
-def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing() -> None:
+def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing() -> (
+    None
+):
     session = SessionStub()
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
     intervals_client = IntervalsClientStub()
-    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(
+        session, intervals_client=intervals_client, token_cipher=TokenCipherStub()
+    )
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(
+        IntervalsCredentialStub("12345", "enc:access-token")
+    )
     service.activities = ActivityRepositoryStub()
-    service.activities.latest_start_date_utc = datetime.fromisoformat("2026-03-07T06:00:00+00:00")
+    service.activities.latest_start_date_utc = datetime.fromisoformat(
+        "2026-03-07T06:00:00+00:00"
+    )
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
     service.cache_invalidator = CacheInvalidatorStub()
@@ -313,13 +381,23 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     sync_job = SyncJobStub()
     sync_job.sync_type = "incremental_sync"
     intervals_client = IntervalsClientStub()
-    service = IncrementalSyncService(session, intervals_client=intervals_client, token_cipher=TokenCipherStub())
+    service = IncrementalSyncService(
+        session, intervals_client=intervals_client, token_cipher=TokenCipherStub()
+    )
     service.sync_jobs = SyncJobRepositoryStub(sync_job)
-    service.intervals_credentials = IntervalsCredentialRepositoryStub(IntervalsCredentialStub("12345", "enc:access-token"))
+    service.intervals_credentials = IntervalsCredentialRepositoryStub(
+        IntervalsCredentialStub("12345", "enc:access-token")
+    )
     service.activities = ActivityRepositoryStub()
     service.activities.existing_source_activity_ids = {100}
     service.activity_streams = ActivityStreamRepositoryStub()
     service.checkpoints = CheckpointRepositoryStub()
+    service.checkpoints.values["analytics_model"] = {
+        "user_id": 1,
+        "sync_type": "analytics_model",
+        "checkpoint_value": "2",
+        "last_synced_at": datetime.now(UTC),
+    }
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
 
@@ -329,3 +407,4 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     assert sync_job.status == "completed"
     assert sync_job.progress_total == 0
     assert intervals_client.stream_calls == []
+    assert service.read_model_builder.user_ids == []

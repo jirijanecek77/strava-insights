@@ -33,15 +33,30 @@ class ActivityRepository:
             query = query.filter(Activity.start_date_local < date_to)
         return query.order_by(Activity.start_date_local.desc()).all()
 
-    def list_with_hr_and_speed(self, user_id: int, *, sport_type: str | None = None) -> list[Activity]:
-        query = (
-            self.session.query(Activity)
-            .filter(
-                Activity.user_id == user_id,
-                Activity.average_heartrate_bpm.isnot(None),
-                Activity.average_speed_mps.isnot(None),
-            )
+    def list_with_hr_and_speed(
+        self, user_id: int, *, sport_type: str | None = None
+    ) -> list[Activity]:
+        query = self.session.query(Activity).filter(
+            Activity.user_id == user_id,
+            Activity.average_heartrate_bpm.isnot(None),
+            Activity.average_speed_mps.isnot(None),
         )
         if sport_type is not None:
             query = query.filter(Activity.sport_type == sport_type)
         return query.order_by(Activity.start_date_local.asc()).all()
+
+    def list_for_route(
+        self, user_id: int, *, route_id: str, sport_type: str
+    ) -> list[Activity]:
+        return (
+            self.session.query(Activity)
+            .filter(
+                Activity.user_id == user_id,
+                Activity.intervals_route_id == route_id,
+                Activity.sport_type == sport_type,
+            )
+            .order_by(
+                Activity.moving_time_seconds.asc(), Activity.start_date_local.asc()
+            )
+            .all()
+        )

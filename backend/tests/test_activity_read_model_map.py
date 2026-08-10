@@ -8,6 +8,8 @@ def test_activity_map_keeps_valid_strava_polyline_points() -> None:
 
     assert activity_map is not None
     assert activity_map.polyline == [[50.0, 14.0], [50.1, 14.1]]
+    assert activity_map.point_indices == [0, 3]
+    assert activity_map.segment_starts == [0, 1]
     assert activity_map.bounds == {
         "min_lat": 50.0,
         "max_lat": 50.1,

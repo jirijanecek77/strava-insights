@@ -88,6 +88,15 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Switched the import source to Intervals.icu while preserving the existing local activity/stream schema for the first iteration.
 - [x] Removed live source API/OAuth integration code and source-specific env configuration.
 - [x] Hardened activity detail reads for Intervals.icu stream compatibility, including scalar-only GPS streams and sparse null samples in numeric streams.
+- [x] Removed unused heart-rate drift analytics, dead analytics helpers, unused activity metadata columns, user email storage, and the unused activity-level effort table through an explicit migration.
+- [x] Added aligned stream sanitation for speed, distance, GPS, altitude, and heart-rate artifacts, including segmented route rendering across missing GPS runs.
+- [x] Added current elevation to every activity-detail graph tooltip.
+- [x] Replaced quadratic best-effort scans with Intervals bulk running pace curves plus a linear local fallback for cycling and source-missing activities.
+- [x] Persisted and exposed the top five best efforts per sport and distance, with collapsed ranking UI, source activity links, and activity-detail rank badges.
+- [x] Added Intervals-only route assignment refresh and local same-route comparison with ranking, attempt history, and trend UI.
+- [x] Made manual sync recalculate analytics while scheduled no-change syncs skip an already-current read-model rebuild.
+- [x] Applied migration `20260810_0014` and validated a real manual refresh over 148 activities; the worker completed in about 11 seconds and persisted ranked efforts plus sanitized streams.
+- [x] Restored the documented Windows build wrapper, updated vulnerable frontend dependencies to audited versions, and split charting code out of the initial production bundle.
 
 ## Remaining Work
 

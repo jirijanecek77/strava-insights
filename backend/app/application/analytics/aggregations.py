@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Protocol
-
 
 RUN_SPORT = "Run"
 RIDE_SPORTS = {"Ride", "EBikeRide"}
@@ -44,52 +43,6 @@ def _period_start(period_type: str, activity_date: date) -> date:
     raise ValueError(f"Unsupported period_type: {period_type}")
 
 
-def aggregate_period_summaries(
-    activities: list[ActivityAggregateInput],
-    *,
-    period_type: str,
-) -> list[PeriodSummaryResult]:
-    grouped: dict[tuple[str, date], list[ActivityAggregateInput]] = {}
-    for activity in activities:
-        key = (activity.sport_type, _period_start(period_type, activity.start_date_local))
-        grouped.setdefault(key, []).append(activity)
-
-    summaries: list[PeriodSummaryResult] = []
-    for (sport_type, period_start), grouped_activities in grouped.items():
-        total_distance = sum((activity.distance_meters for activity in grouped_activities), Decimal("0"))
-        total_moving_time = sum(activity.moving_time_seconds for activity in grouped_activities)
-        total_elevation = sum(
-            (activity.total_elevation_gain_meters or Decimal("0") for activity in grouped_activities),
-            Decimal("0"),
-        )
-        average_speed_mps: Decimal | None = None
-        average_pace_seconds_per_km: Decimal | None = None
-        if total_distance > 0 and total_moving_time > 0:
-            if sport_type == RUN_SPORT:
-                average_pace_seconds_per_km = _quantize(
-                    (Decimal(total_moving_time) * Decimal("1000")) / total_distance,
-                    "0.01",
-                )
-            elif sport_type in RIDE_SPORTS:
-                average_speed_mps = _quantize(total_distance / Decimal(total_moving_time), "0.0001")
-
-        summaries.append(
-            PeriodSummaryResult(
-                sport_type=sport_type,
-                period_type=period_type,
-                period_start=period_start,
-                activity_count=len(grouped_activities),
-                total_distance_meters=_quantize(total_distance, "0.01"),
-                total_moving_time_seconds=total_moving_time,
-                average_speed_mps=average_speed_mps,
-                average_pace_seconds_per_km=average_pace_seconds_per_km,
-                total_elevation_gain_meters=_quantize(total_elevation, "0.01"),
-            )
-        )
-
-    return sorted(summaries, key=lambda summary: (summary.sport_type, summary.period_start, summary.period_type))
-
-
 class _PeriodSummaryLike(Protocol):
     activity_count: int
     total_distance_meters: Decimal
@@ -98,15 +51,32 @@ class _PeriodSummaryLike(Protocol):
     average_pace_seconds_per_km: Decimal | None
 
 
-def compare_periods(*, current: _PeriodSummaryLike | None, previous: _PeriodSummaryLike | None) -> dict:
+def compare_periods(
+    *, current: _PeriodSummaryLike | None, previous: _PeriodSummaryLike | None
+) -> dict:
     return {
         "current": current,
         "previous": previous,
-        "delta_distance_meters": _delta_decimal(current.total_distance_meters if current else None, previous.total_distance_meters if previous else None),
-        "delta_moving_time_seconds": _delta_int(current.total_moving_time_seconds if current else None, previous.total_moving_time_seconds if previous else None),
-        "delta_activity_count": _delta_int(current.activity_count if current else None, previous.activity_count if previous else None),
-        "delta_average_speed_mps": _delta_decimal(current.average_speed_mps if current else None, previous.average_speed_mps if previous else None),
-        "delta_average_pace_seconds_per_km": _delta_decimal(current.average_pace_seconds_per_km if current else None, previous.average_pace_seconds_per_km if previous else None),
+        "delta_distance_meters": _delta_decimal(
+            current.total_distance_meters if current else None,
+            previous.total_distance_meters if previous else None,
+        ),
+        "delta_moving_time_seconds": _delta_int(
+            current.total_moving_time_seconds if current else None,
+            previous.total_moving_time_seconds if previous else None,
+        ),
+        "delta_activity_count": _delta_int(
+            current.activity_count if current else None,
+            previous.activity_count if previous else None,
+        ),
+        "delta_average_speed_mps": _delta_decimal(
+            current.average_speed_mps if current else None,
+            previous.average_speed_mps if previous else None,
+        ),
+        "delta_average_pace_seconds_per_km": _delta_decimal(
+            current.average_pace_seconds_per_km if current else None,
+            previous.average_pace_seconds_per_km if previous else None,
+        ),
     }
 
 
@@ -117,13 +87,20 @@ def summarize_window(
     window_type: str,
     window_start: date,
 ) -> PeriodSummaryResult | None:
-    filtered = [activity for activity in activities if activity.sport_type == sport_type]
+    filtered = [
+        activity for activity in activities if activity.sport_type == sport_type
+    ]
     if not filtered:
         return None
 
-    total_distance = sum((activity.distance_meters for activity in filtered), Decimal("0"))
+    total_distance = sum(
+        (activity.distance_meters for activity in filtered), Decimal("0")
+    )
     total_moving_time = sum(activity.moving_time_seconds for activity in filtered)
-    total_elevation = sum((activity.total_elevation_gain_meters or Decimal("0") for activity in filtered), Decimal("0"))
+    total_elevation = sum(
+        (activity.total_elevation_gain_meters or Decimal("0") for activity in filtered),
+        Decimal("0"),
+    )
     average_speed_mps: Decimal | None = None
     average_pace_seconds_per_km: Decimal | None = None
     if total_distance > 0 and total_moving_time > 0:
@@ -133,7 +110,9 @@ def summarize_window(
                 "0.01",
             )
         elif sport_type in RIDE_SPORTS:
-            average_speed_mps = _quantize(total_distance / Decimal(total_moving_time), "0.0001")
+            average_speed_mps = _quantize(
+                total_distance / Decimal(total_moving_time), "0.0001"
+            )
 
     return PeriodSummaryResult(
         sport_type=sport_type,

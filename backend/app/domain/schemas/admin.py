@@ -8,7 +8,6 @@ class AdminUserAuditItem(BaseModel):
 
     id: int
     strava_athlete_id: int | None = None
-    email: str | None = None
     display_name: str
     is_active: bool
     created_at: datetime

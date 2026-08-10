@@ -131,10 +131,6 @@ export function formatMonthInput(value) {
     return `${year}-${month}`;
 }
 
-export function formatDistanceTick(value) {
-    return `${Math.round(value)} km`;
-}
-
 export function formatSeriesValue(kind, value) {
     if (!Number.isFinite(value)) {
         return "n/a";
@@ -209,19 +205,6 @@ export function formatSummaryMetricDisplay(value, kind) {
         return `${value} km/h`;
     }
     return value;
-}
-
-export function formatHeartRateDrift(value) {
-    if (value == null) {
-        return "n/a";
-    }
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue)) {
-        return "n/a";
-    }
-    const formatted = formatNumber(Math.abs(numericValue));
-    const sign = numericValue > 0 ? "+" : numericValue < 0 ? "-" : "";
-    return `${sign}${formatted} bpm`;
 }
 
 export function formatPaceField(value) {

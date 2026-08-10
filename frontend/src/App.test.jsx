@@ -272,7 +272,11 @@ describe("App", () => {
                             average_heartrate_bpm: 150,
                             aerobic_efficiency_m_per_beat: 66.7,
                         },
-                        map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
+                        map: {
+                            polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]],
+                            point_indices: [0, 1, 2],
+                            segment_starts: [0],
+                        },
                         series: {
                             distance_km: [0, 5, 10],
                             altitude_meters: [220, 260, 240],
@@ -308,6 +312,44 @@ describe("App", () => {
                                 heart_rate_higher_share_percent: 10,
                             },
                         },
+                        best_efforts: [{
+                            rank: 1,
+                            effort_code: "5km",
+                            best_time_seconds: 1380,
+                            distance_meters: 5000,
+                            pace_seconds_per_km: 276,
+                        }],
+                        route_comparison: {
+                            route_id: "42",
+                            route_name: "River Loop",
+                            current_rank: 2,
+                            attempt_count: 2,
+                            best_time_seconds: 2940,
+                            current_time_seconds: 3000,
+                            difference_seconds: 60,
+                            attempts: [
+                                {
+                                    activity_id: 12,
+                                    start_date_local: "2026-02-05T08:30:00",
+                                    moving_time_seconds: 2940,
+                                    distance_km: 10,
+                                    pace_seconds_per_km: 294,
+                                    average_heartrate_bpm: 147,
+                                    rank: 1,
+                                    is_current: false,
+                                },
+                                {
+                                    activity_id: 11,
+                                    start_date_local: "2026-03-05T08:30:00",
+                                    moving_time_seconds: 3000,
+                                    distance_km: 10,
+                                    pace_seconds_per_km: 300,
+                                    average_heartrate_bpm: 150,
+                                    rank: 2,
+                                    is_current: true,
+                                },
+                            ],
+                        },
                     }),
                 );
             }
@@ -325,7 +367,6 @@ describe("App", () => {
                                 summary_metric_display: "5:00 /km",
                                 total_elevation_gain_meters: 120,
                                 average_heartrate_bpm: 150,
-                                heart_rate_drift_bpm: 6.5,
                             },
                         ],
                     }),
@@ -412,16 +453,19 @@ describe("App", () => {
         fireEvent.click(screen.getByRole("button", {name: /morning run/i}));
 
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
-        expect(screen.getByText(/^distance$/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/^distance$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^moving time$/i)).toBeInTheDocument();
         expect(screen.getByText(/^efficiency$/i)).toBeInTheDocument();
         expect(screen.getByText("66.7 m/beat")).toBeInTheDocument();
         expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^elevation gain$/i)).toBeInTheDocument();
-        expect(screen.getByText(/^avg hr$/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/^avg hr$/i).length).toBeGreaterThan(0);
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
+        expect(screen.getByText(/best efforts in this activity/i)).toBeInTheDocument();
+        expect(screen.getByText("River Loop")).toBeInTheDocument();
+        expect(screen.getByText("#2 of 2")).toBeInTheDocument();
         expect(screen.getByText(/pace above hr/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/improving signal/i)).toBeInTheDocument();
         expect(screen.queryByLabelText(/strain warning/i)).not.toBeInTheDocument();
@@ -435,6 +479,7 @@ describe("App", () => {
         expect(screen.getByLabelText("% chart")).toBeInTheDocument();
         expect(within(screen.getByLabelText("min/km chart")).getByText("Distance: 0 km")).toBeInTheDocument();
         expect(within(screen.getByLabelText("min/km chart")).getByText("Pace: 5:12 /km")).toBeInTheDocument();
+        expect(within(screen.getByLabelText("min/km chart")).getByText("Elevation: 220 m")).toBeInTheDocument();
         expect(within(screen.getByLabelText("bpm chart")).getByText("Heart Rate: 140 bpm")).toBeInTheDocument();
         expect(within(screen.getByLabelText("% chart")).getByText("Slope: 0.5%")).toBeInTheDocument();
 
@@ -493,7 +538,6 @@ describe("App", () => {
                                 activity_count: 2,
                                 total_distance_meters: 25000,
                                 total_moving_time_seconds: 7200,
-                                average_heart_rate_drift_bpm: 2.5,
                             },
                             {
                                 sport_type: "Run",
@@ -502,7 +546,6 @@ describe("App", () => {
                                 activity_count: 4,
                                 total_distance_meters: 41000,
                                 total_moving_time_seconds: 12600,
-                                average_heart_rate_drift_bpm: 4.25,
                             },
                             {
                                 sport_type: "Run",
@@ -511,7 +554,6 @@ describe("App", () => {
                                 activity_count: 3,
                                 total_distance_meters: 33000,
                                 total_moving_time_seconds: 9900,
-                                average_heart_rate_drift_bpm: 3.1,
                             },
                         ],
                     }),
@@ -526,7 +568,6 @@ describe("App", () => {
         expect(graph).toBeInTheDocument();
         expect(screen.getByText(/^km$/i)).toBeInTheDocument();
         expect(screen.getByText(/^sessions$/i)).toBeInTheDocument();
-        expect(screen.getByText(/^hr drift$/i)).toBeInTheDocument();
     });
 
     it("lets the user choose which two monthly periods to compare", async () => {
@@ -675,7 +716,7 @@ describe("App", () => {
         expect(screen.getAllByRole("option", {name: "W2 Mar 2026"}).length).toBeGreaterThan(0);
     });
 
-    it("opens the linked activity when a best effort card is clicked", async () => {
+    it("opens the linked activity when a best effort row is clicked", async () => {
         vi.spyOn(global, "fetch")
             .mockResolvedValueOnce(
                 jsonResponse({
@@ -718,6 +759,18 @@ describe("App", () => {
                             distance_meters: 21097.5,
                             activity_id: 11,
                             achieved_at: "2026-03-05T08:30:00",
+                            rank: 1,
+                            pace_seconds_per_km: 255.95,
+                        },
+                        {
+                            sport_type: "Run",
+                            effort_code: "half_marathon",
+                            best_time_seconds: 5520,
+                            distance_meters: 21097.5,
+                            activity_id: 12,
+                            achieved_at: "2026-02-05T08:30:00",
+                            rank: 2,
+                            pace_seconds_per_km: 261.64,
                         },
                     ],
                 }),
@@ -756,7 +809,10 @@ describe("App", () => {
         render(<App/>);
 
         fireEvent.click(await screen.findByRole("button", {name: /best efforts/i}));
-        fireEvent.click(await screen.findByRole("button", {name: /half marathon/i}));
+        expect(screen.queryByText("#2")).not.toBeInTheDocument();
+        fireEvent.click(await screen.findByRole("button", {name: /show half marathon top efforts/i}));
+        expect(screen.getByText("#2")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", {name: /#1.*1:30:00/i}));
 
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
     });
@@ -798,7 +854,6 @@ describe("App", () => {
                         total_elevation_gain_meters: 520,
                         average_heartrate_bpm: 148,
                         average_cadence: 88,
-                        heart_rate_drift_bpm: 4.2,
                     },
                     map: {polyline: [[50.1, 14.4], [50.11, 14.42], [50.12, 14.43]]},
                     series: {
@@ -854,7 +909,6 @@ describe("App", () => {
                             summary_metric_kind: "speed",
                             total_elevation_gain_meters: 520,
                             average_heartrate_bpm: 148,
-                            heart_rate_drift_bpm: 4.2,
                         },
                     ],
                 }));
@@ -924,6 +978,8 @@ describe("App", () => {
                             distance_meters: 50000,
                             activity_id: 21,
                             achieved_at: "2026-03-05T08:30:00",
+                            rank: 1,
+                            average_speed_kph: 33.33,
                         }]
                         : [],
                 }));
@@ -982,7 +1038,6 @@ describe("App", () => {
                             summary_metric_display: "5:00 /km",
                             total_elevation_gain_meters: 120,
                             average_heartrate_bpm: 150,
-                            heart_rate_drift_bpm: 2.5,
                         },
                     ],
                 }),
@@ -1042,7 +1097,6 @@ describe("App", () => {
                             summary_metric_display: "30 km/h",
                             total_elevation_gain_meters: 500,
                             average_heartrate_bpm: 135,
-                            heart_rate_drift_bpm: 1.4,
                         },
                     ],
                 }),
@@ -1498,7 +1552,6 @@ describe("App", () => {
                             id: 1,
                             strava_athlete_id: 632291,
                             display_name: "Admin Athlete",
-                            email: null,
                             is_active: true,
                             created_at: "2026-03-20T09:00:00Z",
                             updated_at: "2026-03-23T09:00:00Z",
@@ -1508,7 +1561,6 @@ describe("App", () => {
                             id: 2,
                             strava_athlete_id: 200,
                             display_name: "Second Athlete",
-                            email: null,
                             is_active: true,
                             created_at: "2026-03-21T09:00:00Z",
                             updated_at: "2026-03-23T09:00:00Z",

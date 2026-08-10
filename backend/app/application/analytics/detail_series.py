@@ -1,5 +1,4 @@
 from numbers import Real
-from statistics import mean
 from typing import Any
 
 
@@ -22,14 +21,18 @@ def meters_to_kilometers(distance_stream_meters: list[float]) -> list[float]:
     return [distance / 1000 for distance in _numeric_series(distance_stream_meters)]
 
 
-def moving_average_speed_kph(velocity_smooth_stream_mps: list[float], range_points: int = 10) -> list[float]:
+def moving_average_speed_kph(
+    velocity_smooth_stream_mps: list[float], range_points: int = 10
+) -> list[float]:
     return moving_average(
         [speed * 3.6 for speed in _numeric_series(velocity_smooth_stream_mps)],
         range_points=range_points,
     )
 
 
-def moving_average_heartrate(heartrate_stream_bpm: list[float], range_points: int = 10) -> list[float]:
+def moving_average_heartrate(
+    heartrate_stream_bpm: list[float], range_points: int = 10
+) -> list[float]:
     return moving_average(heartrate_stream_bpm, range_points=range_points)
 
 
@@ -38,15 +41,17 @@ def calculate_pace_minutes_per_km(
     distances_meters: list[float],
     range_points: int = 20,
 ) -> list[float]:
-    seconds = _numeric_series(seconds)
-    distances_meters = _numeric_series(distances_meters)
-    sample_count = min(len(seconds), len(distances_meters))
+    numeric_seconds = _numeric_series(seconds)
+    numeric_distances = _numeric_series(distances_meters)
+    sample_count = min(len(numeric_seconds), len(numeric_distances))
     paces: list[float] = []
     for index in range(sample_count):
         start_index = max(0, index - range_points)
         end_index = min(sample_count - 1, index + range_points)
-        total_time_seconds = seconds[end_index] - seconds[start_index]
-        total_distance_meters = distances_meters[end_index] - distances_meters[start_index]
+        total_time_seconds = numeric_seconds[end_index] - numeric_seconds[start_index]
+        total_distance_meters = (
+            numeric_distances[end_index] - numeric_distances[start_index]
+        )
 
         if total_distance_meters == 0:
             paces.append(16.0)
@@ -87,18 +92,18 @@ def calculate_slope_percent(
     distance_stream_meters = distance_stream_meters[:sample_count]
     slopes = [0.0] * (range_points // 2)
     for index in range(range_points, len(altitude_stream_meters)):
-        elevation_change = altitude_stream_meters[index] - altitude_stream_meters[index - range_points]
-        horizontal_distance = distance_stream_meters[index] - distance_stream_meters[index - range_points]
+        elevation_change = (
+            altitude_stream_meters[index] - altitude_stream_meters[index - range_points]
+        )
+        horizontal_distance = (
+            distance_stream_meters[index] - distance_stream_meters[index - range_points]
+        )
         if horizontal_distance <= 0:
             slopes.append(0.0)
             continue
         slope = (elevation_change / horizontal_distance) * 100
         slopes.append(min(45.0, max(-45.0, slope)))
     return slopes + ([0.0] * (len(distance_stream_meters) - len(slopes)))
-
-
-def average(values: list[float]) -> float:
-    return mean(values) if values else 0.0
 
 
 def _numeric_series(values: list[Any]) -> list[float]:

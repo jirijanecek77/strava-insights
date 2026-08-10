@@ -179,7 +179,12 @@ export function ActivitiesView({
                 {detailState === "loading" ? <EmptyState text="Loading activity detail..."/> : null}
                 {detailState === "error" ? <EmptyState text="Activity detail failed to load."/> : null}
                 {detailState === "ready" && activityDetail ? (
-                    <ActivityDetail detail={activityDetail} activeSeriesIndex={activeSeriesIndex} onSelectSeriesIndex={onSelectSeriesIndex}/>
+                    <ActivityDetail
+                        detail={activityDetail}
+                        activeSeriesIndex={activeSeriesIndex}
+                        onSelectActivity={onSelectActivity}
+                        onSelectSeriesIndex={onSelectSeriesIndex}
+                    />
                 ) : null}
             </article>
         </section>
@@ -206,20 +211,14 @@ export function BestEffortsView({items, selectedSport, onSelectActivity}) {
                 {groupedItems.map(([sportType, sportItems]) => (
                     <section key={sportType} className="best-effort-group">
                         <div className="best-effort-group-label">{formatSportLabel(sportType)}</div>
-                        <div className="best-effort-row">
-                            {sportItems.map((item) => (
-                                <button
-                                    key={`${item.sport_type}-${item.effort_code}`}
-                                    className="best-effort-card"
-                                    disabled={item.activity_id == null}
-                                    onClick={() => onSelectActivity(item.activity_id)}
-                                    type="button"
-                                >
-                                    <strong>{formatLabel(item.effort_code)}</strong>
-                                    <span>{formatDuration(item.best_time_seconds)}</span>
-                                    <p>{formatDistanceMeters(item.distance_meters)}</p>
-                                    <small>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Imported best mark"}</small>
-                                </button>
+                        <div className="best-effort-distance-list">
+                            {groupEffortsByDistance(sportItems).map(([effortCode, efforts]) => (
+                                <BestEffortDistance
+                                    efforts={efforts}
+                                    effortCode={effortCode}
+                                    key={`${sportType}-${effortCode}`}
+                                    onSelectActivity={onSelectActivity}
+                                />
                             ))}
                         </div>
                     </section>
@@ -227,6 +226,72 @@ export function BestEffortsView({items, selectedSport, onSelectActivity}) {
             </div>
         </section>
     );
+}
+
+function BestEffortDistance({effortCode, efforts, onSelectActivity}) {
+    const [expanded, setExpanded] = useState(false);
+    const visibleEfforts = expanded ? efforts : efforts.slice(0, 1);
+    return (
+        <article className="best-effort-distance">
+            <div className="best-effort-distance-header">
+                <div>
+                    <strong>{formatLabel(effortCode)}</strong>
+                    <span>{formatDistanceMeters(efforts[0]?.distance_meters)}</span>
+                </div>
+                {efforts.length > 1 ? (
+                    <button
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Collapse" : "Show"} ${formatLabel(effortCode)} top efforts`}
+                        className="best-effort-expand"
+                        onClick={() => setExpanded((current) => !current)}
+                        title={expanded ? "Show only the fastest effort" : "Show top five efforts"}
+                        type="button"
+                    >
+                        {expanded ? "-" : "+"}
+                    </button>
+                ) : null}
+            </div>
+            <div className="best-effort-ranking">
+                {visibleEfforts.map((item) => (
+                    <button
+                        className="best-effort-entry"
+                        disabled={item.activity_id == null}
+                        key={`${item.sport_type}-${item.effort_code}-${item.rank}-${item.activity_id}`}
+                        onClick={() => onSelectActivity(item.activity_id)}
+                        type="button"
+                    >
+                        <span className={item.rank === 1 ? "effort-rank is-best" : "effort-rank"}>#{item.rank}</span>
+                        <strong>{formatDuration(item.best_time_seconds)}</strong>
+                        <span>{formatEffortMetric(item)}</span>
+                        <span>{item.achieved_at ? formatDateLabel(item.achieved_at) : "Unknown date"}</span>
+                        <span className="effort-open" aria-hidden="true">Open</span>
+                    </button>
+                ))}
+            </div>
+        </article>
+    );
+}
+
+function groupEffortsByDistance(items) {
+    const grouped = new Map();
+    items.forEach((item) => {
+        const efforts = grouped.get(item.effort_code) ?? [];
+        efforts.push(item);
+        grouped.set(item.effort_code, efforts);
+    });
+    return [...grouped.entries()]
+        .map(([code, efforts]) => [code, [...efforts].sort((left, right) => left.rank - right.rank)])
+        .sort((left, right) => Number(left[1][0]?.distance_meters ?? 0) - Number(right[1][0]?.distance_meters ?? 0));
+}
+
+function formatEffortMetric(item) {
+    if (item.pace_seconds_per_km != null) {
+        return formatPaceSeconds(item.pace_seconds_per_km);
+    }
+    if (item.average_speed_kph != null) {
+        return `${formatNumber(item.average_speed_kph)} km/h`;
+    }
+    return "n/a";
 }
 
 export function SettingsView({
@@ -437,14 +502,12 @@ function TrendList({efficiencyItems, items}) {
         aerobicEfficiency: efficiencyByPeriod.get(point.periodStart) ?? null,
     }));
     const hasEfficiency = efficiencyItems != null && efficiencyItems.length > 0;
-    const hasHeartRateDrift = chartData.some((point) => point.averageHeartRateDriftBpm != null);
 
     return (
         <div className="trend-chart-shell">
             <div className="trend-chart-legend" aria-hidden="true">
                 <span className="trend-legend-item"><span className="trend-legend-swatch distance"/>Km</span>
                 <span className="trend-legend-item"><span className="trend-legend-swatch sessions"/>Sessions</span>
-                {hasHeartRateDrift ? <span className="trend-legend-item"><span className="trend-legend-swatch hr-drift"/>HR Drift</span> : null}
                 {hasEfficiency ? <span className="trend-legend-item"><span className="trend-legend-swatch efficiency"/>Efficiency</span> : null}
             </div>
             <div aria-label="Trend graph" className="trend-chart" role="img">
@@ -454,12 +517,10 @@ function TrendList({efficiencyItems, items}) {
                         <XAxis axisLine={false} dataKey="axisLabel" tick={{fill: "#6f6b62", fontSize: 11}} tickLine={false}/>
                         <YAxis axisLine={false} domain={[0, "dataMax"]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => `${Math.round(value)}`} tickLine={false} width={28}/>
                         <YAxis axisLine={false} dataKey="sessions" domain={[0, "dataMax"]} hide orientation="right" yAxisId="sessions"/>
-                        {hasHeartRateDrift ? <YAxis axisLine={false} dataKey="averageHeartRateDriftBpm" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="hr-drift"/> : null}
                         {hasEfficiency ? <YAxis axisLine={false} dataKey="aerobicEfficiency" domain={["dataMin", "dataMax"]} hide orientation="right" yAxisId="efficiency"/> : null}
                         <Tooltip content={<TrendChartTooltip/>} cursor={{fill: "rgba(252, 76, 2, 0.08)"}}/>
                         <Bar dataKey="distanceKm" fill="#fc4c02" maxBarSize={42} radius={[10, 10, 4, 4]}/>
                         <Line dataKey="sessions" dot={{fill: "#1d7af3", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#1d7af3" strokeWidth={2} type="monotone" yAxisId="sessions"/>
-                        {hasHeartRateDrift ? <Line connectNulls dataKey="averageHeartRateDriftBpm" dot={{fill: "#c92a2a", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#c92a2a" strokeWidth={2} type="monotone" yAxisId="hr-drift"/> : null}
                         {hasEfficiency ? <Line connectNulls dataKey="aerobicEfficiency" dot={{fill: "#2f9e44", r: 4, stroke: "#ffffff", strokeWidth: 2}} stroke="#2f9e44" strokeWidth={2} type="monotone" yAxisId="efficiency"/> : null}
                         <Brush dataKey="axisLabel" defaultEndIndex={points.length - 1} defaultStartIndex={Math.max(points.length - 12, 0)} fill="rgba(252, 76, 2, 0.08)" height={22} stroke="#fc4c02" travellerWidth={12}/>
                     </ComposedChart>

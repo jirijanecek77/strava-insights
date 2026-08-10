@@ -1,5 +1,4 @@
 from app.infrastructure.db.models.activity import Activity
-from app.infrastructure.db.models.activity_best_effort import ActivityBestEffort
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
 from app.infrastructure.db.models.intervals_credential import IntervalsCredential
@@ -11,7 +10,6 @@ from app.infrastructure.db.models.user_threshold_profile import UserThresholdPro
 
 __all__ = [
     "Activity",
-    "ActivityBestEffort",
     "ActivityStream",
     "BestEffort",
     "IntervalsCredential",

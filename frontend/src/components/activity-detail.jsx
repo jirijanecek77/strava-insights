@@ -27,9 +27,13 @@ import {
     formatAxisValue,
     formatBandDistribution,
     formatClimbingSummary,
+    formatDateLabel,
     formatDateTime,
     formatDistanceKm,
+    formatDuration,
+    formatLabel,
     formatNumber,
+    formatPaceSeconds,
     formatPercentage,
     formatSummaryMetricDisplay,
     formatTooltipSeriesValue,
@@ -51,7 +55,7 @@ const CYCLING_ANALYSIS_TOOLTIPS = {
     average_cadence: "Shows the average pedaling cadence recorded for the ride in revolutions per minute.",
 };
 
-export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex}) {
+export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onSelectSeriesIndex}) {
     const routePoints = detail.map?.polyline ?? [];
     const isRun = detail.sport_type === "Run";
     const isRide = detail.sport_type === "Ride" || detail.sport_type === "EBikeRide";
@@ -73,7 +77,8 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex})
         valueKind: "slope",
         values: detail.series.slope_percent,
     });
-    const resolvedActiveIndex = Math.min(activeSeriesIndex ?? 0, Math.max(routePoints.length - 1, 0));
+    const seriesLength = Math.max(detail.series.distance_km.length, paceOrSpeed.length, 1);
+    const resolvedActiveIndex = Math.min(activeSeriesIndex ?? 0, seriesLength - 1);
 
     return (
         <div className="activity-detail">
@@ -98,12 +103,22 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex})
             <div className="detail-grid">
                 <div className="detail-card detail-card-wide">
                     <p className="eyebrow">Route</p>
-                    <MapPanel activeIndex={resolvedActiveIndex} onSelectIndex={onSelectSeriesIndex} polyline={routePoints}/>
+                    <MapPanel
+                        activeIndex={resolvedActiveIndex}
+                        onSelectIndex={onSelectSeriesIndex}
+                        pointIndices={detail.map?.point_indices ?? []}
+                        polyline={routePoints}
+                        segmentStarts={detail.map?.segment_starts ?? []}
+                    />
                 </div>
+                {detail.route_comparison ? (
+                    <RouteComparisonPanel comparison={detail.route_comparison} onSelectActivity={onSelectActivity}/>
+                ) : null}
                 <DetailChart accent="orange" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label={detail.series.pace_minutes_per_km.length ? "Pace" : "Speed"} onSelectIndex={onSelectSeriesIndex} referenceValue={paceReferenceValue} thresholds={detail.thresholds} valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"} values={paceOrSpeed}/>
                 <DetailChart accent="red" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Heart Rate" onSelectIndex={onSelectSeriesIndex} referenceValue={heartRateReferenceValue} thresholds={detail.thresholds} valueKind="heart_rate" values={detail.series.moving_average_heartrate}/>
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
+            {detail.best_efforts?.length ? <ActivityBestEfforts efforts={detail.best_efforts}/> : null}
             <div className="detail-analysis-grid">
                 <div className="detail-card">
                     <p className="eyebrow">{isRide ? "Cycling Analysis" : "Running Analysis"}</p>
@@ -115,6 +130,172 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectSeriesIndex})
             </div>
         </div>
     );
+}
+
+function ActivityBestEfforts({efforts}) {
+    return (
+        <section className="activity-best-efforts" aria-label="Best efforts in this activity">
+            <div className="activity-section-heading">
+                <p className="eyebrow">Best Efforts In This Activity</p>
+            </div>
+            <div className="activity-effort-list">
+                {[...efforts]
+                    .sort((left, right) => Number(left.distance_meters) - Number(right.distance_meters))
+                    .map((effort) => (
+                        <div className="activity-effort-row" key={`${effort.effort_code}-${effort.rank}`}>
+                            <span className={effort.rank === 1 ? "effort-rank is-best" : "effort-rank"}>
+                                {effort.rank === 1 ? "PB" : `#${effort.rank}`}
+                            </span>
+                            <strong>{formatLabel(effort.effort_code)}</strong>
+                            <span>{formatDuration(effort.best_time_seconds)}</span>
+                            <span>{formatRankedMetric(effort)}</span>
+                        </div>
+                    ))}
+            </div>
+        </section>
+    );
+}
+
+function RouteComparisonPanel({comparison, onSelectActivity}) {
+    const [expanded, setExpanded] = useState(false);
+    const rankedAttempts = [...comparison.attempts].sort((left, right) => left.rank - right.rank);
+    const initialAttempts = rankedAttempts.slice(0, 5);
+    const currentAttempt = rankedAttempts.find((attempt) => attempt.is_current);
+    if (currentAttempt && !initialAttempts.some((attempt) => attempt.activity_id === currentAttempt.activity_id)) {
+        initialAttempts.push(currentAttempt);
+        initialAttempts.sort((left, right) => left.rank - right.rank);
+    }
+    const visibleAttempts = expanded ? rankedAttempts : initialAttempts;
+    const trendData = [...comparison.attempts]
+        .filter((attempt) => attempt.start_date_local)
+        .sort((left, right) => new Date(left.start_date_local) - new Date(right.start_date_local))
+        .map((attempt) => ({
+            ...attempt,
+            dateLabel: formatDateLabel(attempt.start_date_local),
+        }));
+
+    return (
+        <section className="route-comparison detail-card-wide" aria-label="Route comparison">
+            <div className="route-comparison-header">
+                <div>
+                    <p className="eyebrow">Route Comparison</p>
+                    <h3>{comparison.route_name}</h3>
+                </div>
+                <strong className="route-rank">#{comparison.current_rank} of {comparison.attempt_count}</strong>
+            </div>
+            <div className="route-comparison-summary">
+                <MetricTile label="This activity" value={formatDuration(comparison.current_time_seconds)}/>
+                <MetricTile label="Personal best" value={formatDuration(comparison.best_time_seconds)}/>
+                <MetricTile
+                    label="Difference"
+                    value={comparison.difference_seconds === 0 ? "PB" : `+${formatDuration(comparison.difference_seconds)}`}
+                />
+            </div>
+            <div className="route-attempt-table" role="table" aria-label="Activities on this route">
+                <div className="route-attempt-head" role="row">
+                    <span>Rank</span>
+                    <span>Date</span>
+                    <span>Time</span>
+                    <span>Pace / speed</span>
+                    <span>Avg HR</span>
+                    <span>Distance</span>
+                </div>
+                {visibleAttempts.map((attempt) => (
+                    <button
+                        className={attempt.is_current ? "route-attempt-row is-current" : "route-attempt-row"}
+                        key={attempt.activity_id}
+                        onClick={() => onSelectActivity(attempt.activity_id)}
+                        role="row"
+                        type="button"
+                    >
+                        <strong>#{attempt.rank}</strong>
+                        <span>{attempt.start_date_local ? formatDateLabel(attempt.start_date_local) : "Unknown"}</span>
+                        <strong>{formatDuration(attempt.moving_time_seconds)}</strong>
+                        <span>{formatRankedMetric(attempt)}</span>
+                        <span>{attempt.average_heartrate_bpm != null ? `${Math.round(attempt.average_heartrate_bpm)} bpm` : "n/a"}</span>
+                        <span>{attempt.distance_km != null ? formatDistanceKm(attempt.distance_km) : "n/a"}</span>
+                    </button>
+                ))}
+            </div>
+            {rankedAttempts.length > initialAttempts.length ? (
+                <button className="route-attempt-toggle" onClick={() => setExpanded((current) => !current)} type="button">
+                    {expanded ? "Show fastest five" : `Show all ${rankedAttempts.length} attempts`}
+                </button>
+            ) : null}
+            {trendData.length > 1 ? (
+                <div className="route-comparison-chart" aria-label="Route performance over time" role="img">
+                    <ResponsiveContainer height="100%" width="100%">
+                        <ComposedChart data={trendData} margin={{top: 12, right: 16, bottom: 8, left: 8}}>
+                            <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
+                            <XAxis axisLine={false} dataKey="dateLabel" tick={{fill: "#6f6b62", fontSize: 11}} tickLine={false}/>
+                            <YAxis axisLine={false} dataKey="moving_time_seconds" domain={["dataMin", "dataMax"]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={formatDuration} tickLine={false} width={54}/>
+                            <Tooltip content={<RouteComparisonTooltip/>}/>
+                            <ReferenceLine stroke="rgba(61, 155, 99, 0.55)" strokeDasharray="4 4" y={comparison.best_time_seconds}/>
+                            <Line
+                                dataKey="moving_time_seconds"
+                                dot={(props) => <RouteAttemptDot {...props} onSelectActivity={onSelectActivity}/>}
+                                isAnimationActive={false}
+                                stroke="#fc4c02"
+                                strokeWidth={2.25}
+                                type="monotone"
+                            />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : null}
+        </section>
+    );
+}
+
+function RouteComparisonTooltip({active, payload}) {
+    const attempt = payload?.[0]?.payload;
+    if (!active || !attempt) {
+        return null;
+    }
+    return (
+        <div className="trend-tooltip">
+            <strong>{attempt.dateLabel}</strong>
+            <span>{formatDuration(attempt.moving_time_seconds)}</span>
+            <span>{formatRankedMetric(attempt)}</span>
+            {attempt.average_heartrate_bpm != null ? <span>{Math.round(attempt.average_heartrate_bpm)} bpm</span> : null}
+        </div>
+    );
+}
+
+function RouteAttemptDot({cx, cy, onSelectActivity, payload}) {
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+        return null;
+    }
+    function openActivity() {
+        onSelectActivity(payload.activity_id);
+    }
+    return (
+        <circle
+            aria-label={`Open route attempt ranked ${payload.rank}`}
+            className={payload.is_current ? "route-trend-dot is-current" : "route-trend-dot"}
+            cx={cx}
+            cy={cy}
+            onClick={openActivity}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    openActivity();
+                }
+            }}
+            r={payload.rank === 1 ? 5 : 4}
+            role="button"
+            tabIndex="0"
+        />
+    );
+}
+
+function formatRankedMetric(item) {
+    if (item.pace_seconds_per_km != null) {
+        return formatPaceSeconds(item.pace_seconds_per_km);
+    }
+    if (item.average_speed_kph != null) {
+        return `${formatNumber(item.average_speed_kph)} km/h`;
+    }
+    return "n/a";
 }
 
 function DetailChart({accent, activeIndex, altitudeValues, distanceValues, label, onSelectIndex, referenceValue, thresholds, valueKind, values}) {
@@ -182,6 +363,7 @@ function DetailChartTooltip({active, label, payload, position, valueKind}) {
         <div className="detail-chart-tooltip" style={{left: `${position.leftPercent}%`, top: `${position.topPercent}%`, transform: position.preferBelow ? "translate(-50%, 12px)" : "translate(-50%, calc(-100% - 12px))"}}>
             <span>Distance: {formatNumber(point.distance)} km</span>
             <span>{label}: {formatTooltipSeriesValue(valueKind, point.value)}</span>
+            {Number.isFinite(point.altitude) ? <span>Elevation: {formatAltitudeAxisValue(point.altitude)}</span> : null}
         </div>
     );
 }
@@ -312,7 +494,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
     );
 }
 
-function MapPanel({activeIndex, onSelectIndex, polyline}) {
+function MapPanel({activeIndex, onSelectIndex, pointIndices, polyline, segmentStarts}) {
     if (!polyline.length) {
         return <EmptyState compact text="No GPS points available."/>;
     }
@@ -336,7 +518,14 @@ function MapPanel({activeIndex, onSelectIndex, polyline}) {
                 return;
             }
 
-            const mapInstance = createMapyCzMap(mapApi, mapContainerRef.current, polyline, onSelectIndex);
+            const mapInstance = createMapyCzMap(
+                mapApi,
+                mapContainerRef.current,
+                polyline,
+                pointIndices,
+                segmentStarts,
+                onSelectIndex,
+            );
             if (!mapInstance) {
                 setMapState("fallback");
                 return;
@@ -355,7 +544,7 @@ function MapPanel({activeIndex, onSelectIndex, polyline}) {
             }
             mapStateRef.current = null;
         };
-    }, [mapyApiKey, onSelectIndex, polyline]);
+    }, [mapyApiKey, onSelectIndex, pointIndices, polyline, segmentStarts]);
 
     useEffect(() => {
         if (mapState !== "ready" || !mapStateRef.current) {
@@ -371,14 +560,20 @@ function MapPanel({activeIndex, onSelectIndex, polyline}) {
             {mapState !== "ready" ? (
                 <>
                     {mapyApiKey ? <div className="map-loading-note">Mapy.cz background tiles could not be loaded. Check that the API key is valid, has Map Tiles access, and allows `http://localhost:5173`.</div> : null}
-                    <RoutePreview activeIndex={activeIndex} onSelectIndex={onSelectIndex} polyline={polyline}/>
+                    <RoutePreview
+                        activeIndex={activeIndex}
+                        onSelectIndex={onSelectIndex}
+                        pointIndices={pointIndices}
+                        polyline={polyline}
+                        segmentStarts={segmentStarts}
+                    />
                 </>
             ) : null}
         </div>
     );
 }
 
-function RoutePreview({activeIndex, onSelectIndex, polyline}) {
+function RoutePreview({activeIndex, onSelectIndex, pointIndices, polyline, segmentStarts}) {
     const latitudes = polyline.map((point) => point[0]);
     const longitudes = polyline.map((point) => point[1]);
     const minLat = Math.min(...latitudes);
@@ -389,18 +584,31 @@ function RoutePreview({activeIndex, onSelectIndex, polyline}) {
         x: ((lng - minLng) / Math.max(maxLng - minLng, 0.00001)) * 100,
         y: 100 - ((lat - minLat) / Math.max(maxLat - minLat, 0.00001)) * 100,
     }));
-    const activePoint = activeIndex == null ? null : coordinates[Math.min(activeIndex, coordinates.length - 1)];
+    const mappedPointIndices = pointIndices.length === polyline.length
+        ? pointIndices
+        : polyline.map((_, index) => index);
+    const projectedSegments = buildRouteSegments(polyline, segmentStarts).map((segment) =>
+        segment.map(([lat, lng]) => ({
+            x: ((lng - minLng) / Math.max(maxLng - minLng, 0.00001)) * 100,
+            y: 100 - ((lat - minLat) / Math.max(maxLat - minLat, 0.00001)) * 100,
+        })),
+    );
+    const activePointIndex = activeIndex == null ? null : findClosestMappedPointIndex(mappedPointIndices, activeIndex);
+    const activePoint = activePointIndex == null ? null : coordinates[activePointIndex];
 
     function handlePointer(event) {
         const bounds = event.currentTarget.getBoundingClientRect();
         const x = ((event.clientX - bounds.left) / Math.max(bounds.width, 1)) * 100;
         const y = ((event.clientY - bounds.top) / Math.max(bounds.height, 1)) * 100;
-        onSelectIndex(findClosestPointIndex(coordinates, {x, y}));
+        const selectedIndex = findClosestPointIndex(coordinates, {x, y});
+        onSelectIndex(mappedPointIndices[selectedIndex] ?? selectedIndex);
     }
 
     return (
         <svg aria-label="Route preview" className="route-map" onClick={handlePointer} preserveAspectRatio="none" viewBox="0 0 100 100">
-            <polyline fill="none" points={coordinates.map(({x, y}) => `${x},${y}`).join(" ")} strokeWidth="2"/>
+            {projectedSegments.map((segment, index) => (
+                <polyline fill="none" key={`route-segment-${index}`} points={segment.map(({x, y}) => `${x},${y}`).join(" ")} strokeWidth="2"/>
+            ))}
             <circle cx={coordinates[0].x} cy={coordinates[0].y} r="2.4"/>
             {activePoint ? <circle className="active-route-point" cx={activePoint.x} cy={activePoint.y} r="3.2"/> : null}
         </svg>
@@ -426,7 +634,7 @@ async function loadMapyCzApi() {
     };
 }
 
-function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
+function createMapyCzMap(mapApi, container, polyline, pointIndices, segmentStarts, onSelectIndex) {
     if (!mapApi?.L || !mapApi?.tileConfig || !container || !polyline.length) {
         return null;
     }
@@ -434,11 +642,20 @@ function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
     try {
         const {L, tileConfig} = mapApi;
         const coordinates = polyline.map(([lat, lng]) => [lat, lng]);
+        const mappedPointIndices = pointIndices.length === polyline.length
+            ? pointIndices
+            : polyline.map((_, index) => index);
+        const routeSegments = buildRouteSegments(polyline, segmentStarts).map((segment) =>
+            segment.map(([lat, lng]) => [lat, lng]),
+        );
         const map = L.map(container, {attributionControl: false, zoomControl: true});
 
         L.tileLayer(tileConfig.urlTemplate, {minZoom: tileConfig.minZoom, maxZoom: tileConfig.maxZoom, tileSize: tileConfig.tileSize, attribution: tileConfig.attribution}).addTo(map);
 
-        const route = L.polyline(coordinates, {color: "#fc4c02", weight: 3, opacity: 0.95}).addTo(map);
+        const routeLayers = routeSegments.map((segment) =>
+            L.polyline(segment, {color: "#fc4c02", weight: 3, opacity: 0.95}),
+        );
+        const route = L.featureGroup(routeLayers).addTo(map);
         const activeMarker = L.circleMarker(coordinates[0], {color: "#1d7af3", fillColor: "#1d7af3", fillOpacity: 1, radius: 6, weight: 2}).addTo(map);
 
         map.fitBounds(route.getBounds(), {padding: [24, 24]});
@@ -452,10 +669,11 @@ function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
         });
 
         function updateSelection(latlng) {
-            onSelectIndex(findClosestPointIndex(coordinates, {x: latlng.lat, y: latlng.lng}, "latlng"));
+            const selectedIndex = findClosestPointIndex(coordinates, {x: latlng.lat, y: latlng.lng}, "latlng");
+            onSelectIndex(mappedPointIndices[selectedIndex] ?? selectedIndex);
         }
 
-        route.on("click", (event) => updateSelection(event.latlng));
+        routeLayers.forEach((layer) => layer.on("click", (event) => updateSelection(event.latlng)));
         map.on("click", (event) => updateSelection(event.latlng));
 
         return {
@@ -467,12 +685,33 @@ function createMapyCzMap(mapApi, container, polyline, onSelectIndex) {
                     activeMarker.setLatLng(coordinates[0]);
                     return;
                 }
-                activeMarker.setLatLng(coordinates[Math.min(activeIndex, coordinates.length - 1)]);
+                const pointIndex = findClosestMappedPointIndex(mappedPointIndices, activeIndex);
+                activeMarker.setLatLng(coordinates[pointIndex]);
             },
         };
     } catch {
         return null;
     }
+}
+
+function findClosestMappedPointIndex(pointIndices, targetIndex) {
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    pointIndices.forEach((sourceIndex, index) => {
+        const distance = Math.abs(sourceIndex - targetIndex);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+        }
+    });
+    return closestIndex;
+}
+
+function buildRouteSegments(polyline, segmentStarts) {
+    const starts = segmentStarts.length ? segmentStarts : [0];
+    return starts
+        .map((start, index) => polyline.slice(start, starts[index + 1] ?? polyline.length))
+        .filter((segment) => segment.length > 0);
 }
 
 function getDetailAccentColor(accent) {

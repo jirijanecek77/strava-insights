@@ -12,7 +12,6 @@ class User(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     strava_athlete_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
-    email: Mapped[str | None] = mapped_column(String(320))
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     profile_picture_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
@@ -24,4 +23,6 @@ class User(TimestampMixin, Base):
     sync_jobs = relationship("SyncJob", back_populates="user")
     sync_checkpoints = relationship("SyncCheckpoint", back_populates="user")
     threshold_profiles = relationship("UserThresholdProfile", back_populates="user")
-    intervals_credential = relationship("IntervalsCredential", back_populates="user", uselist=False)
+    intervals_credential = relationship(
+        "IntervalsCredential", back_populates="user", uselist=False
+    )

@@ -38,7 +38,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         id=1,
         strava_athlete_id=162181,
         display_name="Integration Athlete",
-        email=None,
         profile_picture_url=None,
         is_active=True,
     )
@@ -65,18 +64,37 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         moving_time_display="45:00",
         elapsed_time_seconds=2800,
         total_elevation_gain_meters=Decimal("100.00"),
-        elev_high_meters=Decimal("250.00"),
-        elev_low_meters=Decimal("180.00"),
         average_speed_mps=Decimal("3.7000"),
         average_speed_kph=Decimal("13.32"),
         max_speed_mps=Decimal("4.5000"),
         average_heartrate_bpm=Decimal("150.00"),
-        max_heartrate_bpm=170,
         average_cadence=Decimal("84.00"),
         average_pace_seconds_per_km=Decimal("270.00"),
         average_pace_display="4:30",
         summary_metric_display="4:30 /km",
-        start_latlng=[50.0, 14.0],
+        intervals_route_id="42",
+        intervals_route_name="River Loop",
+    )
+    faster_route_activity = Activity(
+        id=6,
+        user_id=1,
+        strava_activity_id=1006,
+        name="Earlier River Run",
+        sport_type="Run",
+        start_date_utc=datetime.now(UTC) - timedelta(days=3),
+        start_date_local=datetime.now(UTC) - timedelta(days=3),
+        distance_meters=Decimal("10000"),
+        distance_km=Decimal("10.00"),
+        moving_time_seconds=2600,
+        moving_time_display="43:20",
+        average_speed_mps=Decimal("3.8462"),
+        average_speed_kph=Decimal("13.85"),
+        average_pace_seconds_per_km=Decimal("260.00"),
+        average_pace_display="4:20",
+        summary_metric_display="4:20 /km",
+        average_heartrate_bpm=Decimal("148.00"),
+        intervals_route_id="42",
+        intervals_route_name="River Loop",
     )
     stream = ActivityStream(
         activity_id=5,
@@ -95,6 +113,15 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         distance_meters=Decimal("5000"),
         activity_id=5,
         achieved_at=activity.start_date_utc,
+    )
+    faster_best_effort = BestEffort(
+        user_id=1,
+        sport_type="Run",
+        effort_code="5km",
+        best_time_seconds=1300,
+        distance_meters=Decimal("5000"),
+        activity_id=6,
+        achieved_at=faster_route_activity.start_date_utc,
     )
     period_summaries = [
         PeriodSummary(
@@ -174,9 +201,11 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
     db_session.add(user)
     db_session.add(profile)
     db_session.add(activity)
+    db_session.add(faster_route_activity)
     db_session.flush()
     db_session.add(stream)
     db_session.add(best_effort)
+    db_session.add(faster_best_effort)
     db_session.add_all(period_summaries)
     db_session.commit()
 
@@ -197,26 +226,50 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         activities_response = client.get("/activities")
         assert activities_response.status_code == 200
         assert activities_response.json()["items"][0]["name"] == "Morning Run"
-        assert activities_response.json()["items"][0]["summary_metric_display"] == "4:30"
+        assert (
+            activities_response.json()["items"][0]["summary_metric_display"] == "4:30"
+        )
         assert activities_response.json()["items"][0]["summary_metric_kind"] == "pace"
 
         activity_detail_response = client.get("/activities/5")
         assert activity_detail_response.status_code == 200
         assert activity_detail_response.json()["map"]["bounds"]["max_lat"] == 50.1
-        assert activity_detail_response.json()["kpis"]["summary_metric_display"] == "4:30"
+        assert (
+            activity_detail_response.json()["kpis"]["summary_metric_display"] == "4:30"
+        )
         assert activity_detail_response.json()["kpis"]["summary_metric_kind"] == "pace"
         assert activity_detail_response.json()["series"]["pace_display"][0] == "4:00"
         assert activity_detail_response.json()["series"]["altitude_meters"][0] == 200
-        assert activity_detail_response.json()["thresholds"]["aet_heart_rate_bpm"] == 145.0
-        assert activity_detail_response.json()["thresholds"]["ant_pace_min_per_km"] == 4.3
-        assert activity_detail_response.json()["running_analysis"]["pace_distribution"][0]["label"] == "Below AeT"
+        assert (
+            activity_detail_response.json()["thresholds"]["aet_heart_rate_bpm"] == 145.0
+        )
+        assert (
+            activity_detail_response.json()["thresholds"]["ant_pace_min_per_km"] == 4.3
+        )
+        assert (
+            activity_detail_response.json()["running_analysis"]["pace_distribution"][0][
+                "label"
+            ]
+            == "Below AeT"
+        )
         assert activity_detail_response.json()["cycling_analysis"] is None
         assert activity_detail_response.json()["kpis"]["max_pace_display"] == "3:42"
         assert activity_detail_response.json()["kpis"]["max_speed_kph"] is None
+        assert activity_detail_response.json()["best_efforts"][0]["rank"] == 2
+        assert (
+            activity_detail_response.json()["route_comparison"]["route_name"]
+            == "River Loop"
+        )
+        assert activity_detail_response.json()["route_comparison"]["current_rank"] == 2
+        assert activity_detail_response.json()["route_comparison"]["attempt_count"] == 2
 
         best_efforts_response = client.get("/best-efforts")
         assert best_efforts_response.status_code == 200
         assert best_efforts_response.json()["items"][0]["effort_code"] == "5km"
         assert best_efforts_response.json()["items"][0]["sport_type"] == "Run"
+        assert [item["rank"] for item in best_efforts_response.json()["items"]] == [
+            1,
+            2,
+        ]
     finally:
         app.dependency_overrides.clear()

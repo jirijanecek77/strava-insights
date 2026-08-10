@@ -24,16 +24,9 @@ export function aggregateTrendItems(items) {
             timestamp: new Date(key).getTime(),
             distanceKm: 0,
             sessions: 0,
-            heartRateDriftTotal: 0,
-            heartRateDriftSamples: 0,
         };
         current.distanceKm += Number(item.total_distance_meters ?? 0) / 1000;
         current.sessions += Number(item.activity_count ?? 0);
-        if (item.average_heart_rate_drift_bpm != null) {
-            current.heartRateDriftTotal += Number(item.average_heart_rate_drift_bpm);
-            current.heartRateDriftSamples += 1;
-            current.averageHeartRateDriftBpm = current.heartRateDriftTotal / current.heartRateDriftSamples;
-        }
         byDate.set(key, current);
     });
     return Array.from(byDate.values()).sort((left, right) => left.timestamp - right.timestamp);

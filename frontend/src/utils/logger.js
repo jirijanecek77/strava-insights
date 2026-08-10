@@ -21,11 +21,9 @@ function normalizeLogLevel(level) {
     const normalized = String(level ?? "").trim().toLowerCase();
     return Object.hasOwn(levelPriority, normalized) ? normalized : "info";
 }
-
 function readableTimestamp() {
     return new Date().toISOString().replace("T", " ").replace("Z", " UTC");
 }
-
 function shouldLog(level) {
     return levelPriority[level] >= levelPriority[configuredLogLevel];
 }
@@ -60,5 +58,3 @@ export function installFrontendConsoleLogger() {
         };
     }
 }
-
-export const frontendLogLevel = configuredLogLevel;

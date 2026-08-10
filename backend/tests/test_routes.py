@@ -1,15 +1,15 @@
-import logging
 import base64
 import json
+import logging
 from datetime import UTC, date, datetime
 
-from fastapi.testclient import TestClient
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from itsdangerous import TimestampSigner
 
+from app.application.auth.credentials import IntervalsCredentialService
 from app.application.auth.current_user import CurrentUserService
 from app.application.auth.dto import AuthenticatedUser
-from app.application.auth.credentials import IntervalsCredentialService
 from app.application.read_models.activities import ActivityReadService
 from app.application.read_models.best_efforts import BestEffortReadService
 from app.application.read_models.dashboard import DashboardReadService
@@ -17,9 +17,21 @@ from app.application.sync.dto import CreatedSyncJob
 from app.application.sync.orchestrator import SyncOrchestrator
 from app.application.sync.status import SyncStatusService
 from app.core.config import settings
-from app.domain.schemas.activity import ActivityDetailResponse, ActivityKpis, ActivityListResponse, ActivityListRow, ActivityMap, ActivitySeries
+from app.domain.schemas.activity import (
+    ActivityDetailResponse,
+    ActivityKpis,
+    ActivityListResponse,
+    ActivityListRow,
+    ActivityMap,
+    ActivitySeries,
+)
 from app.domain.schemas.best_effort import BestEffortItem, BestEffortsResponse
-from app.domain.schemas.dashboard import DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
+from app.domain.schemas.dashboard import (
+    DashboardResponse,
+    PeriodComparisonSchema,
+    PeriodSummarySchema,
+    TrendsResponse,
+)
 from app.domain.schemas.sync import SyncStatusResponse
 from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.db.models.user import User
@@ -54,7 +66,9 @@ class CredentialServiceStub:
 
     def authenticate_with_credentials(self, **kwargs) -> AuthenticatedUser:
         if kwargs.get("athlete_id") == "disabled":
-            raise HTTPException(status_code=403, detail="This account has been disabled.")
+            raise HTTPException(
+                status_code=403, detail="This account has been disabled."
+            )
         return AuthenticatedUser(
             id=1,
             strava_athlete_id=162181,
@@ -65,11 +79,15 @@ class CredentialServiceStub:
 
 class SyncOrchestratorStub:
     def enqueue_incremental_sync(self, _user_id: int) -> CreatedSyncJob:
-        return CreatedSyncJob(id=42, user_id=1, sync_type="incremental_sync", status="queued")
+        return CreatedSyncJob(
+            id=42, user_id=1, sync_type="incremental_sync", status="queued"
+        )
 
 
 class DashboardReadServiceStub:
-    def get_dashboard(self, _user_id: int, *, today, sport_type=None) -> DashboardResponse:
+    def get_dashboard(
+        self, _user_id: int, *, today, sport_type=None
+    ) -> DashboardResponse:
         period = PeriodSummarySchema(
             sport_type="Run",
             period_type="month",
@@ -84,7 +102,9 @@ class DashboardReadServiceStub:
         comparison = PeriodComparisonSchema(current=period, previous=None)
         return DashboardResponse(month=[comparison], year=[comparison])
 
-    def get_trends(self, _user_id: int, *, period_type: str, sport_type=None) -> TrendsResponse:
+    def get_trends(
+        self, _user_id: int, *, period_type: str, sport_type=None
+    ) -> TrendsResponse:
         return TrendsResponse(items=[], period_type=period_type)
 
     def get_comparisons(
@@ -116,7 +136,9 @@ class ActivityReadServiceStub:
             ]
         )
 
-    def get_activity_detail(self, _user_id: int, activity_id: int) -> ActivityDetailResponse | None:
+    def get_activity_detail(
+        self, _user_id: int, activity_id: int
+    ) -> ActivityDetailResponse | None:
         if activity_id != 5:
             return None
         return ActivityDetailResponse(
@@ -132,7 +154,15 @@ class ActivityReadServiceStub:
                 max_pace_display="3:42",
                 max_speed_kph=None,
             ),
-            map=ActivityMap(polyline=[[50.0, 14.0], [50.1, 14.1]], bounds={"min_lat": 50.0, "max_lat": 50.1, "min_lng": 14.0, "max_lng": 14.1}),
+            map=ActivityMap(
+                polyline=[[50.0, 14.0], [50.1, 14.1]],
+                bounds={
+                    "min_lat": 50.0,
+                    "max_lat": 50.1,
+                    "min_lng": 14.0,
+                    "max_lng": 14.1,
+                },
+            ),
             series=ActivitySeries(
                 distance_km=[0.0, 1.0],
                 altitude_meters=[200.0, 202.0],
@@ -149,8 +179,21 @@ class ActivityReadServiceStub:
 
 
 class BestEffortReadServiceStub:
-    def list_best_efforts(self, _user_id: int, *, sport_type=None) -> BestEffortsResponse:
-        return BestEffortsResponse(items=[BestEffortItem(sport_type=sport_type or "Run", effort_code="5km", best_time_seconds=1400, distance_meters="5000")])
+    def list_best_efforts(
+        self, _user_id: int, *, sport_type=None
+    ) -> BestEffortsResponse:
+        return BestEffortsResponse(
+            items=[
+                BestEffortItem(
+                    sport_type=sport_type or "Run",
+                    effort_code="5km",
+                    best_time_seconds=1400,
+                    distance_meters="5000",
+                    rank=1,
+                    pace_seconds_per_km=280,
+                )
+            ]
+        )
 
 
 def test_me_requires_authentication(client) -> None:
@@ -243,7 +286,9 @@ def test_me_profile_can_be_updated(client, db_session) -> None:
     assert response.json()["items"][0] == response.json()["current"]
 
 
-def test_me_profile_update_creates_missing_user_from_session(client, db_session) -> None:
+def test_me_profile_update_creates_missing_user_from_session(
+    client, db_session
+) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
         CurrentUserResponse(
             id=1,
@@ -273,7 +318,9 @@ def test_me_profile_update_creates_missing_user_from_session(client, db_session)
     assert response.json()["current"]["effective_from"] == "2026-03-01"
 
 
-def test_me_profile_can_update_existing_snapshot_with_same_effective_date(client, db_session) -> None:
+def test_me_profile_can_update_existing_snapshot_with_same_effective_date(
+    client, db_session
+) -> None:
     db_session.add(
         User(
             id=1,
@@ -348,8 +395,14 @@ def test_request_logging_includes_session_user_name(client, capsys) -> None:
             "profile_picture_url": None,
         }
     }
-    serialized_session = base64.b64encode(json.dumps(session_payload).encode("utf-8")).decode("utf-8")
-    signed_session = TimestampSigner(str(settings.session_secret_key)).sign(serialized_session).decode("utf-8")
+    serialized_session = base64.b64encode(
+        json.dumps(session_payload).encode("utf-8")
+    ).decode("utf-8")
+    signed_session = (
+        TimestampSigner(str(settings.session_secret_key))
+        .sign(serialized_session)
+        .decode("utf-8")
+    )
 
     client.cookies.set(settings.session_cookie_name, signed_session)
     response = client.get("/health", headers={"x-request-id": "req-health-user-test"})
@@ -357,7 +410,10 @@ def test_request_logging_includes_session_user_name(client, capsys) -> None:
 
     assert response.status_code == 200
     assert "[user=Test Athlete]" in captured.out
-    assert "request_id=req-health-user-test Request started method=GET path=/health" in captured.out
+    assert (
+        "request_id=req-health-user-test Request started method=GET path=/health"
+        in captured.out
+    )
 
 
 def test_request_logging_logs_unhandled_exceptions(client, capsys) -> None:
@@ -481,7 +537,12 @@ def test_sync_refresh_enqueues_incremental_job(client) -> None:
 
 def test_dashboard_returns_response_shape(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
     try:
@@ -495,7 +556,12 @@ def test_dashboard_returns_response_shape(client) -> None:
 
 def test_trends_returns_response_shape(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
     try:
@@ -509,7 +575,12 @@ def test_trends_returns_response_shape(client) -> None:
 
 def test_comparisons_accepts_rolling_window_parameter(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
     try:
@@ -522,11 +593,18 @@ def test_comparisons_accepts_rolling_window_parameter(client) -> None:
 
 def test_comparisons_accepts_explicit_period_starts(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[DashboardReadService] = lambda: DashboardReadServiceStub()
     try:
-        response = client.get("/comparisons?period_type=month&current_period_start=2026-03-01&previous_period_start=2026-02-01")
+        response = client.get(
+            "/comparisons?period_type=month&current_period_start=2026-03-01&previous_period_start=2026-02-01"
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -535,7 +613,12 @@ def test_comparisons_accepts_explicit_period_starts(client) -> None:
 
 def test_activities_list_returns_rows(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[ActivityReadService] = lambda: ActivityReadServiceStub()
     try:
@@ -549,7 +632,12 @@ def test_activities_list_returns_rows(client) -> None:
 
 def test_activity_detail_returns_payload(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     app.dependency_overrides[ActivityReadService] = lambda: ActivityReadServiceStub()
     try:
@@ -566,9 +654,16 @@ def test_activity_detail_returns_payload(client) -> None:
 
 def test_best_efforts_returns_items(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
-    app.dependency_overrides[BestEffortReadService] = lambda: BestEffortReadServiceStub()
+    app.dependency_overrides[BestEffortReadService] = (
+        lambda: BestEffortReadServiceStub()
+    )
     try:
         response = client.get("/best-efforts")
     finally:
@@ -579,7 +674,9 @@ def test_best_efforts_returns_items(client) -> None:
 
 
 def test_intervals_credentials_returns_saved_state(client) -> None:
-    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
+    app.dependency_overrides[IntervalsCredentialService] = (
+        lambda: CredentialServiceStub()
+    )
     with client as session_client:
         session_client.cookies.set("intervals_insights_session", "")
         response = session_client.get("/auth/intervals/credentials")
@@ -591,9 +688,13 @@ def test_intervals_credentials_returns_saved_state(client) -> None:
 
 
 def test_intervals_login_sets_session(client) -> None:
-    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
+    app.dependency_overrides[IntervalsCredentialService] = (
+        lambda: CredentialServiceStub()
+    )
     try:
-        response = client.post("/auth/intervals/login", json={"athlete_id": "12345", "api_key": "secret"})
+        response = client.post(
+            "/auth/intervals/login", json={"athlete_id": "12345", "api_key": "secret"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -607,7 +708,9 @@ def test_auth_logout_returns_no_content(client) -> None:
     assert response.status_code == 204
 
 
-def test_disabled_user_session_is_rejected_on_authenticated_request(client, db_session) -> None:
+def test_disabled_user_session_is_rejected_on_authenticated_request(
+    client, db_session
+) -> None:
     db_session.add(
         User(
             id=1,
@@ -618,10 +721,15 @@ def test_disabled_user_session_is_rejected_on_authenticated_request(client, db_s
         )
     )
     db_session.commit()
-    app.dependency_overrides[IntervalsCredentialService] = lambda: CredentialServiceStub()
+    app.dependency_overrides[IntervalsCredentialService] = (
+        lambda: CredentialServiceStub()
+    )
     try:
         with client as session_client:
-            login_response = session_client.post("/auth/intervals/login", json={"athlete_id": "12345", "api_key": "secret"})
+            login_response = session_client.post(
+                "/auth/intervals/login",
+                json={"athlete_id": "12345", "api_key": "secret"},
+            )
             response = session_client.get("/me")
     finally:
         app.dependency_overrides.clear()
@@ -655,7 +763,12 @@ def test_admin_can_list_all_users(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-            CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=632291,
+            display_name="Admin Athlete",
+            profile_picture_url=None,
+        )
     )
     try:
         response = client.get("/admin/users")
@@ -663,12 +776,20 @@ def test_admin_can_list_all_users(client, db_session) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
-    assert [item["display_name"] for item in response.json()["items"]] == ["Other Athlete", "Admin Athlete"]
+    assert [item["display_name"] for item in response.json()["items"]] == [
+        "Other Athlete",
+        "Admin Athlete",
+    ]
 
 
 def test_non_admin_cannot_list_users(client) -> None:
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=162181, display_name="Test Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=162181,
+            display_name="Test Athlete",
+            profile_picture_url=None,
+        )
     )
     try:
         response = client.get("/admin/users")
@@ -684,7 +805,7 @@ def test_admin_can_disable_other_user(client, db_session) -> None:
         [
             User(
                 id=1,
-                    strava_athlete_id=632291,
+                strava_athlete_id=632291,
                 display_name="Admin Athlete",
                 profile_picture_url=None,
                 is_active=True,
@@ -701,7 +822,12 @@ def test_admin_can_disable_other_user(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-            CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=632291,
+            display_name="Admin Athlete",
+            profile_picture_url=None,
+        )
     )
     try:
         response = client.post("/admin/users/2/disable")
@@ -727,7 +853,12 @@ def test_admin_cannot_disable_self(client, db_session) -> None:
     db_session.commit()
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(
-        CurrentUserResponse(id=1, strava_athlete_id=632291, display_name="Admin Athlete", profile_picture_url=None)
+        CurrentUserResponse(
+            id=1,
+            strava_athlete_id=632291,
+            display_name="Admin Athlete",
+            profile_picture_url=None,
+        )
     )
     try:
         response = client.post("/admin/users/1/disable")

@@ -30,7 +30,9 @@ class SyncJob(Base):
     progress_completed: Mapped[int | None]
     error_message: Mapped[str | None]
     metadata_json: Mapped[dict | None] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -57,7 +59,9 @@ class Activity(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None]
     sport_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    start_date_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    start_date_utc: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     start_date_local: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     distance_meters: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     distance_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -65,19 +69,16 @@ class Activity(Base):
     moving_time_display: Mapped[str | None] = mapped_column(String(32))
     elapsed_time_seconds: Mapped[int | None]
     total_elevation_gain_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
-    elev_high_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
-    elev_low_meters: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
     average_speed_kph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     max_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
     average_heartrate_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
-    heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
-    max_heartrate_bpm: Mapped[int | None]
     average_cadence: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    start_latlng: Mapped[list | None] = mapped_column(JSON)
+    intervals_route_id: Mapped[str | None] = mapped_column(String(64))
+    intervals_route_name: Mapped[str | None] = mapped_column(String(255))
 
 
 class ActivityStream(Base):
@@ -102,11 +103,12 @@ class PeriodSummary(Base):
     period_type: Mapped[str] = mapped_column(String(20), nullable=False)
     period_start: Mapped[date] = mapped_column(nullable=False)
     activity_count: Mapped[int] = mapped_column(nullable=False, default=0)
-    total_distance_meters: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    total_distance_meters: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
     total_moving_time_seconds: Mapped[int] = mapped_column(nullable=False, default=0)
     average_speed_mps: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
-    average_heart_rate_drift_bpm: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     total_elevation_gain_meters: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
 
@@ -121,15 +123,6 @@ class BestEffort(Base):
     distance_meters: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     activity_id: Mapped[int | None] = mapped_column(Integer)
     achieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
-class ActivityBestEffort(Base):
-    __tablename__ = "activity_best_efforts"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    activity_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    effort_code: Mapped[str] = mapped_column(String(50), nullable=False)
-    best_time_seconds: Mapped[int] = mapped_column(nullable=False)
 
 
 class SyncCheckpoint(Base):

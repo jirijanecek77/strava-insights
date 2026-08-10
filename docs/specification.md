@@ -23,6 +23,8 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - Users cannot export, delete, or disconnect their data in v1.
 - A single admin athlete with source athlete id `632291` by default can review user access and disable other users.
 - Historical edits and deletions performed later in Intervals.icu are out of scope for v1.
+- Imported streams are sanitized before persistence so impossible speed, distance, GPS, altitude, and heart-rate samples do not contaminate reads or analytics.
+- Activities sharing an Intervals.icu route id and sport can be compared from local data.
 - Desktop is the primary target. Mobile optimization is not required for v1.
 
 ### Required Screens
@@ -43,6 +45,7 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - Standard page rendering must not depend on synchronous Intervals.icu API calls.
 - Activity detail must be renderable from locally stored activity and stream data.
 - Duplicate activities must be upserted by source activity id. Intervals.icu `i123` activity ids are stored as numeric `123` in the existing activity id column for the no-schema-change migration.
+- A manual sync always refreshes analytics. A scheduled sync with no imported or analytically stale data skips the read-model rebuild.
 - Token expiry during sync must trigger refresh and retry.
 - Temporary Intervals.icu API failures should retry with backoff before a sync job is marked failed.
 - Partial import failure for one activity must not corrupt already persisted valid data.
@@ -196,14 +199,12 @@ At minimum, imported activity metadata must support:
 - `moving_time`
 - `elapsed_time`
 - `total_elevation_gain`
-- `elev_high`
-- `elev_low`
 - `average_speed`
 - `max_speed`
 - `average_heartrate`
-- `max_heartrate`
 - `average_cadence`
-- `start_latlng`
+- `route_id` when assigned by Intervals.icu
+- locally cached Intervals route name when available
 
 ### Imported Streams
 
@@ -215,6 +216,15 @@ When available, the system must persist streams needed for local detail renderin
 - `altitude`
 - `velocity_smooth`
 - `heartrate`
+
+Imported and previously stored streams must be sanitized without changing sample-array alignment:
+
+- invalid samples become null rather than being removed
+- distance remains non-negative and monotonic, with impossible increments corrected
+- negative or sport-impossible speed is removed
+- invalid coordinates and impossible GPS jumps are removed
+- impossible altitude and heart-rate jumps are removed
+- GPS null runs split route rendering into separate map segments
 
 ### Normalized Read Fields
 
@@ -270,10 +280,17 @@ Each best-effort record should retain at least:
 - source activity id
 - source activity date
 
+For every configured sport and distance, the read model retains the five fastest efforts ordered by time. Rank is derived from that ordering rather than stored separately.
+
 Implementation rule:
 
 - prefer imported source best-effort or split-like data when available and trustworthy
 - otherwise derive best efforts locally from persisted activity and stream data
+- import running effort curves from Intervals.icu in one bulk request during analytics refresh
+- derive cycling efforts with a linear sliding-window algorithm over sanitized local streams
+- show rank 1 by default on the Best Efforts screen and allow expanding ranks 2 through 5
+- link every effort to its originating local activity
+- show all top-five efforts owned by an activity in Activity Detail
 
 ## Activity Detail Requirements
 
@@ -288,6 +305,8 @@ Implementation rule:
 - hover-linked active marker on the map driven by graph focus
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
 - cycling analysis for ride and e-bike ride activities using available speed, heart-rate, cadence, and terrain data
+- top-five best-effort ranks owned by the activity
+- a same-route comparison when at least two local activities share the Intervals route id and sport
 - threshold-based running analysis for running activities when user thresholds are configured
 
 The activity detail page may replace legacy running-analysis behavior when a clearer product-specific model is chosen.
@@ -305,6 +324,19 @@ The backend detail payload must include:
 - configured AeT and AnT threshold values when available for the user and activity
 - cycling-analysis output when applicable
 - running threshold-analysis output when applicable
+- ranked best efforts owned by the activity
+- local route-comparison attempts, rank, personal best, and difference when available
+
+Route comparison behavior:
+
+- use only Intervals.icu route assignments; do not infer route identity from GPS similarity
+- compare activities with the same route id and exact sport type
+- rank by moving time
+- display the fastest five attempts plus the current activity initially
+- allow expanding the complete local attempt history
+- include date, moving time, pace or speed, average heart rate, distance, and an activity link
+- show a moving-time trend over the locally stored attempts
+- omit the section when the current activity has no route id or no comparable attempt
 
 ### Canonical Derived Series
 
@@ -397,6 +429,7 @@ Cycling speed should not be treated as a physiological threshold proxy in the wa
 - The activity detail page must still load when core activity metadata exists.
 - Missing heart-rate data must hide heart-rate KPIs and related graph content without failing the page.
 - Missing GPS data must hide the route map and hover-linked marker behavior.
+- Missing Intervals route assignments must hide route comparison without affecting activity detail.
 - Incomplete GPS coordinate streams, including scalar-only or null-containing Intervals.icu stream data, must be treated as missing GPS data unless valid `[latitude, longitude]` pairs are available.
 - Missing altitude data must hide elevation and slope visualizations.
 - Sparse null samples inside numeric streams must not fail activity detail rendering; valid numeric samples should remain usable for charts and analytics.
@@ -436,6 +469,9 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Daily refresh imports only newly available activities.
 - Manual refresh is incremental only and must not trigger a full reimport.
 - New data invalidates affected cache entries and recomputes summaries as needed.
+- Manual refresh recomputes summaries, sanitizes existing streams, and refreshes top-five efforts even when no new activity is imported.
+- Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
+- Route assignments are refreshed through a lightweight Intervals activity-field request so newly assigned routes can appear for existing local Intervals activities.
 - Deletions and later historical edits in Intervals.icu remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
 - If Intervals.icu activity streams return `404`, import the activity and continue without streams.
@@ -470,7 +506,6 @@ sequenceDiagram
 - `activity_streams`
 - `period_summaries`
 - `best_efforts`
-- `activity_best_efforts`
 - `sync_jobs`
 - `sync_checkpoints`
 
@@ -480,6 +515,7 @@ The schema must support:
 
 - user-scoped Intervals.icu credentials needed for activity and stream imports
 - imported activity metadata
+- Intervals route id and route name used for local route comparisons
 - imported streams needed for local rendering
 - activity-level derived KPI inputs and normalized fields
 - derived detail series when precomputation is beneficial
@@ -490,6 +526,7 @@ The schema must support:
 
 - `activities(user_id, start_date_utc desc)`
 - `activities(user_id, sport_type, start_date_utc desc)`
+- `activities(user_id, intervals_route_id, sport_type, moving_time_seconds)`
 - `period_summaries(user_id, sport_type, period_type, period_start)`
 - `best_efforts(user_id, sport_type, effort_code)`
 
@@ -505,5 +542,12 @@ The backend must expose:
 - activity list endpoint with sport and date filters
 - activity detail endpoint
 - best-efforts endpoint
+
+## Data Availability
+
+- Elevation tooltip data is available immediately for activities that already have altitude streams.
+- Stream cleanup and rebuilt aggregate values appear after the first manual sync following this release; later manual syncs recalculate them on demand.
+- Top-five efforts appear after that manual analytics refresh. Intervals running curves are used for Intervals activities; cycling and source-missing activities use sanitized local streams.
+- Route comparisons appear after Intervals.icu assigns route ids and a manual sync refreshes those assignments. Legacy route identity is not inferred or migrated.
 
 The backend should remain extensible for future user-scoped insight features by keeping analytics and read models accessible through stable backend service boundaries.

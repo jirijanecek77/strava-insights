@@ -2,8 +2,13 @@ import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import httpx
 from sqlalchemy.orm import Session
 
+from app.intervals_client import (
+    IntervalsActivityStreamNotFoundError,
+    IntervalsApiClient,
+)
 from app.models import Activity, ActivityStream
 from app.repositories import (
     ActivityRepository,
@@ -22,12 +27,13 @@ from app.services.activity_summary import (
     summary_metric_display,
 )
 from app.services.cache_invalidator import UserCacheInvalidator
-from app.services.read_model_builder import ReadModelBuilder
-from app.intervals_client import IntervalsActivityStreamNotFoundError, IntervalsApiClient
-
+from app.services.read_model_builder import RUN_BEST_EFFORT_DISTANCES, ReadModelBuilder
+from app.services.stream_sanitizer import sanitize_stream_payload
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
 ACTIVITY_CHECKPOINT_TYPE = "activities"
+ANALYTICS_CHECKPOINT_TYPE = "analytics_model"
+ANALYTICS_MODEL_VERSION = "2"
 logger = logging.getLogger(__name__)
 
 
@@ -69,17 +75,29 @@ class BaseImportService:
         athlete_id, api_key = self._get_intervals_credentials(user_id)
         activities_payload = [
             activity
-            for activity in self.intervals_client.get_activities(athlete_id, api_key, after=after)
+            for activity in self.intervals_client.get_activities(
+                athlete_id, api_key, after=after
+            )
             if activity.get("type") in SUPPORTED_SPORTS
         ]
-        for activity in activities_payload:
-            activity["id"] = self.intervals_client.parse_activity_id(activity["id"])
-        existing_source_activity_ids = self.activities.list_existing_source_activity_ids_for_user(
-            user_id,
-            [activity["id"] for activity in activities_payload if activity.get("id") is not None],
+        for fetched_activity in activities_payload:
+            fetched_activity["id"] = self.intervals_client.parse_activity_id(
+                fetched_activity["id"]
+            )
+        existing_source_activity_ids = (
+            self.activities.list_existing_source_activity_ids_for_user(
+                user_id,
+                [
+                    activity["id"]
+                    for activity in activities_payload
+                    if activity.get("id") is not None
+                ],
+            )
         )
         activities_payload = [
-            activity for activity in activities_payload if activity.get("id") not in existing_source_activity_ids
+            activity
+            for activity in activities_payload
+            if activity.get("id") not in existing_source_activity_ids
         ]
         logger.info(
             "Fetched Intervals.icu activities for import.",
@@ -99,7 +117,9 @@ class BaseImportService:
         for index, activity_payload in enumerate(activities_payload, start=1):
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             try:
-                stream_payload = self.intervals_client.get_activity_stream(api_key, activity.strava_activity_id)
+                stream_payload = self.intervals_client.get_activity_stream(
+                    api_key, activity.strava_activity_id
+                )
             except IntervalsActivityStreamNotFoundError:
                 logger.warning(
                     "Skipping missing Intervals.icu streams for activity.",
@@ -110,13 +130,15 @@ class BaseImportService:
                     },
                 )
             else:
-                self._upsert_stream(activity_id=activity.id, payload=stream_payload)
+                self._upsert_stream(activity=activity, payload=stream_payload)
             imported_count += 1
             latest_checkpoint_value = self._max_checkpoint_value(
                 latest_checkpoint_value,
                 self._to_checkpoint_value(activity.start_date_utc),
             )
-            self.sync_jobs.update_progress(sync_job, completed=index, total=len(activities_payload))
+            self.sync_jobs.update_progress(
+                sync_job, completed=index, total=len(activities_payload)
+            )
             self.session.commit()
             logger.info(
                 "Imported activity.",
@@ -129,14 +151,42 @@ class BaseImportService:
                 },
             )
 
+        route_change_count = self._refresh_route_metadata(
+            user_id=user_id,
+            athlete_id=athlete_id,
+            api_key=api_key,
+        )
         self.checkpoints.upsert(
             user_id=user_id,
             sync_type=ACTIVITY_CHECKPOINT_TYPE,
             checkpoint_value=latest_checkpoint_value,
             last_synced_at=datetime.now(UTC),
         )
-        self.read_model_builder.rebuild_for_user(user_id)
-        self.cache_invalidator.invalidate_user(user_id)
+        rebuild_required = (
+            imported_count > 0
+            or self._analytics_rebuild_required(user_id)
+            or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
+        )
+        if rebuild_required:
+            source_run_efforts = self._load_source_run_efforts(
+                athlete_id=athlete_id, api_key=api_key
+            )
+            self.read_model_builder.rebuild_for_user(
+                user_id, source_run_efforts=source_run_efforts
+            )
+            self.checkpoints.upsert(
+                user_id=user_id,
+                sync_type=ANALYTICS_CHECKPOINT_TYPE,
+                checkpoint_value=ANALYTICS_MODEL_VERSION,
+                last_synced_at=datetime.now(UTC),
+            )
+        else:
+            logger.info(
+                "Skipping unchanged read-model rebuild.",
+                extra={"sync_job.id": sync_job_id, "user.id": user_id},
+            )
+        if imported_count > 0 or route_change_count > 0 or rebuild_required:
+            self.cache_invalidator.invalidate_user(user_id)
         self.sync_jobs.complete(sync_job, imported_activities=imported_count)
         self.session.commit()
         logger.info(
@@ -146,6 +196,8 @@ class BaseImportService:
                 "user.id": user_id,
                 "imported_count": imported_count,
                 "checkpoint": latest_checkpoint_value,
+                "route_change_count": route_change_count,
+                "read_models_rebuilt": rebuild_required,
             },
         )
         return imported_count
@@ -155,7 +207,9 @@ class BaseImportService:
         if credential is None:
             raise ValueError("Intervals.icu credentials not found for user.")
 
-        return credential.athlete_id, self.token_cipher.decrypt(credential.api_key_encrypted)
+        return credential.athlete_id, self.token_cipher.decrypt(
+            credential.api_key_encrypted
+        )
 
     def _get_existing_checkpoint_value(self, user_id: int) -> str | None:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)
@@ -171,25 +225,47 @@ class BaseImportService:
                 strava_activity_id=payload["id"],
                 name=payload.get("name") or "Unnamed activity",
                 sport_type=payload["type"],
-                start_date_utc=self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local")),
+                start_date_utc=self._parse_datetime(
+                    self._first_present(
+                        payload, "start_date", "start_date_utc", "start_date_local"
+                    )
+                ),
             )
         activity.description = payload.get("description")
         activity.sport_type = payload["type"]
         activity.name = payload.get("name") or activity.name
         activity.start_date_utc = self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local"))  # type: ignore[assignment]
-        activity.start_date_local = self._parse_datetime(payload.get("start_date_local") or payload.get("start_date"))
-        activity.distance_meters = Decimal(str(self._first_present(payload, "distance", "distance_meters") or 0))
-        activity.moving_time_seconds = int(self._first_present(payload, "moving_time", "moving_time_seconds") or 0)
-        activity.elapsed_time_seconds = self._first_present(payload, "elapsed_time", "elapsed_time_seconds") or activity.moving_time_seconds
-        activity.total_elevation_gain_meters = self._decimal_or_none(self._first_present(payload, "total_elevation_gain", "total_elevation_gain_meters"))
-        activity.elev_high_meters = self._decimal_or_none(payload.get("elev_high"))
-        activity.elev_low_meters = self._decimal_or_none(payload.get("elev_low"))
-        activity.average_speed_mps = self._decimal_or_none(self._first_present(payload, "average_speed", "avg_speed"), scale=4)
+        activity.start_date_local = self._parse_datetime(
+            payload.get("start_date_local") or payload.get("start_date")
+        )
+        activity.distance_meters = Decimal(
+            str(self._first_present(payload, "distance", "distance_meters") or 0)
+        )
+        activity.moving_time_seconds = int(
+            self._first_present(payload, "moving_time", "moving_time_seconds") or 0
+        )
+        activity.elapsed_time_seconds = (
+            self._first_present(payload, "elapsed_time", "elapsed_time_seconds")
+            or activity.moving_time_seconds
+        )
+        activity.total_elevation_gain_meters = self._decimal_or_none(
+            self._first_present(
+                payload, "total_elevation_gain", "total_elevation_gain_meters"
+            )
+        )
+        activity.average_speed_mps = self._decimal_or_none(
+            self._first_present(payload, "average_speed", "avg_speed"), scale=4
+        )
         activity.average_speed_kph = speed_kph(activity.average_speed_mps)
-        activity.max_speed_mps = self._decimal_or_none(self._first_present(payload, "max_speed", "max_speed_mps"), scale=4)
-        activity.average_heartrate_bpm = self._decimal_or_none(self._first_present(payload, "average_heartrate", "avg_hr", "average_hr"))
-        activity.max_heartrate_bpm = self._first_present(payload, "max_heartrate", "max_hr")
-        activity.average_cadence = self._decimal_or_none(self._first_present(payload, "average_cadence", "avg_cadence"))
+        activity.max_speed_mps = self._decimal_or_none(
+            self._first_present(payload, "max_speed", "max_speed_mps"), scale=4
+        )
+        activity.average_heartrate_bpm = self._decimal_or_none(
+            self._first_present(payload, "average_heartrate", "avg_hr", "average_hr")
+        )
+        activity.average_cadence = self._decimal_or_none(
+            self._first_present(payload, "average_cadence", "avg_cadence")
+        )
         activity.distance_km = distance_km(activity.distance_meters)
         activity.moving_time_display = format_moving_time(activity.moving_time_seconds)
         activity.average_pace_seconds_per_km = pace_seconds_per_km(
@@ -197,27 +273,144 @@ class BaseImportService:
             activity.moving_time_seconds,
             activity.sport_type,
         )
-        activity.average_pace_display = format_pace(activity.average_pace_seconds_per_km)
+        activity.average_pace_display = format_pace(
+            activity.average_pace_seconds_per_km
+        )
         activity.summary_metric_display = summary_metric_display(
             activity.sport_type,
             pace_display=activity.average_pace_display,
             speed_kph_value=activity.average_speed_kph,
         )
-        start_latlng = payload.get("start_latlng")
-        activity.start_latlng = list(start_latlng) if start_latlng else None
+        route_id = payload.get("route_id")
+        activity.intervals_route_id = None if route_id is None else str(route_id)
         return self.activities.save(activity)
 
-    def _upsert_stream(self, *, activity_id: int, payload: dict) -> ActivityStream:
-        activity_stream = self.activity_streams.get_by_activity_id(activity_id)
+    def _upsert_stream(self, *, activity: Activity, payload: dict) -> ActivityStream:
+        sanitized = sanitize_stream_payload(payload, activity.sport_type)
+        activity_stream = self.activity_streams.get_by_activity_id(activity.id)
         if activity_stream is None:
-            activity_stream = ActivityStream(activity_id=activity_id)
-        activity_stream.time_stream = payload.get("time")
-        activity_stream.distance_stream = payload.get("distance")
-        activity_stream.latlng_stream = payload.get("latlng")
-        activity_stream.altitude_stream = payload.get("altitude")
-        activity_stream.velocity_smooth_stream = payload.get("velocity_smooth")
-        activity_stream.heartrate_stream = payload.get("heartrate")
+            activity_stream = ActivityStream(activity_id=activity.id)
+        activity_stream.time_stream = sanitized.get("time")
+        activity_stream.distance_stream = sanitized.get("distance")
+        activity_stream.latlng_stream = sanitized.get("latlng")
+        activity_stream.altitude_stream = sanitized.get("altitude")
+        activity_stream.velocity_smooth_stream = sanitized.get("velocity_smooth")
+        activity_stream.heartrate_stream = sanitized.get("heartrate")
+        speed_values = [
+            value
+            for value in (activity_stream.velocity_smooth_stream or {}).get("data", [])
+            if isinstance(value, int | float) and not isinstance(value, bool)
+        ]
+        if speed_values:
+            activity.max_speed_mps = self._decimal_or_none(max(speed_values), scale=4)
         return self.activity_streams.save(activity_stream)
+
+    def _refresh_route_metadata(
+        self, *, user_id: int, athlete_id: str, api_key: str
+    ) -> int:
+        try:
+            payload = self.intervals_client.get_activity_route_assignments(
+                athlete_id, api_key
+            )
+        except (httpx.HTTPError, ValueError):
+            logger.warning(
+                "Intervals.icu route assignment refresh failed; keeping stored assignments.",
+                extra={"user.id": user_id},
+                exc_info=True,
+            )
+            return 0
+
+        route_ids = {
+            str(item["route_id"])
+            for item in payload
+            if isinstance(item, dict) and item.get("route_id") is not None
+        }
+        route_names: dict[str, str] = {}
+        if route_ids:
+            try:
+                routes = self.intervals_client.get_routes(athlete_id, api_key)
+            except (httpx.HTTPError, ValueError):
+                logger.warning(
+                    "Intervals.icu route-name refresh failed; route comparisons will use a generic name.",
+                    extra={"user.id": user_id},
+                    exc_info=True,
+                )
+            else:
+                route_names = {
+                    str(route["id"]): str(route["name"])
+                    for route in routes
+                    if isinstance(route, dict)
+                    and route.get("id") is not None
+                    and route.get("name")
+                }
+
+        assignments: dict[int, tuple[str | None, str | None]] = {}
+        for item in payload:
+            if not isinstance(item, dict) or item.get("id") is None:
+                continue
+            source_activity_id = self.intervals_client.parse_activity_id(item["id"])
+            route_id = None if item.get("route_id") is None else str(item["route_id"])
+            assignments[source_activity_id] = (
+                route_id,
+                route_names.get(route_id) if route_id else None,
+            )
+        return self.activities.update_routes_for_user(user_id, assignments)
+
+    def _load_source_run_efforts(
+        self, *, athlete_id: str, api_key: str
+    ) -> dict[int, dict[str, int]]:
+        requested_distances = list(RUN_BEST_EFFORT_DISTANCES.values())
+        try:
+            payload = self.intervals_client.get_run_pace_curves(
+                athlete_id,
+                api_key,
+                distances_meters=requested_distances,
+            )
+        except (httpx.HTTPError, ValueError):
+            logger.warning(
+                "Intervals.icu pace curves are unavailable; using linear local best-effort calculation.",
+                exc_info=True,
+            )
+            return {}
+
+        response_distances = payload.get("distances") or requested_distances
+        code_by_distance = {
+            distance: code for code, distance in RUN_BEST_EFFORT_DISTANCES.items()
+        }
+        efforts: dict[int, dict[str, int]] = {}
+        for curve in payload.get("curves", []):
+            if (
+                not isinstance(curve, dict)
+                or curve.get("id") is None
+                or not isinstance(curve.get("secs"), list)
+            ):
+                continue
+            source_activity_id = self.intervals_client.parse_activity_id(curve["id"])
+            activity_efforts: dict[str, int] = {}
+            for distance, seconds in zip(response_distances, curve["secs"]):
+                effort_code = next(
+                    (
+                        code
+                        for known_distance, code in code_by_distance.items()
+                        if abs(float(distance) - known_distance) < 0.01
+                    ),
+                    None,
+                )
+                if (
+                    effort_code is None
+                    or not isinstance(seconds, int | float)
+                    or seconds <= 0
+                ):
+                    continue
+                activity_efforts[effort_code] = round(seconds)
+            efforts[source_activity_id] = activity_efforts
+        return efforts
+
+    def _analytics_rebuild_required(self, user_id: int) -> bool:
+        checkpoint = self.checkpoints.get_for_user(user_id, ANALYTICS_CHECKPOINT_TYPE)
+        return (
+            checkpoint is None or checkpoint.checkpoint_value != ANALYTICS_MODEL_VERSION
+        )
 
     @staticmethod
     def _parse_datetime(value: str | None) -> datetime | None:
@@ -229,7 +422,9 @@ class BaseImportService:
         return parsed
 
     @staticmethod
-    def _decimal_or_none(value: float | int | None, *, scale: int = 2) -> Decimal | None:
+    def _decimal_or_none(
+        value: float | int | None, *, scale: int = 2
+    ) -> Decimal | None:
         if value is None:
             return None
         quantize_value = "0." + ("0" * (scale - 1)) + "1"

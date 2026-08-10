@@ -17,20 +17,29 @@ class ActivityStub:
         total_elevation_gain_meters: str | None,
     ) -> None:
         self.id = activity_id
+        self.strava_activity_id = activity_id
         self.sport_type = sport_type
         self.start_date_utc = start_date_utc
         self.start_date_local = start_date_local
         self.distance_meters = Decimal(distance_meters)
         self.moving_time_seconds = moving_time_seconds
-        self.total_elevation_gain_meters = None if total_elevation_gain_meters is None else Decimal(total_elevation_gain_meters)
-        self.heart_rate_drift_bpm = None
+        self.total_elevation_gain_meters = (
+            None
+            if total_elevation_gain_meters is None
+            else Decimal(total_elevation_gain_meters)
+        )
 
 
 class ActivityStreamStub:
-    def __init__(self, activity_id: int, distance_data: list[float], time_data: list[int]) -> None:
+    def __init__(
+        self, activity_id: int, distance_data: list[float], time_data: list[int]
+    ) -> None:
         self.activity_id = activity_id
         self.distance_stream = {"data": distance_data}
         self.time_stream = {"data": time_data}
+        self.latlng_stream = None
+        self.altitude_stream = None
+        self.velocity_smooth_stream = None
         self.heartrate_stream = None
 
 
@@ -52,6 +61,9 @@ class ActivityStreamRepositoryStub:
     def get_by_activity_ids(self, _activity_ids):
         return self.streams
 
+    def save(self, stream):
+        return stream
+
 
 class PeriodSummaryRepositoryStub:
     def __init__(self) -> None:
@@ -68,16 +80,6 @@ class BestEffortRepositoryStub:
 
     def replace_for_user(self, *, user_id: int, efforts):
         self.user_id = user_id
-        self.efforts = efforts
-
-
-class ActivityBestEffortRepositoryStub:
-    def __init__(self) -> None:
-        self.efforts = None
-        self.activity_ids = None
-
-    def replace_for_activities(self, *, activity_ids, efforts):
-        self.activity_ids = activity_ids
         self.efforts = efforts
 
 
@@ -121,14 +123,26 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
     )
     builder.period_summaries = PeriodSummaryRepositoryStub()
     builder.best_efforts = BestEffortRepositoryStub()
-    builder.activity_best_efforts = ActivityBestEffortRepositoryStub()
 
-    builder.rebuild_for_user(7)
+    builder.rebuild_for_user(
+        7,
+        source_run_efforts={
+            1: {
+                "1km": 240,
+                "5km": 1400,
+                "10km": 3000,
+                "Half-Marathon": 7000,
+            }
+        },
+    )
 
     assert builder.period_summaries.user_id == 7
     assert len(builder.period_summaries.summaries) == 6
     assert builder.best_efforts.user_id == 7
-    assert {(effort.sport_type, effort.effort_code) for effort in builder.best_efforts.efforts} == {
+    assert {
+        (effort.sport_type, effort.effort_code)
+        for effort in builder.best_efforts.efforts
+    } == {
         ("Run", "1km"),
         ("Run", "5km"),
         ("Run", "10km"),
@@ -138,4 +152,18 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
         ("Ride", "50km"),
         ("Ride", "100km"),
     }
-    assert builder.activity_best_efforts.activity_ids == [1, 2]
+    assert (
+        next(
+            effort.best_time_seconds
+            for effort in builder.best_efforts.efforts
+            if effort.sport_type == "Run" and effort.effort_code == "1km"
+        )
+        == 240
+    )
+
+
+def test_best_time_for_distance_uses_linear_sliding_window() -> None:
+    distances = [float(index) for index in range(20_001)]
+    times = list(range(20_001))
+
+    assert ReadModelBuilder._best_time_for_distance(distances, times, 10_000) == 10_000
