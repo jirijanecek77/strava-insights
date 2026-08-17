@@ -346,7 +346,7 @@ Route comparison behavior:
 - render activity-owned best efforts in the top KPI grid as one icon-led tile spanning the four columns remaining after Avg HR and Efficiency
 - show every best effort owned by the activity inside that tile, ordered by distance, with rank, distance, time, and pace or speed
 - present efforts in one horizontal row on desktop, with PB in orange, rank two in silver, rank three in bronze, and ranks four and five in the neutral text color
-- render the ranked route-attempt table and trend in a separate compact `Performance` band after the slope chart
+- render the ranked route-attempt table and trend in a separate `Matching Routes` card after the slope chart, styled like the other detail cards
 - keep the route map limited to the current activity rather than overlaying matched attempts
 - avoid a separate route title or summary panel because the ranked table already identifies the current attempt and personal best
 - omit route comparison when GPS is ineligible or fewer than two local activities belong to the route group

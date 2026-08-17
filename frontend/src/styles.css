@@ -1458,16 +1458,8 @@ button {
     text-align: right;
 }
 
-.performance-band {
-    border-bottom: 1px solid var(--border);
-    border-top: 1px solid var(--border);
-    display: grid;
-    gap: 0.75rem;
-    padding: 1rem 0;
-}
-
-.performance-header {
-    min-height: 1rem;
+.matching-routes-card {
+    min-width: 0;
 }
 
 .route-comparison {

@@ -119,7 +119,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
             {detail.route_comparison ? (
-                <ActivityPerformanceBand
+                <ActivityMatchingRoutesCard
                     comparison={detail.route_comparison}
                     onSelectActivity={onSelectActivity}
                 />
@@ -137,12 +137,10 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
     );
 }
 
-function ActivityPerformanceBand({comparison, onSelectActivity}) {
+function ActivityMatchingRoutesCard({comparison, onSelectActivity}) {
     return (
-        <section aria-label="Performance" className="performance-band">
-            <div className="performance-header">
-                <p className="eyebrow">Performance</p>
-            </div>
+        <section aria-label="Matching routes" className="detail-card matching-routes-card">
+            <p className="eyebrow">Matching Routes</p>
             <RouteComparisonPanel comparison={comparison} onSelectActivity={onSelectActivity}/>
         </section>
     );
