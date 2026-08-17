@@ -6,6 +6,10 @@ from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
+from app.infrastructure.db.models.local_route import (
+    ActivityRouteMembership,
+    RouteGroup,
+)
 from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.user import User
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
@@ -72,8 +76,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         average_pace_seconds_per_km=Decimal("270.00"),
         average_pace_display="4:30",
         summary_metric_display="4:30 /km",
-        intervals_route_id="42",
-        intervals_route_name="River Loop",
     )
     faster_route_activity = Activity(
         id=6,
@@ -93,8 +95,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         average_pace_display="4:20",
         summary_metric_display="4:20 /km",
         average_heartrate_bpm=Decimal("148.00"),
-        intervals_route_id="42",
-        intervals_route_name="River Loop",
     )
     stream = ActivityStream(
         activity_id=5,
@@ -203,6 +203,30 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
     db_session.add(activity)
     db_session.add(faster_route_activity)
     db_session.flush()
+    route_group = RouteGroup(
+        id=42,
+        user_id=1,
+        sport_type="Run",
+        representative_activity_id=6,
+        algorithm_version="1",
+        nominal_distance_meters=Decimal("10000.00"),
+    )
+    db_session.add(route_group)
+    db_session.flush()
+    db_session.add_all(
+        [
+            ActivityRouteMembership(
+                activity_id=5,
+                route_group_id=42,
+                similarity_score=Decimal("0.9700"),
+            ),
+            ActivityRouteMembership(
+                activity_id=6,
+                route_group_id=42,
+                similarity_score=Decimal("1.0000"),
+            ),
+        ]
+    )
     db_session.add(stream)
     db_session.add(best_effort)
     db_session.add(faster_best_effort)
@@ -258,7 +282,7 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         assert activity_detail_response.json()["best_efforts"][0]["rank"] == 2
         assert (
             activity_detail_response.json()["route_comparison"]["route_name"]
-            == "River Loop"
+            == "Same route \u00b7 Run \u00b7 10 km \u00b7 4:30/km"
         )
         assert activity_detail_response.json()["route_comparison"]["current_rank"] == 2
         assert activity_detail_response.json()["route_comparison"]["attempt_count"] == 2

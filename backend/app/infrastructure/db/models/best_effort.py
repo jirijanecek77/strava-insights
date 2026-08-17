@@ -11,7 +11,12 @@ from app.infrastructure.db.models.mixins import TimestampMixin
 class BestEffort(TimestampMixin, Base):
     __tablename__ = "best_efforts"
     __table_args__ = (
-        Index("ix_best_efforts_user_sport_effort_code", "user_id", "sport_type", "effort_code"),
+        Index(
+            "ix_best_efforts_user_sport_effort_code",
+            "user_id",
+            "sport_type",
+            "effort_code",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

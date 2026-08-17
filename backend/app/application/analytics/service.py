@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.application.analytics.cycling_analysis import build_cycling_analysis
 from app.application.analytics.detail_series import (
     calculate_pace_minutes_per_km,
     calculate_slope_percent,
@@ -8,7 +9,6 @@ from app.application.analytics.detail_series import (
     moving_average_heartrate,
     moving_average_speed_kph,
 )
-from app.application.analytics.cycling_analysis import build_cycling_analysis
 from app.application.analytics.running_analysis import build_running_analysis
 
 
@@ -29,9 +29,15 @@ class ActivityDetailAnalyticsService:
         aet_pace_min_per_km: float | None,
         ant_pace_min_per_km: float | None,
     ) -> dict:
-        distance_km = meters_to_kilometers(distance_stream_meters or []) if distance_stream_meters else []
+        distance_km = (
+            meters_to_kilometers(distance_stream_meters or [])
+            if distance_stream_meters
+            else []
+        )
         heartrate_ma = (
-            moving_average_heartrate(heartrate_stream_bpm or [], range_points=10) if heartrate_stream_bpm else []
+            moving_average_heartrate(heartrate_stream_bpm or [], range_points=10)
+            if heartrate_stream_bpm
+            else []
         )
         speed_ma_kph = (
             moving_average_speed_kph(velocity_smooth_stream_mps or [], range_points=10)
@@ -39,13 +45,23 @@ class ActivityDetailAnalyticsService:
             else []
         )
         pace_minutes_per_km = (
-            calculate_pace_minutes_per_km(time_stream or [], distance_stream_meters or [], range_points=20)
+            calculate_pace_minutes_per_km(
+                time_stream or [], distance_stream_meters or [], range_points=20
+            )
             if sport_type == "Run" and time_stream and distance_stream_meters
             else []
         )
-        pace_display = format_pace_minutes_per_km(pace_minutes_per_km) if pace_minutes_per_km else []
+        pace_display = (
+            format_pace_minutes_per_km(pace_minutes_per_km)
+            if pace_minutes_per_km
+            else []
+        )
         slope_percent = (
-            calculate_slope_percent(altitude_stream_meters or [], distance_stream_meters or [], range_points=30)
+            calculate_slope_percent(
+                altitude_stream_meters or [],
+                distance_stream_meters or [],
+                range_points=30,
+            )
             if altitude_stream_meters and distance_stream_meters
             else []
         )
@@ -69,8 +85,16 @@ class ActivityDetailAnalyticsService:
                 slope_percent=slope_percent,
                 heart_rate_bpm=heartrate_ma,
                 average_cadence=average_cadence,
-                aet_heart_rate_bpm=float(aet_heart_rate_bpm) if aet_heart_rate_bpm is not None else None,
-                ant_heart_rate_bpm=float(ant_heart_rate_bpm) if ant_heart_rate_bpm is not None else None,
+                aet_heart_rate_bpm=(
+                    float(aet_heart_rate_bpm)
+                    if aet_heart_rate_bpm is not None
+                    else None
+                ),
+                ant_heart_rate_bpm=(
+                    float(ant_heart_rate_bpm)
+                    if ant_heart_rate_bpm is not None
+                    else None
+                ),
             )
 
         if (

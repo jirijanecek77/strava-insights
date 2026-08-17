@@ -4,10 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     Activity,
+    ActivityRouteMembership,
+    ActivityRouteSignature,
     ActivityStream,
     BestEffort,
     IntervalsCredential,
     PeriodSummary,
+    RouteGroup,
     SyncCheckpoint,
     SyncJob,
     User,
@@ -170,37 +173,6 @@ class ActivityRepository:
             return None
         return row[0]
 
-    def update_routes_for_user(
-        self,
-        user_id: int,
-        assignments: dict[int, tuple[str | None, str | None]],
-    ) -> int:
-        if not assignments:
-            return 0
-        activities = (
-            self.session.query(Activity)
-            .filter(
-                Activity.user_id == user_id,
-                Activity.strava_activity_id.in_(assignments),
-            )
-            .all()
-        )
-        changed_count = 0
-        for activity in activities:
-            route_id, route_name = assignments[activity.strava_activity_id]
-            if (
-                activity.intervals_route_id == route_id
-                and activity.intervals_route_name == route_name
-            ):
-                continue
-            activity.intervals_route_id = route_id
-            activity.intervals_route_name = route_name
-            changed_count += 1
-        if changed_count:
-            self.session.flush()
-        return changed_count
-
-
 class ActivityStreamRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -225,6 +197,44 @@ class ActivityStreamRepository:
             .filter(ActivityStream.activity_id.in_(activity_ids))
             .all()
         )
+
+
+class LocalRouteRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def replace_for_user(
+        self,
+        *,
+        user_id: int,
+        signatures: list[ActivityRouteSignature],
+        groups: list[tuple[RouteGroup, list[ActivityRouteMembership]]],
+    ) -> None:
+        route_group_ids = [
+            route_group_id
+            for (route_group_id,) in self.session.query(RouteGroup.id)
+            .filter(RouteGroup.user_id == user_id)
+            .all()
+        ]
+        if route_group_ids:
+            self.session.query(ActivityRouteMembership).filter(
+                ActivityRouteMembership.route_group_id.in_(route_group_ids)
+            ).delete(synchronize_session=False)
+        self.session.query(RouteGroup).filter(RouteGroup.user_id == user_id).delete(
+            synchronize_session=False
+        )
+        self.session.query(ActivityRouteSignature).filter(
+            ActivityRouteSignature.user_id == user_id
+        ).delete(synchronize_session=False)
+        if signatures:
+            self.session.add_all(signatures)
+        for route_group, memberships in groups:
+            self.session.add(route_group)
+            self.session.flush()
+            for membership in memberships:
+                membership.route_group_id = route_group.id
+            self.session.add_all(memberships)
+        self.session.flush()
 
 
 class PeriodSummaryRepository:

@@ -1,9 +1,9 @@
-from contextlib import asynccontextmanager
-from datetime import datetime
 import base64
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
+from datetime import datetime
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -15,9 +15,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.logging import configure_logging, get_log_user_name, reset_log_user_name, set_log_user_name
+from app.core.logging import (
+    configure_logging,
+    get_log_user_name,
+    reset_log_user_name,
+    set_log_user_name,
+)
 from app.infrastructure.db.bootstrap import upgrade_database
-
 
 configure_logging(
     log_level=settings.log_level,
@@ -27,7 +31,10 @@ logger = logging.getLogger("app.main")
 
 def _emit_console_log(message: str) -> None:
     timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S%z")
-    print(f"{timestamp} INFO [be] [user={get_log_user_name()}] [app.main] {message}", flush=True)
+    print(
+        f"{timestamp} INFO [be] [user={get_log_user_name()}] [app.main] {message}",
+        flush=True,
+    )
 
 
 def _get_session_user_for_logging(request: Request) -> dict:
@@ -176,8 +183,14 @@ async def log_requests(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id") or str(uuid4())
-    _emit_console_log(f"request_id={request_id} Unhandled exception on path={request.url.path}")
+    request_id = (
+        getattr(request.state, "request_id", None)
+        or request.headers.get("x-request-id")
+        or str(uuid4())
+    )
+    _emit_console_log(
+        f"request_id={request_id} Unhandled exception on path={request.url.path}"
+    )
     logger.exception(
         "Unhandled exception request_id=%s on path=%s",
         request_id,

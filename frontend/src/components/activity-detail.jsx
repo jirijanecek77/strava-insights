@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from "react";
+import {Medal} from "lucide-react";
 import {
     Area,
     CartesianGrid,
@@ -30,6 +31,7 @@ import {
     formatDateLabel,
     formatDateTime,
     formatDistanceKm,
+    formatDistanceMeters,
     formatDuration,
     formatLabel,
     formatNumber,
@@ -99,6 +101,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
                 <MetricTile label="Elevation gain" value={detail.kpis.total_elevation_gain_meters != null ? `${Math.round(detail.kpis.total_elevation_gain_meters)} m` : "n/a"}/>
                 <MetricTile label="Avg HR" value={detail.kpis.average_heartrate_bpm != null ? `${Math.round(detail.kpis.average_heartrate_bpm)} bpm` : "n/a"}/>
                 <MetricTile label="Efficiency" value={detail.kpis.aerobic_efficiency_m_per_beat != null ? `${formatNumber(detail.kpis.aerobic_efficiency_m_per_beat)} m/beat` : "n/a"}/>
+                {detail.best_efforts?.length ? <ActivityBestEffortsKpi efforts={detail.best_efforts}/> : null}
             </div>
             <div className="detail-grid">
                 <div className="detail-card detail-card-wide">
@@ -111,14 +114,16 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
                         segmentStarts={detail.map?.segment_starts ?? []}
                     />
                 </div>
-                {detail.route_comparison ? (
-                    <RouteComparisonPanel comparison={detail.route_comparison} onSelectActivity={onSelectActivity}/>
-                ) : null}
                 <DetailChart accent="orange" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label={detail.series.pace_minutes_per_km.length ? "Pace" : "Speed"} onSelectIndex={onSelectSeriesIndex} referenceValue={paceReferenceValue} thresholds={detail.thresholds} valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"} values={paceOrSpeed}/>
                 <DetailChart accent="red" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Heart Rate" onSelectIndex={onSelectSeriesIndex} referenceValue={heartRateReferenceValue} thresholds={detail.thresholds} valueKind="heart_rate" values={detail.series.moving_average_heartrate}/>
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
-            {detail.best_efforts?.length ? <ActivityBestEfforts efforts={detail.best_efforts}/> : null}
+            {detail.route_comparison ? (
+                <ActivityPerformanceBand
+                    comparison={detail.route_comparison}
+                    onSelectActivity={onSelectActivity}
+                />
+            ) : null}
             <div className="detail-analysis-grid">
                 <div className="detail-card">
                     <p className="eyebrow">{isRide ? "Cycling Analysis" : "Running Analysis"}</p>
@@ -132,28 +137,54 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
     );
 }
 
-function ActivityBestEfforts({efforts}) {
+function ActivityPerformanceBand({comparison, onSelectActivity}) {
     return (
-        <section className="activity-best-efforts" aria-label="Best efforts in this activity">
-            <div className="activity-section-heading">
-                <p className="eyebrow">Best Efforts In This Activity</p>
+        <section aria-label="Performance" className="performance-band">
+            <div className="performance-header">
+                <p className="eyebrow">Performance</p>
             </div>
-            <div className="activity-effort-list">
-                {[...efforts]
-                    .sort((left, right) => Number(left.distance_meters) - Number(right.distance_meters))
-                    .map((effort) => (
-                        <div className="activity-effort-row" key={`${effort.effort_code}-${effort.rank}`}>
-                            <span className={effort.rank === 1 ? "effort-rank is-best" : "effort-rank"}>
-                                {effort.rank === 1 ? "PB" : `#${effort.rank}`}
-                            </span>
-                            <strong>{formatLabel(effort.effort_code)}</strong>
-                            <span>{formatDuration(effort.best_time_seconds)}</span>
-                            <span>{formatRankedMetric(effort)}</span>
+            <RouteComparisonPanel comparison={comparison} onSelectActivity={onSelectActivity}/>
+        </section>
+    );
+}
+
+function ActivityBestEffortsKpi({efforts}) {
+    const sortedEfforts = [...efforts]
+        .sort((left, right) => Number(left.distance_meters) - Number(right.distance_meters));
+    return (
+        <div className="metric-tile best-efforts-kpi" aria-label="Best efforts in this activity">
+            <div className="best-efforts-kpi-header">
+                <Medal aria-hidden="true" size={16}/>
+                <span>Best Efforts</span>
+            </div>
+            <div className="best-efforts-kpi-list" style={{"--effort-count": sortedEfforts.length}}>
+                {sortedEfforts.map((effort) => (
+                        <div className="best-efforts-kpi-item" key={`${effort.effort_code}-${effort.rank}`}>
+                            <strong>
+                                <span className={effortRankClassName(effort.rank)}>
+                                    {effort.rank === 1 ? "PB" : `#${effort.rank}`}
+                                </span>
+                                {` \u00b7 ${formatDistanceMeters(effort.distance_meters)}`}
+                            </strong>
+                            <span>{`${formatDuration(effort.best_time_seconds)} \u00b7 ${formatRankedMetric(effort)}`}</span>
                         </div>
                     ))}
             </div>
-        </section>
+        </div>
     );
+}
+
+function effortRankClassName(rank) {
+    if (rank === 1) {
+        return "effort-rank is-best";
+    }
+    if (rank === 2) {
+        return "effort-rank is-silver";
+    }
+    if (rank === 3) {
+        return "effort-rank is-bronze";
+    }
+    return "effort-rank";
 }
 
 function RouteComparisonPanel({comparison, onSelectActivity}) {
@@ -175,22 +206,8 @@ function RouteComparisonPanel({comparison, onSelectActivity}) {
         }));
 
     return (
-        <section className="route-comparison detail-card-wide" aria-label="Route comparison">
-            <div className="route-comparison-header">
-                <div>
-                    <p className="eyebrow">Route Comparison</p>
-                    <h3>{comparison.route_name}</h3>
-                </div>
-                <strong className="route-rank">#{comparison.current_rank} of {comparison.attempt_count}</strong>
-            </div>
-            <div className="route-comparison-summary">
-                <MetricTile label="This activity" value={formatDuration(comparison.current_time_seconds)}/>
-                <MetricTile label="Personal best" value={formatDuration(comparison.best_time_seconds)}/>
-                <MetricTile
-                    label="Difference"
-                    value={comparison.difference_seconds === 0 ? "PB" : `+${formatDuration(comparison.difference_seconds)}`}
-                />
-            </div>
+        <div className="route-comparison" aria-label="Route comparison">
+            <h4>Fastest Route Attempts</h4>
             <div className="route-attempt-table" role="table" aria-label="Activities on this route">
                 <div className="route-attempt-head" role="row">
                     <span>Rank</span>
@@ -243,7 +260,7 @@ function RouteComparisonPanel({comparison, onSelectActivity}) {
                     </ResponsiveContainer>
                 </div>
             ) : null}
-        </section>
+        </div>
     );
 }
 

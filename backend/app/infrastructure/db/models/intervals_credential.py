@@ -9,7 +9,9 @@ class IntervalsCredential(TimestampMixin, Base):
     __tablename__ = "intervals_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, unique=True
+    )
     athlete_id: Mapped[str] = mapped_column(String(255), nullable=False)
     api_key_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
 

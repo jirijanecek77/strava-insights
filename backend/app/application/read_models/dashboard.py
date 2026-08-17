@@ -5,10 +5,24 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session
-from app.application.analytics.aggregations import ActivityAggregateInput, compare_periods, summarize_window, _period_start
-from app.domain.schemas.dashboard import AerobicEfficiencyPoint, AerobicEfficiencyResponse, DashboardResponse, PeriodComparisonSchema, PeriodSummarySchema, TrendsResponse
+from app.application.analytics.aggregations import (
+    ActivityAggregateInput,
+    _period_start,
+    compare_periods,
+    summarize_window,
+)
+from app.domain.schemas.dashboard import (
+    AerobicEfficiencyPoint,
+    AerobicEfficiencyResponse,
+    DashboardResponse,
+    PeriodComparisonSchema,
+    PeriodSummarySchema,
+    TrendsResponse,
+)
 from app.infrastructure.repositories.activity_repository import ActivityRepository
-from app.infrastructure.repositories.period_summary_repository import PeriodSummaryRepository
+from app.infrastructure.repositories.period_summary_repository import (
+    PeriodSummaryRepository,
+)
 
 
 def _month_start(value: date) -> date:
@@ -34,32 +48,52 @@ class DashboardReadService:
         self.period_summaries = PeriodSummaryRepository(db_session)
         self.activities = ActivityRepository(db_session)
 
-    def get_dashboard(self, user_id: int, *, today: date, sport_type: str | None = None) -> DashboardResponse:
+    def get_dashboard(
+        self, user_id: int, *, today: date, sport_type: str | None = None
+    ) -> DashboardResponse:
         current_month = _month_start(today)
         previous_month = _previous_month(current_month)
         current_year = _year_start(today)
         previous_year = current_year.replace(year=current_year.year - 1)
         return DashboardResponse(
-            month=self._compare_period(user_id, "month", current_month, previous_month, sport_type=sport_type),
-            year=self._compare_period(user_id, "year", current_year, previous_year, sport_type=sport_type),
+            month=self._compare_period(
+                user_id, "month", current_month, previous_month, sport_type=sport_type
+            ),
+            year=self._compare_period(
+                user_id, "year", current_year, previous_year, sport_type=sport_type
+            ),
         )
 
-    def get_trends(self, user_id: int, *, period_type: str, sport_type: str | None = None) -> TrendsResponse:
-        items = self.period_summaries.list_for_user(user_id, period_type=period_type, sport_type=sport_type)
+    def get_trends(
+        self, user_id: int, *, period_type: str, sport_type: str | None = None
+    ) -> TrendsResponse:
+        items = self.period_summaries.list_for_user(
+            user_id, period_type=period_type, sport_type=sport_type
+        )
         return TrendsResponse(
             period_type=period_type,
-            items=[PeriodSummarySchema.model_validate(item, from_attributes=True) for item in items],
+            items=[
+                PeriodSummarySchema.model_validate(item, from_attributes=True)
+                for item in items
+            ],
         )
 
     def get_aerobic_efficiency(
         self, user_id: int, *, period_type: str, sport_type: str | None = None
     ) -> AerobicEfficiencyResponse:
-        activities = self.activities.list_with_hr_and_speed(user_id, sport_type=sport_type)
+        activities = self.activities.list_with_hr_and_speed(
+            user_id, sport_type=sport_type
+        )
         buckets: dict[tuple[str, date], list[tuple[float, float]]] = defaultdict(list)
         for activity in activities:
-            if activity.average_speed_mps is None or activity.average_heartrate_bpm is None:
+            if (
+                activity.average_speed_mps is None
+                or activity.average_heartrate_bpm is None
+            ):
                 continue
-            activity_date = (activity.start_date_local or activity.start_date_utc).date()
+            activity_date = (
+                activity.start_date_local or activity.start_date_utc
+            ).date()
             key = (activity.sport_type, _period_start(period_type, activity_date))
             speed_kph = float(activity.average_speed_mps) * 3.6
             buckets[key].append((float(activity.average_heartrate_bpm), speed_kph))
@@ -88,7 +122,9 @@ class DashboardReadService:
         sport_type: str | None = None,
     ) -> list[PeriodComparisonSchema]:
         if period_type == "rolling_30d":
-            return self._compare_rolling_30d(user_id, today=today, sport_type=sport_type)
+            return self._compare_rolling_30d(
+                user_id, today=today, sport_type=sport_type
+            )
         if current_period_start is not None and previous_period_start is not None:
             current = current_period_start
             previous = previous_period_start
@@ -103,7 +139,9 @@ class DashboardReadService:
             previous = _year_start(today).replace(year=today.year - 1)
         else:
             raise ValueError("Unsupported period_type.")
-        return self._compare_period(user_id, period_type, current, previous, sport_type=sport_type)
+        return self._compare_period(
+            user_id, period_type, current, previous, sport_type=sport_type
+        )
 
     def _compare_rolling_30d(
         self,
@@ -115,30 +153,64 @@ class DashboardReadService:
         current_start = today - timedelta(days=29)
         previous_start = today - timedelta(days=59)
         previous_end = current_start - timedelta(days=1)
-        current_activities = self.activities.list_for_user(user_id, sport_type=sport_type, date_from=current_start, date_to=today + timedelta(days=1))
-        previous_activities = self.activities.list_for_user(user_id, sport_type=sport_type, date_from=previous_start, date_to=previous_end + timedelta(days=1))
-        current_inputs = [self._to_aggregate_input(activity) for activity in current_activities]
-        previous_inputs = [self._to_aggregate_input(activity) for activity in previous_activities]
+        current_activities = self.activities.list_for_user(
+            user_id,
+            sport_type=sport_type,
+            date_from=current_start,
+            date_to=today + timedelta(days=1),
+        )
+        previous_activities = self.activities.list_for_user(
+            user_id,
+            sport_type=sport_type,
+            date_from=previous_start,
+            date_to=previous_end + timedelta(days=1),
+        )
+        current_inputs = [
+            self._to_aggregate_input(activity) for activity in current_activities
+        ]
+        previous_inputs = [
+            self._to_aggregate_input(activity) for activity in previous_activities
+        ]
         sports = sorted({item.sport_type for item in current_inputs + previous_inputs})
         comparisons: list[PeriodComparisonSchema] = []
         for sport in sports:
             comparison = compare_periods(
-                current=summarize_window(current_inputs, sport_type=sport, window_type="rolling_30d", window_start=current_start),
-                previous=summarize_window(previous_inputs, sport_type=sport, window_type="rolling_30d", window_start=previous_start),
+                current=summarize_window(
+                    current_inputs,
+                    sport_type=sport,
+                    window_type="rolling_30d",
+                    window_start=current_start,
+                ),
+                previous=summarize_window(
+                    previous_inputs,
+                    sport_type=sport,
+                    window_type="rolling_30d",
+                    window_start=previous_start,
+                ),
             )
             comparisons.append(
                 PeriodComparisonSchema(
-                    current=None
-                    if comparison["current"] is None
-                    else PeriodSummarySchema.model_validate(comparison["current"], from_attributes=True),
-                    previous=None
-                    if comparison["previous"] is None
-                    else PeriodSummarySchema.model_validate(comparison["previous"], from_attributes=True),
+                    current=(
+                        None
+                        if comparison["current"] is None
+                        else PeriodSummarySchema.model_validate(
+                            comparison["current"], from_attributes=True
+                        )
+                    ),
+                    previous=(
+                        None
+                        if comparison["previous"] is None
+                        else PeriodSummarySchema.model_validate(
+                            comparison["previous"], from_attributes=True
+                        )
+                    ),
                     delta_distance_meters=comparison["delta_distance_meters"],
                     delta_moving_time_seconds=comparison["delta_moving_time_seconds"],
                     delta_activity_count=comparison["delta_activity_count"],
                     delta_average_speed_mps=comparison["delta_average_speed_mps"],
-                    delta_average_pace_seconds_per_km=comparison["delta_average_pace_seconds_per_km"],
+                    delta_average_pace_seconds_per_km=comparison[
+                        "delta_average_pace_seconds_per_km"
+                    ],
                 )
             )
         return comparisons
@@ -169,20 +241,33 @@ class DashboardReadService:
         sports = sorted(set(current_by_sport) | set(previous_by_sport))
         comparisons: list[PeriodComparisonSchema] = []
         for sport in sports:
-            comparison = compare_periods(current=current_by_sport.get(sport), previous=previous_by_sport.get(sport))
+            comparison = compare_periods(
+                current=current_by_sport.get(sport),
+                previous=previous_by_sport.get(sport),
+            )
             comparisons.append(
                 PeriodComparisonSchema(
-                    current=None
-                    if comparison["current"] is None
-                    else PeriodSummarySchema.model_validate(comparison["current"], from_attributes=True),
-                    previous=None
-                    if comparison["previous"] is None
-                    else PeriodSummarySchema.model_validate(comparison["previous"], from_attributes=True),
+                    current=(
+                        None
+                        if comparison["current"] is None
+                        else PeriodSummarySchema.model_validate(
+                            comparison["current"], from_attributes=True
+                        )
+                    ),
+                    previous=(
+                        None
+                        if comparison["previous"] is None
+                        else PeriodSummarySchema.model_validate(
+                            comparison["previous"], from_attributes=True
+                        )
+                    ),
                     delta_distance_meters=comparison["delta_distance_meters"],
                     delta_moving_time_seconds=comparison["delta_moving_time_seconds"],
                     delta_activity_count=comparison["delta_activity_count"],
                     delta_average_speed_mps=comparison["delta_average_speed_mps"],
-                    delta_average_pace_seconds_per_km=comparison["delta_average_pace_seconds_per_km"],
+                    delta_average_pace_seconds_per_km=comparison[
+                        "delta_average_pace_seconds_per_km"
+                    ],
                 )
             )
         return comparisons
@@ -191,7 +276,9 @@ class DashboardReadService:
     def _to_aggregate_input(activity) -> ActivityAggregateInput:
         return ActivityAggregateInput(
             sport_type=activity.sport_type,
-            start_date_local=(activity.start_date_local or activity.start_date_utc).date(),
+            start_date_local=(
+                activity.start_date_local or activity.start_date_utc
+            ).date(),
             distance_meters=activity.distance_meters,
             moving_time_seconds=activity.moving_time_seconds,
             total_elevation_gain_meters=activity.total_elevation_gain_meters,

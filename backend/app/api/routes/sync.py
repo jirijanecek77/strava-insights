@@ -8,7 +8,6 @@ from app.application.sync.orchestrator import SyncOrchestrator
 from app.application.sync.status import SyncStatusService
 from app.domain.schemas.sync import SyncStatusResponse
 
-
 router = APIRouter(prefix="/sync")
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,9 @@ def get_sync_status(
     return sync_status_service.get_status_for_user(user.id)
 
 
-@router.post("/refresh", response_model=CreatedSyncJob, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/refresh", response_model=CreatedSyncJob, status_code=status.HTTP_202_ACCEPTED
+)
 def trigger_incremental_sync(
     request: Request,
     current_user_service: CurrentUserService = Depends(CurrentUserService),

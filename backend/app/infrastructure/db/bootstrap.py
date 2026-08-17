@@ -1,10 +1,10 @@
 import time
 
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import inspect
 from sqlalchemy.exc import OperationalError
 
+from alembic import command
+from alembic.config import Config
 from app.infrastructure.db.session import engine
 
 

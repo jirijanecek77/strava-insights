@@ -3,13 +3,19 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.application.auth.current_user import CurrentUserService
 from app.api.dependencies import get_db_session
-from app.domain.schemas.user import CurrentUserResponse, UpdateUserProfileRequest, UserProfileResponse, UserThresholdProfileItem
+from app.application.auth.current_user import CurrentUserService
+from app.domain.schemas.user import (
+    CurrentUserResponse,
+    UpdateUserProfileRequest,
+    UserProfileResponse,
+    UserThresholdProfileItem,
+)
 from app.infrastructure.db.models.user import User
-from app.infrastructure.repositories.user_profile_repository import UserProfileRepository
+from app.infrastructure.repositories.user_profile_repository import (
+    UserProfileRepository,
+)
 from app.infrastructure.repositories.user_repository import UserRepository
-
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -53,7 +59,9 @@ def get_user_profile_details(
     if not profiles:
         return UserProfileResponse(items=[], current=None)
     return UserProfileResponse(
-        items=[UserThresholdProfileItem.model_validate(profile) for profile in profiles],
+        items=[
+            UserThresholdProfileItem.model_validate(profile) for profile in profiles
+        ],
         current=UserThresholdProfileItem.model_validate(profiles[0]),
     )
 
@@ -85,7 +93,10 @@ def update_user_profile_details(
     user_repository = UserRepository(db_session)
     persisted_user = user_repository.get_by_id(user.id)
     if persisted_user is None:
-        logger.warning("Creating missing persisted user from session before profile save.", extra={"user.id": user.id})
+        logger.warning(
+            "Creating missing persisted user from session before profile save.",
+            extra={"user.id": user.id},
+        )
         user_repository.save(
             User(
                 id=user.id,

@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     backend_reload: bool = False
-    database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/strava_insights"
+    database_url: str = (
+        "postgresql+psycopg://postgres:postgres@postgres:5432/strava_insights"
+    )
     redis_url: str = "redis://redis:6379/0"
     log_level: str = "INFO"
     session_secret_key: str = "change-me"

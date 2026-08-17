@@ -18,13 +18,6 @@ class Activity(TimestampMixin, Base):
             "sport_type",
             "start_date_utc",
         ),
-        Index(
-            "ix_activities_user_route_sport_time",
-            "user_id",
-            "intervals_route_id",
-            "sport_type",
-            "moving_time_seconds",
-        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -53,8 +46,5 @@ class Activity(TimestampMixin, Base):
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    intervals_route_id: Mapped[str | None] = mapped_column(String(64))
-    intervals_route_name: Mapped[str | None] = mapped_column(String(255))
-
     user = relationship("User", back_populates="activities")
     stream = relationship("ActivityStream", back_populates="activity", uselist=False)

@@ -38,39 +38,6 @@ class IntervalsApiClient:
             raise ValueError("Intervals.icu activities response must be a list.")
         return payload
 
-    def get_activity_route_assignments(
-        self, athlete_id: str, api_key: str
-    ) -> list[dict[str, Any]]:
-        intervals_athlete_id = self.format_athlete_id(athlete_id)
-        response = httpx.get(
-            f"{self.base_url}/athlete/{intervals_athlete_id}/activities",
-            auth=("API_KEY", api_key),
-            params={
-                "oldest": "1970-01-01",
-                "newest": datetime.now(UTC).date().isoformat(),
-                "fields": "id,route_id",
-            },
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, list):
-            raise ValueError("Intervals.icu route assignments response must be a list.")
-        return payload
-
-    def get_routes(self, athlete_id: str, api_key: str) -> list[dict[str, Any]]:
-        intervals_athlete_id = self.format_athlete_id(athlete_id)
-        response = httpx.get(
-            f"{self.base_url}/athlete/{intervals_athlete_id}/routes",
-            auth=("API_KEY", api_key),
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, list):
-            raise ValueError("Intervals.icu routes response must be a list.")
-        return payload
-
     def get_run_pace_curves(
         self,
         athlete_id: str,

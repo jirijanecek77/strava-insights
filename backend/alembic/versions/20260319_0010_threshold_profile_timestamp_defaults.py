@@ -5,9 +5,9 @@ Revises: 20260319_0009
 Create Date: 2026-03-19 11:30:00
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260319_0010"
 down_revision = "20260319_0009"
@@ -33,4 +33,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise NotImplementedError("Downgrade is not supported for threshold profile timestamp defaults.")
+    raise NotImplementedError(
+        "Downgrade is not supported for threshold profile timestamp defaults."
+    )

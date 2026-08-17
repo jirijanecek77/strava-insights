@@ -11,7 +11,9 @@ from app.infrastructure.db.models.mixins import TimestampMixin
 class UserThresholdProfile(TimestampMixin, Base):
     __tablename__ = "user_threshold_profiles"
     __table_args__ = (
-        UniqueConstraint("user_id", "effective_from", name="uq_user_threshold_profiles_user_date"),
+        UniqueConstraint(
+            "user_id", "effective_from", name="uq_user_threshold_profiles_user_date"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from app.intervals_client import (
@@ -5,6 +6,7 @@ from app.intervals_client import (
     IntervalsApiClient,
 )
 from app.services.sync_import import FullImportService, IncrementalSyncService
+from app.services.route_index_builder import RouteIndexStats
 
 
 class SyncJobStub:
@@ -52,6 +54,9 @@ class SessionStub:
 
     def flush(self):
         self.flushes += 1
+
+    def begin_nested(self):
+        return nullcontext()
 
 
 class SyncJobRepositoryStub:
@@ -113,18 +118,6 @@ class ActivityRepositoryStub:
     def get_latest_start_date_utc_for_user(self, _user_id: int):
         return self.latest_start_date_utc
 
-    def update_routes_for_user(self, _user_id: int, assignments):
-        changed = 0
-        for source_activity_id, (route_id, route_name) in assignments.items():
-            activity = self.by_id.get(source_activity_id)
-            if activity is None:
-                continue
-            activity.intervals_route_id = route_id
-            activity.intervals_route_name = route_name
-            changed += 1
-        return changed
-
-
 class ActivityStreamRepositoryStub:
     def __init__(self) -> None:
         self.by_activity_id = {}
@@ -170,6 +163,22 @@ class ReadModelBuilderStub:
         self.source_run_efforts = source_run_efforts
 
 
+class RouteIndexBuilderStub:
+    def __init__(self) -> None:
+        self.user_ids: list[int] = []
+
+    def rebuild_for_user(self, user_id: int) -> RouteIndexStats:
+        self.user_ids.append(user_id)
+        return RouteIndexStats(
+            eligible_activity_count=1,
+            excluded_activity_count=0,
+            route_group_count=0,
+            matched_activity_count=0,
+            compared_pair_count=0,
+            matched_pair_count=0,
+        )
+
+
 class TokenCipherStub:
     def encrypt(self, value: str) -> str:
         return f"enc:{value}"
@@ -207,7 +216,6 @@ class IntervalsClientStub:
                 "max_speed": 4.5,
                 "average_heartrate": 150.0,
                 "average_cadence": 84.0,
-                "route_id": 42,
             }
         ]
 
@@ -223,16 +231,6 @@ class IntervalsClientStub:
             "velocity_smooth": {"data": [3.5, 3.6, 3.7, 3.8]},
             "heartrate": {"data": [145, 146, 150, 152]},
         }
-
-    def get_activity_route_assignments(self, athlete_id: str, api_key: str):
-        assert athlete_id == "12345"
-        assert api_key == "access-token"
-        return [{"id": "i100", "route_id": 42}]
-
-    def get_routes(self, athlete_id: str, api_key: str):
-        assert athlete_id == "12345"
-        assert api_key == "access-token"
-        return [{"id": 42, "name": "River Loop"}]
 
     def get_run_pace_curves(self, athlete_id: str, api_key: str, *, distances_meters):
         assert distances_meters == [1000.0, 5000.0, 10000.0, 21097.5]
@@ -264,6 +262,7 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     service.checkpoints = CheckpointRepositoryStub()
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
+    service.route_index_builder = RouteIndexBuilderStub()
 
     imported_count = service.run(sync_job_id=1, user_id=1)
 
@@ -275,6 +274,7 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
         == "2026-03-09T06:00:00+00:00"
     )
     assert service.checkpoints.values["analytics_model"]["checkpoint_value"] == "2"
+    assert service.checkpoints.values["route_model"]["checkpoint_value"] == "1"
     assert 100 in service.activities.by_id
     assert service.activities.by_id[100].distance_km == 10
     assert service.activities.by_id[100].moving_time_display == "45:00"
@@ -283,8 +283,8 @@ def test_full_import_service_imports_activities_updates_progress_and_checkpoint(
     assert service.activity_streams.by_activity_id[1].heartrate_stream == {
         "data": [145, 146, 150, 152]
     }
-    assert service.activities.by_id[100].intervals_route_name == "River Loop"
     assert service.read_model_builder.user_ids == [1]
+    assert service.route_index_builder.user_ids == [1]
     assert service.cache_invalidator.user_ids == [1]
 
 
@@ -312,6 +312,7 @@ def test_incremental_sync_uses_activity_checkpoint_for_after_filter() -> None:
     service.checkpoints = checkpoint_repo
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
+    service.route_index_builder = RouteIndexBuilderStub()
 
     imported_count = service.run(sync_job_id=1, user_id=1)
 
@@ -338,6 +339,7 @@ def test_incremental_sync_continues_when_activity_stream_is_missing() -> None:
     service.checkpoints = CheckpointRepositoryStub()
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
+    service.route_index_builder = RouteIndexBuilderStub()
 
     imported_count = service.run(sync_job_id=1, user_id=1)
 
@@ -369,6 +371,7 @@ def test_incremental_sync_uses_latest_local_activity_when_checkpoint_is_missing(
     service.checkpoints = CheckpointRepositoryStub()
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
+    service.route_index_builder = RouteIndexBuilderStub()
 
     imported_count = service.run(sync_job_id=1, user_id=1)
 
@@ -398,8 +401,15 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
         "checkpoint_value": "2",
         "last_synced_at": datetime.now(UTC),
     }
+    service.checkpoints.values["route_model"] = {
+        "user_id": 1,
+        "sync_type": "route_model",
+        "checkpoint_value": "1",
+        "last_synced_at": datetime.now(UTC),
+    }
     service.cache_invalidator = CacheInvalidatorStub()
     service.read_model_builder = ReadModelBuilderStub()
+    service.route_index_builder = RouteIndexBuilderStub()
 
     imported_count = service.run(sync_job_id=1, user_id=1)
 
@@ -408,3 +418,4 @@ def test_incremental_sync_skips_already_imported_activities() -> None:
     assert sync_job.progress_total == 0
     assert intervals_client.stream_calls == []
     assert service.read_model_builder.user_ids == []
+    assert service.route_index_builder.user_ids == []

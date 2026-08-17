@@ -1,4 +1,9 @@
-from app.application.analytics.running_analysis import _empty_block, _round_metric, _share, _update_longest_block
+from app.application.analytics.running_analysis import (
+    _empty_block,
+    _round_metric,
+    _share,
+    _update_longest_block,
+)
 
 
 def _speed_band(value_kph: float, average_speed_kph: float) -> str:
@@ -19,7 +24,9 @@ def _heart_rate_band(value_bpm: float, *, aet: float, ant: float) -> str:
     return "above_ant"
 
 
-def _distribution(items: dict[str, float], total_distance: float, labels: dict[str, str]) -> list[dict[str, float | str]]:
+def _distribution(
+    items: dict[str, float], total_distance: float, labels: dict[str, str]
+) -> list[dict[str, float | str]]:
     return [
         {
             "code": code,
@@ -44,7 +51,9 @@ def build_cycling_analysis(
     if not distance_km or not speed_kph:
         return None
 
-    total_distance = max(distance_km[-1] - distance_km[0], 0.0) if len(distance_km) > 1 else 0.0
+    total_distance = (
+        max(distance_km[-1] - distance_km[0], 0.0) if len(distance_km) > 1 else 0.0
+    )
     if total_distance <= 0:
         return None
 
@@ -57,9 +66,21 @@ def build_cycling_analysis(
     above_threshold_block = _empty_block()
     current_steady = None
     current_above = None
-    has_hr_thresholds = aet_heart_rate_bpm is not None and ant_heart_rate_bpm is not None and bool(heart_rate_bpm)
+    has_hr_thresholds = (
+        aet_heart_rate_bpm is not None
+        and ant_heart_rate_bpm is not None
+        and bool(heart_rate_bpm)
+    )
 
-    for index in range(1, min(len(distance_km), len(speed_kph), len(slope_percent) if slope_percent else len(speed_kph), len(heart_rate_bpm) if heart_rate_bpm else len(speed_kph))):
+    for index in range(
+        1,
+        min(
+            len(distance_km),
+            len(speed_kph),
+            len(slope_percent) if slope_percent else len(speed_kph),
+            len(heart_rate_bpm) if heart_rate_bpm else len(speed_kph),
+        ),
+    ):
         start_distance = float(distance_km[index - 1])
         end_distance = float(distance_km[index])
         segment_distance = max(end_distance - start_distance, 0.0)
@@ -87,19 +108,31 @@ def build_cycling_analysis(
 
             if hr_band == "below_aet":
                 current_steady = {
-                    "start_distance_km": start_distance if current_steady is None else current_steady["start_distance_km"],
+                    "start_distance_km": (
+                        start_distance
+                        if current_steady is None
+                        else current_steady["start_distance_km"]
+                    ),
                     "end_distance_km": end_distance,
                 }
             else:
-                current_steady = _update_longest_block(current_steady, steady_aerobic_block, start=0.0, end=0.0)
+                current_steady = _update_longest_block(
+                    current_steady, steady_aerobic_block, start=0.0, end=0.0
+                )
 
             if hr_band == "above_ant":
                 current_above = {
-                    "start_distance_km": start_distance if current_above is None else current_above["start_distance_km"],
+                    "start_distance_km": (
+                        start_distance
+                        if current_above is None
+                        else current_above["start_distance_km"]
+                    ),
                     "end_distance_km": end_distance,
                 }
             else:
-                current_above = _update_longest_block(current_above, above_threshold_block, start=0.0, end=0.0)
+                current_above = _update_longest_block(
+                    current_above, above_threshold_block, start=0.0, end=0.0
+                )
 
     _update_longest_block(current_steady, steady_aerobic_block, start=0.0, end=0.0)
     _update_longest_block(current_above, above_threshold_block, start=0.0, end=0.0)
@@ -132,12 +165,18 @@ def build_cycling_analysis(
         "flat_distance_km": _round_metric(terrain_distances["flat"]),
         "flat_share_percent": _share(terrain_distances["flat"], total_distance),
         "descending_distance_km": _round_metric(terrain_distances["descending"]),
-        "descending_share_percent": _share(terrain_distances["descending"], total_distance),
+        "descending_share_percent": _share(
+            terrain_distances["descending"], total_distance
+        ),
     }
 
     return {
         "speed_distribution": speed_distribution,
         "heart_rate_distribution": heart_rate_distribution,
         "climbing_summary": climbing_summary,
-        "average_cadence": _round_metric(float(average_cadence)) if average_cadence is not None else None,
+        "average_cadence": (
+            _round_metric(float(average_cadence))
+            if average_cadence is not None
+            else None
+        ),
     }

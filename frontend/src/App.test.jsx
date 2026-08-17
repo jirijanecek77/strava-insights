@@ -312,16 +312,39 @@ describe("App", () => {
                                 heart_rate_higher_share_percent: 10,
                             },
                         },
-                        best_efforts: [{
-                            rank: 1,
-                            effort_code: "5km",
-                            best_time_seconds: 1380,
-                            distance_meters: 5000,
-                            pace_seconds_per_km: 276,
-                        }],
+                        best_efforts: [
+                            {
+                                rank: 1,
+                                effort_code: "5km",
+                                best_time_seconds: 1380,
+                                distance_meters: 5000,
+                                pace_seconds_per_km: 276,
+                            },
+                            {
+                                rank: 2,
+                                effort_code: "1km",
+                                best_time_seconds: 230,
+                                distance_meters: 1000,
+                                pace_seconds_per_km: 230,
+                            },
+                            {
+                                rank: 3,
+                                effort_code: "10km",
+                                best_time_seconds: 2820,
+                                distance_meters: 10000,
+                                pace_seconds_per_km: 282,
+                            },
+                            {
+                                rank: 4,
+                                effort_code: "half_marathon",
+                                best_time_seconds: 6120,
+                                distance_meters: 21097.5,
+                                pace_seconds_per_km: 290,
+                            },
+                        ],
                         route_comparison: {
                             route_id: "42",
-                            route_name: "River Loop",
+                            route_name: "Same route \u00b7 Run \u00b7 10 km \u00b7 5:00/km",
                             current_rank: 2,
                             attempt_count: 2,
                             best_time_seconds: 2940,
@@ -463,9 +486,24 @@ describe("App", () => {
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
-        expect(screen.getByText(/best efforts in this activity/i)).toBeInTheDocument();
-        expect(screen.getByText("River Loop")).toBeInTheDocument();
-        expect(screen.getByText("#2 of 2")).toBeInTheDocument();
+        const performance = screen.getByRole("region", {name: /performance/i});
+        const bestEffortsKpi = screen.getByLabelText(/best efforts in this activity/i);
+        expect(bestEffortsKpi).toHaveClass("best-efforts-kpi");
+        expect(bestEffortsKpi.parentElement).toHaveClass("kpi-grid");
+        expect(bestEffortsKpi).toHaveTextContent("PB \u00b7 5 km");
+        expect(bestEffortsKpi).toHaveTextContent("#2 \u00b7 1 km");
+        expect(within(bestEffortsKpi).getByText("23:00 \u00b7 4:36 /km")).toBeInTheDocument();
+        expect(within(bestEffortsKpi).queryByText(/\\u00b7/)).not.toBeInTheDocument();
+        expect(within(bestEffortsKpi).getByText("PB")).toHaveClass("is-best");
+        expect(within(bestEffortsKpi).getByText("#2")).toHaveClass("is-silver");
+        expect(within(bestEffortsKpi).getByText("#3")).toHaveClass("is-bronze");
+        expect(within(bestEffortsKpi).getByText("#4")).not.toHaveClass("is-best", "is-silver", "is-bronze");
+        expect(within(performance).queryByText(/best efforts/i)).not.toBeInTheDocument();
+        expect(within(performance).getByRole("table", {name: /activities on this route/i})).toBeInTheDocument();
+        expect(within(performance).queryByText("Same route \u00b7 Run \u00b7 10 km \u00b7 5:00\/km")).not.toBeInTheDocument();
+        expect(within(performance).queryByText(/^this activity$/i)).not.toBeInTheDocument();
+        expect(within(performance).queryByText(/^personal best$/i)).not.toBeInTheDocument();
+        expect(within(performance).queryByText(/^difference$/i)).not.toBeInTheDocument();
         expect(screen.getByText(/pace above hr/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/improving signal/i)).toBeInTheDocument();
         expect(screen.queryByLabelText(/strain warning/i)).not.toBeInTheDocument();

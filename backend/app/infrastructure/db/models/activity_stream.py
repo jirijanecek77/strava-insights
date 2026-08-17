@@ -10,7 +10,9 @@ class ActivityStream(TimestampMixin, Base):
     __tablename__ = "activity_streams"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id"), unique=True, nullable=False)
+    activity_id: Mapped[int] = mapped_column(
+        ForeignKey("activities.id"), unique=True, nullable=False
+    )
     time_stream: Mapped[dict | None] = mapped_column(JSONB)
     distance_stream: Mapped[dict | None] = mapped_column(JSONB)
     latlng_stream: Mapped[dict | None] = mapped_column(JSONB)

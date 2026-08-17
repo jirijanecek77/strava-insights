@@ -203,8 +203,6 @@ At minimum, imported activity metadata must support:
 - `max_speed`
 - `average_heartrate`
 - `average_cadence`
-- `route_id` when assigned by Intervals.icu
-- locally cached Intervals route name when available
 
 ### Imported Streams
 
@@ -306,7 +304,7 @@ Implementation rule:
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
 - cycling analysis for ride and e-bike ride activities using available speed, heart-rate, cadence, and terrain data
 - top-five best-effort ranks owned by the activity
-- a same-route comparison when at least two local activities share the Intervals route id and sport
+- a same-route comparison when at least two local activities of the same sport match by sanitized GPS geometry
 - threshold-based running analysis for running activities when user thresholds are configured
 
 The activity detail page may replace legacy running-analysis behavior when a clearer product-specific model is chosen.
@@ -329,14 +327,29 @@ The backend detail payload must include:
 
 Route comparison behavior:
 
-- use only Intervals.icu route assignments; do not infer route identity from GPS similarity
-- compare activities with the same route id and exact sport type
+- derive route identity locally from persisted sanitized GPS streams; do not call a premium source route API
+- compare only activities with the exact same sport type
+- preserve route order and direction, so a reversed route is a different route
+- treat same-direction closed loops as the same route when the recording starts at a different point on the loop
+- tolerate normal GPS jitter and short missing runs while keeping genuine shortcuts and detours separate
+- require at least 20 valid coordinate pairs, at least 80% valid GPS samples, at least 500 meters of route distance, and no unbridgeable GPS gap over 200 meters
+- resample routes at 50-meter spacing with at most 500 signature points
+- prefilter candidates by H3 resolution 9 cells and a maximum 5% activity-distance difference
+- require bidirectional 95% route coverage within 75 meters, a maximum 150-meter Hausdorff distance, and a maximum 125-meter ordered Frechet distance
+- require open-route start and finish points to remain within 150 meters; closed loops are start-position invariant but direction-sensitive
+- build deterministic complete-link groups so an activity must match every existing member before groups merge
 - rank by moving time
 - display the fastest five attempts plus the current activity initially
 - allow expanding the complete local attempt history
 - include date, moving time, pace or speed, average heart rate, distance, and an activity link
 - show a moving-time trend over the locally stored attempts
-- omit the section when the current activity has no route id or no comparable attempt
+- render activity-owned best efforts in the top KPI grid as one icon-led tile spanning the four columns remaining after Avg HR and Efficiency
+- show every best effort owned by the activity inside that tile, ordered by distance, with rank, distance, time, and pace or speed
+- present efforts in one horizontal row on desktop, with PB in orange, rank two in silver, rank three in bronze, and ranks four and five in the neutral text color
+- render the ranked route-attempt table and trend in a separate compact `Performance` band after the slope chart
+- keep the route map limited to the current activity rather than overlaying matched attempts
+- avoid a separate route title or summary panel because the ranked table already identifies the current attempt and personal best
+- omit route comparison when GPS is ineligible or fewer than two local activities belong to the route group
 
 ### Canonical Derived Series
 
@@ -429,7 +442,7 @@ Cycling speed should not be treated as a physiological threshold proxy in the wa
 - The activity detail page must still load when core activity metadata exists.
 - Missing heart-rate data must hide heart-rate KPIs and related graph content without failing the page.
 - Missing GPS data must hide the route map and hover-linked marker behavior.
-- Missing Intervals route assignments must hide route comparison without affecting activity detail.
+- Missing or ineligible GPS route signatures must hide route comparison without affecting activity detail.
 - Incomplete GPS coordinate streams, including scalar-only or null-containing Intervals.icu stream data, must be treated as missing GPS data unless valid `[latitude, longitude]` pairs are available.
 - Missing altitude data must hide elevation and slope visualizations.
 - Sparse null samples inside numeric streams must not fail activity detail rendering; valid numeric samples should remain usable for charts and analytics.
@@ -471,7 +484,8 @@ The calendar should feel closer to a training overview than to a traditional ent
 - New data invalidates affected cache entries and recomputes summaries as needed.
 - Manual refresh recomputes summaries, sanitizes existing streams, and refreshes top-five efforts even when no new activity is imported.
 - Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
-- Route assignments are refreshed through a lightweight Intervals activity-field request so newly assigned routes can appear for existing local Intervals activities.
+- Local route signatures and groups are rebuilt after activity import, after a manual refresh, or when the versioned `route_model` checkpoint is stale.
+- Existing activities receive local route comparisons after the first successful route-index rebuild; no source reimport or destructive data migration is required.
 - Deletions and later historical edits in Intervals.icu remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
 - If Intervals.icu activity streams return `404`, import the activity and continue without streams.
@@ -506,6 +520,9 @@ sequenceDiagram
 - `activity_streams`
 - `period_summaries`
 - `best_efforts`
+- `activity_route_signatures`
+- `route_groups`
+- `activity_route_memberships`
 - `sync_jobs`
 - `sync_checkpoints`
 
@@ -515,7 +532,8 @@ The schema must support:
 
 - user-scoped Intervals.icu credentials needed for activity and stream imports
 - imported activity metadata
-- Intervals route id and route name used for local route comparisons
+- versioned, downsampled GPS signatures used for local candidate search and comparison
+- user-scoped route groups and one route-group membership per eligible activity
 - imported streams needed for local rendering
 - activity-level derived KPI inputs and normalized fields
 - derived detail series when precomputation is beneficial
@@ -526,7 +544,10 @@ The schema must support:
 
 - `activities(user_id, start_date_utc desc)`
 - `activities(user_id, sport_type, start_date_utc desc)`
-- `activities(user_id, intervals_route_id, sport_type, moving_time_seconds)`
+- `activity_route_signatures(user_id, sport_type, distance_meters)`
+- GIN index on `activity_route_signatures(spatial_cells)`
+- `route_groups(user_id, sport_type)`
+- `activity_route_memberships(route_group_id)`
 - `period_summaries(user_id, sport_type, period_type, period_start)`
 - `best_efforts(user_id, sport_type, effort_code)`
 

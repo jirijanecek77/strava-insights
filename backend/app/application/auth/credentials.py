@@ -10,11 +10,15 @@ from app.core.config import settings
 from app.domain.schemas.auth import IntervalsCredentialStateResponse
 from app.infrastructure.db.models.intervals_credential import IntervalsCredential
 from app.infrastructure.db.models.user import User
-from app.infrastructure.intervals.client import IntervalsAuthClient, IntervalsAthleteProfile
-from app.infrastructure.repositories.intervals_credential_repository import IntervalsCredentialRepository
+from app.infrastructure.intervals.client import (
+    IntervalsAthleteProfile,
+    IntervalsAuthClient,
+)
+from app.infrastructure.repositories.intervals_credential_repository import (
+    IntervalsCredentialRepository,
+)
 from app.infrastructure.repositories.user_repository import UserRepository
 from app.infrastructure.security.token_cipher import TokenCipher
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,9 @@ class IntervalsCredentialService:
         self.user_repository = UserRepository(db_session)
         self.credential_repository = IntervalsCredentialRepository(db_session)
 
-    def get_landing_credential_state(self, remembered_user_id: int | None) -> IntervalsCredentialStateResponse:
+    def get_landing_credential_state(
+        self, remembered_user_id: int | None
+    ) -> IntervalsCredentialStateResponse:
         if remembered_user_id is None:
             return self._empty_credential_state()
 
@@ -72,9 +78,14 @@ class IntervalsCredentialService:
                 api_key=credentials.api_key,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         except Exception as exc:
-            logger.warning("Intervals.icu credential validation failed.", exc_info=(type(exc), exc, exc.__traceback__))
+            logger.warning(
+                "Intervals.icu credential validation failed.",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Intervals.icu credentials could not be validated.",
@@ -89,7 +100,11 @@ class IntervalsCredentialService:
         self.db_session.refresh(user)
         logger.info(
             "Authenticated Intervals.icu user.",
-            extra={"user.id": user.id, "is_new_user": is_new_user, "intervals_athlete_id": profile.athlete_id},
+            extra={
+                "user.id": user.id,
+                "is_new_user": is_new_user,
+                "intervals_athlete_id": profile.athlete_id,
+            },
         )
         return AuthenticatedUser(
             id=user.id,
@@ -109,13 +124,24 @@ class IntervalsCredentialService:
     ) -> IntervalsCredentials:
         if use_saved_credentials:
             if remembered_user_id is None:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Saved Intervals.icu credentials are not available.")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Saved Intervals.icu credentials are not available.",
+                )
             remembered_user = self.user_repository.get_by_id(remembered_user_id)
             if remembered_user is None or not remembered_user.is_active:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
-            stored_credential = self.credential_repository.get_for_user(remembered_user_id)
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account has been disabled.",
+                )
+            stored_credential = self.credential_repository.get_for_user(
+                remembered_user_id
+            )
             if stored_credential is None:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Saved Intervals.icu credentials are not available.")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Saved Intervals.icu credentials are not available.",
+                )
             return IntervalsCredentials(
                 athlete_id=stored_credential.athlete_id,
                 api_key=self.token_cipher.decrypt(stored_credential.api_key_encrypted),
@@ -124,8 +150,13 @@ class IntervalsCredentialService:
         normalized_athlete_id = (athlete_id or "").strip()
         normalized_api_key = (api_key or "").strip()
         if not normalized_athlete_id or not normalized_api_key:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Both Intervals.icu athlete ID and API key are required.")
-        return IntervalsCredentials(athlete_id=normalized_athlete_id, api_key=normalized_api_key)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both Intervals.icu athlete ID and API key are required.",
+            )
+        return IntervalsCredentials(
+            athlete_id=normalized_athlete_id, api_key=normalized_api_key
+        )
 
     def _upsert_user_with_credentials(
         self,
@@ -149,18 +180,28 @@ class IntervalsCredentialService:
         self._upsert_credentials(user.id, credentials)
         return user, is_new_user
 
-    def _resolve_user_for_login(self, profile: IntervalsAthleteProfile, preferred_user_id: int | None) -> User:
+    def _resolve_user_for_login(
+        self, profile: IntervalsAthleteProfile, preferred_user_id: int | None
+    ) -> User:
         if preferred_user_id is not None:
             remembered_user = self.user_repository.get_by_id(preferred_user_id)
             if remembered_user is not None:
                 if not remembered_user.is_active:
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="This account has been disabled.",
+                    )
                 return remembered_user
 
-        existing_user = self.user_repository.get_by_strava_athlete_id(profile.athlete_id)
+        existing_user = self.user_repository.get_by_strava_athlete_id(
+            profile.athlete_id
+        )
         if existing_user is not None:
             if not existing_user.is_active:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This account has been disabled.",
+                )
             return existing_user
 
         return User(
@@ -169,7 +210,9 @@ class IntervalsCredentialService:
             profile_picture_url=profile.profile_picture_url,
         )
 
-    def _upsert_credentials(self, user_id: int, credentials: IntervalsCredentials) -> None:
+    def _upsert_credentials(
+        self, user_id: int, credentials: IntervalsCredentials
+    ) -> None:
         stored = self.credential_repository.get_for_user(user_id)
         encrypted_api_key = self.token_cipher.encrypt(credentials.api_key)
         if stored is None:

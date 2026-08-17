@@ -1,8 +1,22 @@
+from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
 from app.infrastructure.db.models.activity import Activity
+from app.infrastructure.db.models.local_route import (
+    ActivityRouteMembership,
+    RouteGroup,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RouteAttemptGroup:
+    id: int
+    sport_type: str
+    nominal_distance_meters: Decimal
+    activities: list[Activity]
 
 
 class ActivityRepository:
@@ -45,18 +59,42 @@ class ActivityRepository:
             query = query.filter(Activity.sport_type == sport_type)
         return query.order_by(Activity.start_date_local.asc()).all()
 
-    def list_for_route(
-        self, user_id: int, *, route_id: str, sport_type: str
-    ) -> list[Activity]:
-        return (
+    def get_route_attempt_group(
+        self, user_id: int, activity_id: int
+    ) -> RouteAttemptGroup | None:
+        group = (
+            self.session.query(RouteGroup)
+            .join(
+                ActivityRouteMembership,
+                ActivityRouteMembership.route_group_id == RouteGroup.id,
+            )
+            .filter(
+                ActivityRouteMembership.activity_id == activity_id,
+                RouteGroup.user_id == user_id,
+            )
+            .one_or_none()
+        )
+        if group is None:
+            return None
+
+        activities = (
             self.session.query(Activity)
+            .join(
+                ActivityRouteMembership,
+                ActivityRouteMembership.activity_id == Activity.id,
+            )
             .filter(
                 Activity.user_id == user_id,
-                Activity.intervals_route_id == route_id,
-                Activity.sport_type == sport_type,
+                ActivityRouteMembership.route_group_id == group.id,
             )
             .order_by(
                 Activity.moving_time_seconds.asc(), Activity.start_date_local.asc()
             )
             .all()
+        )
+        return RouteAttemptGroup(
+            id=group.id,
+            sport_type=group.sport_type,
+            nominal_distance_meters=group.nominal_distance_meters,
+            activities=activities,
         )

@@ -27,7 +27,9 @@ class UserProfileRepository:
             .first()
         )
 
-    def get_effective_for_user(self, user_id: int, effective_date: date | None) -> UserThresholdProfile | None:
+    def get_effective_for_user(
+        self, user_id: int, effective_date: date | None
+    ) -> UserThresholdProfile | None:
         if effective_date is None:
             return self.get_current_for_user(user_id)
         return (

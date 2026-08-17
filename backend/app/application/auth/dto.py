@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+
+
 @dataclass(slots=True)
 class IntervalsCredentials:
     athlete_id: str

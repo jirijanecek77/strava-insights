@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from math import isfinite
 from numbers import Real
 from typing import Any
@@ -21,6 +22,7 @@ from app.domain.schemas.activity import (
     RouteComparisonAttempt,
     RouteComparisonResponse,
 )
+from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.repositories.activity_repository import ActivityRepository
 from app.infrastructure.repositories.activity_stream_repository import (
     ActivityStreamRepository,
@@ -247,17 +249,12 @@ class ActivityReadService:
         )
 
     def _build_route_comparison(
-        self, user_id: int, activity
+        self, user_id: int, activity: Activity
     ) -> RouteComparisonResponse | None:
-        if not activity.intervals_route_id:
+        route_group = self.activities.get_route_attempt_group(user_id, activity.id)
+        if route_group is None or len(route_group.activities) < 2:
             return None
-        activities = self.activities.list_for_route(
-            user_id,
-            route_id=activity.intervals_route_id,
-            sport_type=activity.sport_type,
-        )
-        if len(activities) < 2:
-            return None
+        activities = route_group.activities
 
         attempts: list[RouteComparisonAttempt] = []
         current_rank = 0
@@ -294,17 +291,13 @@ class ActivityReadService:
             return None
 
         best_time = activities[0].moving_time_seconds
-        route_name = activity.intervals_route_name or next(
-            (
-                item.intervals_route_name
-                for item in activities
-                if item.intervals_route_name
-            ),
-            "Intervals Route",
-        )
         return RouteComparisonResponse(
-            route_id=activity.intervals_route_id,
-            route_name=route_name,
+            route_id=str(route_group.id),
+            route_name=_format_route_label(
+                route_group.sport_type,
+                route_group.nominal_distance_meters,
+                activity,
+            ),
             current_rank=current_rank,
             attempt_count=len(activities),
             best_time_seconds=best_time,
@@ -312,6 +305,30 @@ class ActivityReadService:
             difference_seconds=activity.moving_time_seconds - best_time,
             attempts=attempts,
         )
+
+
+def _format_route_label(
+    sport_type: str, nominal_distance_meters: Decimal, activity: Activity
+) -> str:
+    distance_km = float(nominal_distance_meters) / 1000
+    distance_label = f"{distance_km:.1f}".rstrip("0").rstrip(".")
+    metric_label = _format_route_metric(activity)
+    parts = ["Same route", sport_type, f"{distance_label} km"]
+    if metric_label is not None:
+        parts.append(metric_label)
+    return " \u00b7 ".join(parts)
+
+
+def _format_route_metric(activity: Activity) -> str | None:
+    distance_meters = float(activity.distance_meters)
+    if distance_meters <= 0 or activity.moving_time_seconds <= 0:
+        return None
+    if activity.sport_type == "Run":
+        pace_seconds = round(activity.moving_time_seconds * 1000 / distance_meters)
+        minutes, seconds = divmod(pace_seconds, 60)
+        return f"{minutes}:{seconds:02d}/km"
+    speed_kph = distance_meters / activity.moving_time_seconds * 3.6
+    return f"{speed_kph:.1f} km/h"
 
 
 def _activity_map_from_latlng(raw_polyline: Any) -> ActivityMap | None:

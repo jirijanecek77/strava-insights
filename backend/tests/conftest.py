@@ -19,7 +19,9 @@ TEST_ENGINE = create_engine(
     connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
     future=True,
 )
-TestSessionLocal = sessionmaker(bind=TEST_ENGINE, autoflush=False, autocommit=False, expire_on_commit=False)
+TestSessionLocal = sessionmaker(
+    bind=TEST_ENGINE, autoflush=False, autocommit=False, expire_on_commit=False
+)
 
 
 def _clear_test_tables(session: Session) -> None:

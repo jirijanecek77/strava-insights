@@ -2,6 +2,11 @@ from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
 from app.infrastructure.db.models.intervals_credential import IntervalsCredential
+from app.infrastructure.db.models.local_route import (
+    ActivityRouteMembership,
+    ActivityRouteSignature,
+    RouteGroup,
+)
 from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.sync_checkpoint import SyncCheckpoint
 from app.infrastructure.db.models.sync_job import SyncJob
@@ -13,7 +18,10 @@ __all__ = [
     "ActivityStream",
     "BestEffort",
     "IntervalsCredential",
+    "ActivityRouteMembership",
+    "ActivityRouteSignature",
     "PeriodSummary",
+    "RouteGroup",
     "SyncCheckpoint",
     "SyncJob",
     "User",

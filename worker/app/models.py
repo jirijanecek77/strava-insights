@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, BigInteger, DateTime, Integer, Numeric, String, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, Numeric, String, func
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -77,8 +78,6 @@ class Activity(Base):
     average_pace_seconds_per_km: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     average_pace_display: Mapped[str | None] = mapped_column(String(16))
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
-    intervals_route_id: Mapped[str | None] = mapped_column(String(64))
-    intervals_route_name: Mapped[str | None] = mapped_column(String(255))
 
 
 class ActivityStream(Base):
@@ -92,6 +91,51 @@ class ActivityStream(Base):
     altitude_stream: Mapped[dict | None] = mapped_column(JSON)
     velocity_smooth_stream: Mapped[dict | None] = mapped_column(JSON)
     heartrate_stream: Mapped[dict | None] = mapped_column(JSON)
+
+
+class ActivityRouteSignature(Base):
+    __tablename__ = "activity_route_signatures"
+
+    activity_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    sport_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    algorithm_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_point_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    valid_point_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    distance_meters: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    is_loop: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    sampled_points: Mapped[list[list[float]]] = mapped_column(JSON, nullable=False)
+    spatial_cells: Mapped[list[str]] = mapped_column(ARRAY(String(15)), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class RouteGroup(Base):
+    __tablename__ = "route_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    sport_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    representative_activity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    algorithm_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    nominal_distance_meters: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ActivityRouteMembership(Base):
+    __tablename__ = "activity_route_memberships"
+
+    activity_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    route_group_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    similarity_score: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class PeriodSummary(Base):

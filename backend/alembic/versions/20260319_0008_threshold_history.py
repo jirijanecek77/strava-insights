@@ -5,9 +5,9 @@ Revises: 20260319_0007
 Create Date: 2026-03-19 09:45:00
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "20260319_0008"
 down_revision = "20260319_0007"
@@ -29,11 +29,12 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "effective_from", name="uq_user_threshold_profiles_user_date"),
+        sa.UniqueConstraint(
+            "user_id", "effective_from", name="uq_user_threshold_profiles_user_date"
+        ),
     )
 
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO user_threshold_profiles (
             user_id,
             effective_from,
@@ -59,9 +60,10 @@ def upgrade() -> None:
             OR ant_heart_rate_bpm IS NOT NULL
             OR aet_pace_min_per_km IS NOT NULL
             OR ant_pace_min_per_km IS NOT NULL
-        """
-    )
+        """)
 
 
 def downgrade() -> None:
-    raise NotImplementedError("Downgrade is not supported for threshold history migration.")
+    raise NotImplementedError(
+        "Downgrade is not supported for threshold history migration."
+    )

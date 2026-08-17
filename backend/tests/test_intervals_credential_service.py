@@ -1,8 +1,11 @@
 from fastapi import HTTPException
 
-from app.application.auth.dto import IntervalsCredentials
 from app.application.auth.credentials import IntervalsCredentialService
-from app.infrastructure.intervals.client import IntervalsAthleteProfile, format_intervals_athlete_id
+from app.application.auth.dto import IntervalsCredentials
+from app.infrastructure.intervals.client import (
+    IntervalsAthleteProfile,
+    format_intervals_athlete_id,
+)
 from app.infrastructure.security.token_cipher import TokenCipher
 
 
@@ -10,8 +13,12 @@ class IntervalsClientStub:
     def __init__(self) -> None:
         self.last_credentials = None
 
-    def get_athlete_profile(self, *, athlete_id: str, api_key: str) -> IntervalsAthleteProfile:
-        self.last_credentials = IntervalsCredentials(athlete_id=athlete_id, api_key=api_key)
+    def get_athlete_profile(
+        self, *, athlete_id: str, api_key: str
+    ) -> IntervalsAthleteProfile:
+        self.last_credentials = IntervalsCredentials(
+            athlete_id=athlete_id, api_key=api_key
+        )
         return IntervalsAthleteProfile(
             athlete_id=162181,
             display_name="Jiri Janecek",
@@ -93,7 +100,9 @@ def test_authenticate_with_manual_credentials_persists_user_and_credentials() ->
 
     assert authenticated_user.id == 1
     assert authenticated_user.strava_athlete_id == 162181
-    assert intervals_client.last_credentials == IntervalsCredentials(athlete_id="162181", api_key="manual-key")
+    assert intervals_client.last_credentials == IntervalsCredentials(
+        athlete_id="162181", api_key="manual-key"
+    )
     assert session.user is not None
     assert session.credential is not None
     assert session.credential.athlete_id == "162181"
@@ -158,7 +167,9 @@ def test_authenticate_uses_saved_credentials_for_remembered_user() -> None:
     )
 
     assert authenticated_user.id == 1
-    assert intervals_client.last_credentials == IntervalsCredentials(athlete_id="24680", api_key="stored-key")
+    assert intervals_client.last_credentials == IntervalsCredentials(
+        athlete_id="24680", api_key="stored-key"
+    )
 
 
 def test_authenticate_rejects_disabled_remembered_user() -> None:

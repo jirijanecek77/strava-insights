@@ -4,8 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.application.auth.current_user import CurrentUserService
 from app.application.read_models.dashboard import DashboardReadService
-from app.domain.schemas.dashboard import AerobicEfficiencyResponse, DashboardResponse, PeriodComparisonSchema, TrendsResponse
-
+from app.domain.schemas.dashboard import (
+    AerobicEfficiencyResponse,
+    DashboardResponse,
+    PeriodComparisonSchema,
+    TrendsResponse,
+)
 
 router = APIRouter()
 
@@ -13,7 +17,9 @@ router = APIRouter()
 def _require_user(request: Request, current_user_service: CurrentUserService):
     user = current_user_service.get_current_user(request)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
+        )
     return user
 
 
@@ -25,7 +31,9 @@ def get_dashboard(
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
 ) -> DashboardResponse:
     user = _require_user(request, current_user_service)
-    return dashboard_read_service.get_dashboard(user.id, today=date.today(), sport_type=sport_type)
+    return dashboard_read_service.get_dashboard(
+        user.id, today=date.today(), sport_type=sport_type
+    )
 
 
 @router.get("/trends", response_model=TrendsResponse)
@@ -37,7 +45,9 @@ def get_trends(
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
 ) -> TrendsResponse:
     user = _require_user(request, current_user_service)
-    return dashboard_read_service.get_trends(user.id, period_type=period_type, sport_type=sport_type)
+    return dashboard_read_service.get_trends(
+        user.id, period_type=period_type, sport_type=sport_type
+    )
 
 
 @router.get("/aerobic-efficiency", response_model=AerobicEfficiencyResponse)
@@ -49,7 +59,9 @@ def get_aerobic_efficiency(
     dashboard_read_service: DashboardReadService = Depends(DashboardReadService),
 ) -> AerobicEfficiencyResponse:
     user = _require_user(request, current_user_service)
-    return dashboard_read_service.get_aerobic_efficiency(user.id, period_type=period_type, sport_type=sport_type)
+    return dashboard_read_service.get_aerobic_efficiency(
+        user.id, period_type=period_type, sport_type=sport_type
+    )
 
 
 @router.get("/comparisons", response_model=list[PeriodComparisonSchema])

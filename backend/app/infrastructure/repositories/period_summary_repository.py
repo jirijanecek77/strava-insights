@@ -16,12 +16,16 @@ class PeriodSummaryRepository:
         period_type: str | None = None,
         sport_type: str | None = None,
     ) -> list[PeriodSummary]:
-        query = self.session.query(PeriodSummary).filter(PeriodSummary.user_id == user_id)
+        query = self.session.query(PeriodSummary).filter(
+            PeriodSummary.user_id == user_id
+        )
         if period_type is not None:
             query = query.filter(PeriodSummary.period_type == period_type)
         if sport_type is not None:
             query = query.filter(PeriodSummary.sport_type == sport_type)
-        return query.order_by(PeriodSummary.period_start.asc(), PeriodSummary.sport_type.asc()).all()
+        return query.order_by(
+            PeriodSummary.period_start.asc(), PeriodSummary.sport_type.asc()
+        ).all()
 
     def get_for_period(
         self,

@@ -2,7 +2,6 @@ import logging
 from contextvars import ContextVar, Token
 from logging.config import dictConfig
 
-
 _log_user_name: ContextVar[str] = ContextVar("log_user_name", default="-")
 
 

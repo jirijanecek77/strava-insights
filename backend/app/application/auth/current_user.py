@@ -1,5 +1,4 @@
-from fastapi import Depends
-from fastapi import Request
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db_session

@@ -93,7 +93,8 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Added current elevation to every activity-detail graph tooltip.
 - [x] Replaced quadratic best-effort scans with Intervals bulk running pace curves plus a linear local fallback for cycling and source-missing activities.
 - [x] Persisted and exposed the top five best efforts per sport and distance, with collapsed ranking UI, source activity links, and activity-detail rank badges.
-- [x] Added Intervals-only route assignment refresh and local same-route comparison with ranking, attempt history, and trend UI.
+- [x] Removed the unavailable premium Intervals route-assignment dependency and implemented versioned, direction-aware local GPS route matching with additive signature, group, and membership tables.
+- [x] Added an icon-led, four-column Best Efforts KPI with rank colors to Activity Detail and kept same-route ranking, attempt history, links, and trend in a separate compact Performance band after the slope chart.
 - [x] Made manual sync recalculate analytics while scheduled no-change syncs skip an already-current read-model rebuild.
 - [x] Applied migration `20260810_0014` and validated a real manual refresh over 148 activities; the worker completed in about 11 seconds and persisted ranked efforts plus sanitized streams.
 - [x] Restored the documented Windows build wrapper, updated vulnerable frontend dependencies to audited versions, and split charting code out of the initial production bundle.
@@ -102,6 +103,7 @@ This document tracks implementation status against [specification.md](specificat
 
 ### End-to-End Validation
 
+- [ ] Apply migration `20260817_0016`, rebuild the local route index over real development activities, and calibrate matching results against representative routes.
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end in the running Docker stack.
 - [ ] Validate the admin user audit and disable flow end to end in the running Docker stack.
 - [ ] Validate that cache-backed and database-backed reads meet the expected latency target under normal use.

@@ -28,12 +28,15 @@ from app.services.activity_summary import (
 )
 from app.services.cache_invalidator import UserCacheInvalidator
 from app.services.read_model_builder import RUN_BEST_EFFORT_DISTANCES, ReadModelBuilder
+from app.services.local_route_matcher import ROUTE_MODEL_VERSION
+from app.services.route_index_builder import RouteIndexBuilder, RouteIndexStats
 from app.services.stream_sanitizer import sanitize_stream_payload
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
 ACTIVITY_CHECKPOINT_TYPE = "activities"
 ANALYTICS_CHECKPOINT_TYPE = "analytics_model"
 ANALYTICS_MODEL_VERSION = "2"
+ROUTE_CHECKPOINT_TYPE = "route_model"
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +58,7 @@ class BaseImportService:
         self.checkpoints = SyncCheckpointRepository(session)
         self.cache_invalidator = UserCacheInvalidator()
         self.read_model_builder = ReadModelBuilder(session)
+        self.route_index_builder = RouteIndexBuilder(session)
 
     def run(self, *, sync_job_id: int, user_id: int) -> int:
         raise NotImplementedError
@@ -151,11 +155,6 @@ class BaseImportService:
                 },
             )
 
-        route_change_count = self._refresh_route_metadata(
-            user_id=user_id,
-            athlete_id=athlete_id,
-            api_key=api_key,
-        )
         self.checkpoints.upsert(
             user_id=user_id,
             sync_type=ACTIVITY_CHECKPOINT_TYPE,
@@ -165,6 +164,11 @@ class BaseImportService:
         rebuild_required = (
             imported_count > 0
             or self._analytics_rebuild_required(user_id)
+            or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
+        )
+        route_rebuild_required = (
+            imported_count > 0
+            or self._route_rebuild_required(user_id)
             or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
         )
         if rebuild_required:
@@ -185,7 +189,12 @@ class BaseImportService:
                 "Skipping unchanged read-model rebuild.",
                 extra={"sync_job.id": sync_job_id, "user.id": user_id},
             )
-        if imported_count > 0 or route_change_count > 0 or rebuild_required:
+        route_stats = (
+            self._rebuild_local_routes(user_id)
+            if route_rebuild_required
+            else None
+        )
+        if imported_count > 0 or rebuild_required or route_stats is not None:
             self.cache_invalidator.invalidate_user(user_id)
         self.sync_jobs.complete(sync_job, imported_activities=imported_count)
         self.session.commit()
@@ -196,8 +205,11 @@ class BaseImportService:
                 "user.id": user_id,
                 "imported_count": imported_count,
                 "checkpoint": latest_checkpoint_value,
-                "route_change_count": route_change_count,
+                "route_group_count": (
+                    None if route_stats is None else route_stats.route_group_count
+                ),
                 "read_models_rebuilt": rebuild_required,
+                "routes_rebuilt": route_stats is not None,
             },
         )
         return imported_count
@@ -281,8 +293,6 @@ class BaseImportService:
             pace_display=activity.average_pace_display,
             speed_kph_value=activity.average_speed_kph,
         )
-        route_id = payload.get("route_id")
-        activity.intervals_route_id = None if route_id is None else str(route_id)
         return self.activities.save(activity)
 
     def _upsert_stream(self, *, activity: Activity, payload: dict) -> ActivityStream:
@@ -304,57 +314,6 @@ class BaseImportService:
         if speed_values:
             activity.max_speed_mps = self._decimal_or_none(max(speed_values), scale=4)
         return self.activity_streams.save(activity_stream)
-
-    def _refresh_route_metadata(
-        self, *, user_id: int, athlete_id: str, api_key: str
-    ) -> int:
-        try:
-            payload = self.intervals_client.get_activity_route_assignments(
-                athlete_id, api_key
-            )
-        except (httpx.HTTPError, ValueError):
-            logger.warning(
-                "Intervals.icu route assignment refresh failed; keeping stored assignments.",
-                extra={"user.id": user_id},
-                exc_info=True,
-            )
-            return 0
-
-        route_ids = {
-            str(item["route_id"])
-            for item in payload
-            if isinstance(item, dict) and item.get("route_id") is not None
-        }
-        route_names: dict[str, str] = {}
-        if route_ids:
-            try:
-                routes = self.intervals_client.get_routes(athlete_id, api_key)
-            except (httpx.HTTPError, ValueError):
-                logger.warning(
-                    "Intervals.icu route-name refresh failed; route comparisons will use a generic name.",
-                    extra={"user.id": user_id},
-                    exc_info=True,
-                )
-            else:
-                route_names = {
-                    str(route["id"]): str(route["name"])
-                    for route in routes
-                    if isinstance(route, dict)
-                    and route.get("id") is not None
-                    and route.get("name")
-                }
-
-        assignments: dict[int, tuple[str | None, str | None]] = {}
-        for item in payload:
-            if not isinstance(item, dict) or item.get("id") is None:
-                continue
-            source_activity_id = self.intervals_client.parse_activity_id(item["id"])
-            route_id = None if item.get("route_id") is None else str(item["route_id"])
-            assignments[source_activity_id] = (
-                route_id,
-                route_names.get(route_id) if route_id else None,
-            )
-        return self.activities.update_routes_for_user(user_id, assignments)
 
     def _load_source_run_efforts(
         self, *, athlete_id: str, api_key: str
@@ -411,6 +370,28 @@ class BaseImportService:
         return (
             checkpoint is None or checkpoint.checkpoint_value != ANALYTICS_MODEL_VERSION
         )
+
+    def _route_rebuild_required(self, user_id: int) -> bool:
+        checkpoint = self.checkpoints.get_for_user(user_id, ROUTE_CHECKPOINT_TYPE)
+        return checkpoint is None or checkpoint.checkpoint_value != ROUTE_MODEL_VERSION
+
+    def _rebuild_local_routes(self, user_id: int) -> RouteIndexStats | None:
+        try:
+            with self.session.begin_nested():
+                stats = self.route_index_builder.rebuild_for_user(user_id)
+                self.checkpoints.upsert(
+                    user_id=user_id,
+                    sync_type=ROUTE_CHECKPOINT_TYPE,
+                    checkpoint_value=ROUTE_MODEL_VERSION,
+                    last_synced_at=datetime.now(UTC),
+                )
+                return stats
+        except Exception:
+            logger.exception(
+                "Local route index rebuild failed; preserving the previous route index.",
+                extra={"user.id": user_id},
+            )
+            return None
 
     @staticmethod
     def _parse_datetime(value: str | None) -> datetime | None:

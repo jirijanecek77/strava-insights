@@ -11,7 +11,9 @@ BAND_LABELS = {
 }
 
 
-def _resolve_band(value: float, *, aet: float, ant: float, higher_is_harder: bool) -> str:
+def _resolve_band(
+    value: float, *, aet: float, ant: float, higher_is_harder: bool
+) -> str:
     if higher_is_harder:
         if value < aet:
             return "below_aet"
@@ -44,7 +46,9 @@ def _share(distance: float, total_distance: float) -> float:
     return _round_metric((distance / total_distance) * 100)
 
 
-def _build_distribution(distances: dict[str, float], total_distance: float) -> list[dict[str, float | str]]:
+def _build_distribution(
+    distances: dict[str, float], total_distance: float
+) -> list[dict[str, float | str]]:
     return [
         {
             "code": code,
@@ -56,7 +60,13 @@ def _build_distribution(distances: dict[str, float], total_distance: float) -> l
     ]
 
 
-def _update_longest_block(current: dict[str, float] | None, longest: dict[str, float], *, start: float, end: float) -> dict[str, float] | None:
+def _update_longest_block(
+    current: dict[str, float] | None,
+    longest: dict[str, float],
+    *,
+    start: float,
+    end: float,
+) -> dict[str, float] | None:
     if current is None:
         return None
     current_distance = current["end_distance_km"] - current["start_distance_km"]
@@ -65,7 +75,6 @@ def _update_longest_block(current: dict[str, float] | None, longest: dict[str, f
         longest["end_distance_km"] = _round_metric(current["end_distance_km"])
         longest["distance_km"] = _round_metric(current_distance)
     return None
-
 
 
 def build_running_analysis(
@@ -134,19 +143,35 @@ def build_running_analysis(
 
         if pace_band == "between_aet_ant" and heart_rate_band == "between_aet_ant":
             if current_steady is None:
-                current_steady = {"start_distance_km": start_distance, "end_distance_km": end_distance}
+                current_steady = {
+                    "start_distance_km": start_distance,
+                    "end_distance_km": end_distance,
+                }
             else:
                 current_steady["end_distance_km"] = end_distance
         else:
-            current_steady = _update_longest_block(current_steady, steady_threshold_block, start=start_distance, end=end_distance)
+            current_steady = _update_longest_block(
+                current_steady,
+                steady_threshold_block,
+                start=start_distance,
+                end=end_distance,
+            )
 
         if pace_band == "above_ant" or heart_rate_band == "above_ant":
             if current_above is None:
-                current_above = {"start_distance_km": start_distance, "end_distance_km": end_distance}
+                current_above = {
+                    "start_distance_km": start_distance,
+                    "end_distance_km": end_distance,
+                }
             else:
                 current_above["end_distance_km"] = end_distance
         else:
-            current_above = _update_longest_block(current_above, above_threshold_block, start=start_distance, end=end_distance)
+            current_above = _update_longest_block(
+                current_above,
+                above_threshold_block,
+                start=start_distance,
+                end=end_distance,
+            )
 
     _update_longest_block(current_steady, steady_threshold_block, start=0.0, end=0.0)
     _update_longest_block(current_above, above_threshold_block, start=0.0, end=0.0)
@@ -162,7 +187,9 @@ def build_running_analysis(
         "pace_higher_distance_km": _round_metric(pace_higher_distance),
         "pace_higher_share_percent": _share(pace_higher_distance, total_distance),
         "heart_rate_higher_distance_km": _round_metric(heart_rate_higher_distance),
-        "heart_rate_higher_share_percent": _share(heart_rate_higher_distance, total_distance),
+        "heart_rate_higher_share_percent": _share(
+            heart_rate_higher_distance, total_distance
+        ),
     }
     return {
         "pace_distribution": pace_distribution,

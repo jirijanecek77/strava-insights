@@ -15,7 +15,9 @@ from app.application.analytics.service import ActivityDetailAnalyticsService
 def test_detail_series_match_legacy_formulas() -> None:
     assert moving_average([1, 2, 3, 4, 5], range_points=1) == [1.5, 2.0, 3.0, 4.0, 4.5]
     assert moving_average_speed_kph([1.0, 2.0, 3.0], range_points=1) == [5.4, 7.2, 9.0]
-    paces = calculate_pace_minutes_per_km([0, 60, 120, 180], [0, 250, 500, 750], range_points=1)
+    paces = calculate_pace_minutes_per_km(
+        [0, 60, 120, 180], [0, 250, 500, 750], range_points=1
+    )
     assert paces == [4.0, 4.0, 4.0, 4.0]
     assert format_pace_minutes_per_km([4.0, float("inf")]) == ["4:00", "0:00"]
 
@@ -23,7 +25,9 @@ def test_detail_series_match_legacy_formulas() -> None:
 def test_detail_series_tolerate_intervals_null_samples() -> None:
     assert moving_average_speed_kph([1.0, None, 3.0], range_points=0) == []
     assert moving_average_speed_kph([1.0, None, 3.0], range_points=1) == [3.6, 6.0, 7.2]
-    paces = calculate_pace_minutes_per_km([0, 60, None, 180], [0, 250, 500, 750], range_points=1)
+    paces = calculate_pace_minutes_per_km(
+        [0, 60, None, 180], [0, 250, 500, 750], range_points=1
+    )
     assert paces == [4.0, 2.0, 4.0, 8.0]
 
 
@@ -57,7 +61,9 @@ def test_running_analysis_builds_threshold_distributions_and_agreement() -> None
     assert "above_threshold_block" not in analysis
 
 
-def test_running_analysis_flags_pace_above_heart_rate_as_positive_with_caveats() -> None:
+def test_running_analysis_flags_pace_above_heart_rate_as_positive_with_caveats() -> (
+    None
+):
     analysis = build_running_analysis(
         distance_km=[0.0, 1.0, 2.0, 3.0],
         pace_minutes_per_km=[4.3, 4.3, 4.3, 4.3],
@@ -139,7 +145,9 @@ def test_activity_detail_service_builds_threshold_running_analysis() -> None:
     assert payload["running_analysis"]["agreement"]["matching_distance_km"] >= 0
 
 
-def test_activity_detail_service_omits_running_analysis_without_complete_thresholds() -> None:
+def test_activity_detail_service_omits_running_analysis_without_complete_thresholds() -> (
+    None
+):
     service = ActivityDetailAnalyticsService()
 
     payload = service.build(
@@ -179,8 +187,13 @@ def test_activity_detail_service_builds_cycling_analysis() -> None:
     )
 
     assert payload["cycling_analysis"] is not None
-    assert payload["cycling_analysis"]["speed_distribution"][0]["code"] == "below_steady"
-    assert payload["cycling_analysis"]["heart_rate_distribution"][0]["label"] == "Below AeT"
+    assert (
+        payload["cycling_analysis"]["speed_distribution"][0]["code"] == "below_steady"
+    )
+    assert (
+        payload["cycling_analysis"]["heart_rate_distribution"][0]["label"]
+        == "Below AeT"
+    )
     assert payload["cycling_analysis"]["climbing_summary"]["climbing_distance_km"] >= 0
     assert payload["cycling_analysis"]["average_cadence"] == 88.0
     assert payload["running_analysis"] is None

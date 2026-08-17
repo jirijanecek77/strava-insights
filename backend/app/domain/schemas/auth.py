@@ -15,9 +15,13 @@ class StartIntervalsLoginRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_mode(self) -> "StartIntervalsLoginRequest":
-        has_manual_credentials = bool((self.athlete_id or "").strip()) and bool((self.api_key or "").strip())
+        has_manual_credentials = bool((self.athlete_id or "").strip()) and bool(
+            (self.api_key or "").strip()
+        )
         if self.use_saved_credentials == has_manual_credentials:
-            raise ValueError("Provide either saved credentials or both athlete_id and api_key.")
+            raise ValueError(
+                "Provide either saved credentials or both athlete_id and api_key."
+            )
         return self
 
 
