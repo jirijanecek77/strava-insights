@@ -6,7 +6,7 @@ def moving_average(data: list[float], range_points: int) -> list[float]:
     if not data or range_points <= 0:
         return []
 
-    data = _numeric_series(data)
+    data = normalize_numeric_series(data)
     averages: list[float] = []
     length = len(data)
     for index in range(length):
@@ -18,14 +18,20 @@ def moving_average(data: list[float], range_points: int) -> list[float]:
 
 
 def meters_to_kilometers(distance_stream_meters: list[float]) -> list[float]:
-    return [distance / 1000 for distance in _numeric_series(distance_stream_meters)]
+    return [
+        distance / 1000
+        for distance in normalize_numeric_series(distance_stream_meters)
+    ]
 
 
 def moving_average_speed_kph(
     velocity_smooth_stream_mps: list[float], range_points: int = 10
 ) -> list[float]:
     return moving_average(
-        [speed * 3.6 for speed in _numeric_series(velocity_smooth_stream_mps)],
+        [
+            speed * 3.6
+            for speed in normalize_numeric_series(velocity_smooth_stream_mps)
+        ],
         range_points=range_points,
     )
 
@@ -41,8 +47,8 @@ def calculate_pace_minutes_per_km(
     distances_meters: list[float],
     range_points: int = 20,
 ) -> list[float]:
-    numeric_seconds = _numeric_series(seconds)
-    numeric_distances = _numeric_series(distances_meters)
+    numeric_seconds = normalize_numeric_series(seconds)
+    numeric_distances = normalize_numeric_series(distances_meters)
     sample_count = min(len(numeric_seconds), len(numeric_distances))
     paces: list[float] = []
     for index in range(sample_count):
@@ -85,8 +91,8 @@ def calculate_slope_percent(
     if not altitude_stream_meters or not distance_stream_meters:
         return []
 
-    altitude_stream_meters = _numeric_series(altitude_stream_meters)
-    distance_stream_meters = _numeric_series(distance_stream_meters)
+    altitude_stream_meters = normalize_numeric_series(altitude_stream_meters)
+    distance_stream_meters = normalize_numeric_series(distance_stream_meters)
     sample_count = min(len(altitude_stream_meters), len(distance_stream_meters))
     altitude_stream_meters = altitude_stream_meters[:sample_count]
     distance_stream_meters = distance_stream_meters[:sample_count]
@@ -106,7 +112,7 @@ def calculate_slope_percent(
     return slopes + ([0.0] * (len(distance_stream_meters) - len(slopes)))
 
 
-def _numeric_series(values: list[Any]) -> list[float]:
+def normalize_numeric_series(values: list[Any]) -> list[float]:
     normalized: list[float] = []
     previous = 0.0
     for value in values:

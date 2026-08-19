@@ -8,6 +8,7 @@ from app.application.analytics.detail_series import (
     meters_to_kilometers,
     moving_average_heartrate,
     moving_average_speed_kph,
+    normalize_numeric_series,
 )
 from app.application.analytics.running_analysis import build_running_analysis
 
@@ -68,7 +69,7 @@ class ActivityDetailAnalyticsService:
 
         result = {
             "distance_km": distance_km,
-            "altitude_meters": altitude_stream_meters or [],
+            "altitude_meters": normalize_numeric_series(altitude_stream_meters or []),
             "moving_average_heartrate": heartrate_ma,
             "moving_average_speed_kph": speed_ma_kph,
             "pace_minutes_per_km": pace_minutes_per_km,
