@@ -485,6 +485,7 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Manual refresh recomputes summaries, sanitizes existing streams, and refreshes top-five efforts even when no new activity is imported.
 - Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
 - Local route signatures and groups are rebuilt after activity import, after a manual refresh, or when the versioned `route_model` checkpoint is stale.
+- A one-time Docker-run local FIT import command can import mounted `.fit` files for a single-user local database, skip likely duplicates by same activity date, same sport, and distance within 5%, then rebuild summaries, best efforts, local route matching, and user caches.
 - Existing activities receive local route comparisons after the first successful route-index rebuild; no source reimport or destructive data migration is required.
 - Deletions and later historical edits in Intervals.icu remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.

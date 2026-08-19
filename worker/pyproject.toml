@@ -15,6 +15,7 @@ cryptography = "45.0.7"
 httpx = "0.28.1"
 shapely = "^2.1.2"
 h3 = "^4.3.1"
+fitparse = "^1.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "8.4.1"

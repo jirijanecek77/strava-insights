@@ -98,6 +98,7 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Made manual sync recalculate analytics while scheduled no-change syncs skip an already-current read-model rebuild.
 - [x] Applied migration `20260810_0014` and validated a real manual refresh over 148 activities; the worker completed in about 11 seconds and persisted ranked efforts plus sanitized streams.
 - [x] Restored the documented Windows build wrapper, updated vulnerable frontend dependencies to audited versions, and split charting code out of the initial production bundle.
+- [x] Added a one-time Docker-run local FIT import command that reuses worker activity persistence, stream sanitation, read-model rebuilds, route matching, and cache invalidation, with duplicate detection by same date, sport, and 5% distance tolerance.
 
 ## Remaining Work
 

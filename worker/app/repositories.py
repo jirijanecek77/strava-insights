@@ -21,6 +21,9 @@ class UserRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def list_all(self) -> list[User]:
+        return self.session.query(User).order_by(User.id.asc()).all()
+
     def get_by_id(self, user_id: int) -> User | None:
         return self.session.query(User).filter(User.id == user_id).one_or_none()
 
@@ -173,6 +176,7 @@ class ActivityRepository:
             return None
         return row[0]
 
+
 class ActivityStreamRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -280,7 +284,7 @@ class SyncCheckpointRepository:
         user_id: int,
         sync_type: str,
         checkpoint_value: str | None,
-        last_synced_at: datetime | None
+        last_synced_at: datetime | None,
     ) -> None:
         checkpoint = self.get_for_user(user_id, sync_type)
         if checkpoint is None:

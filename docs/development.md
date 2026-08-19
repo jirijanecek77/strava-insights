@@ -63,6 +63,20 @@ Useful log inspection commands:
 - `docker compose logs worker --tail 200`
 - `docker compose logs beat --tail 200`
 
+One-time local FIT import:
+
+- Put exported `.fit` files in a local folder outside the container.
+- Run the importer through the worker image and mount that folder at `/imports/fit`:
+
+```powershell
+docker compose run --rm `
+  -v "C:\path\to\fit-export:/imports/fit:ro" `
+  worker `
+  python -m app.import_fit
+```
+
+The importer assumes exactly one user exists in the database. It imports new local FIT activities, skips likely duplicates when activity date and sport match and distance is within 5%, then rebuilds summaries, best efforts, local route matching, and user caches.
+
 ## Validation Expectations
 
 - Run `make build` for every meaningful code change.
