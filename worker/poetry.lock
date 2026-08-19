@@ -419,17 +419,6 @@ test = ["certifi (>=2024)", "cryptography-vectors (==45.0.7)", "pretend (>=0.7)"
 test-randomorder = ["pytest-randomly"]
 
 [[package]]
-name = "fitparse"
-version = "1.2.0"
-description = "Python library to parse ANT/Garmin .FIT files"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "fitparse-1.2.0.tar.gz", hash = "sha256:2d691022452dea6dabad13cc6e017ca467fe8a3a895cd3ac67a50a7bb716b4a9"},
-]
-
-[[package]]
 name = "greenlet"
 version = "3.3.2"
 description = "Lightweight in-process concurrent programming"
@@ -1695,4 +1684,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "639ac4208c6e145f0d82cbe842dcdab9b620e722ca74c9fd117992375652a5e7"
+content-hash = "44169990a72409de48d4f343643c70737ebe5575bd2fa25c7fae76587e2690ca"

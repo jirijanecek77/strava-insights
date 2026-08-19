@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import httpx
 from sqlalchemy.orm import Session
@@ -17,11 +18,19 @@ from app.repositories import (
     SyncJobRepository,
 )
 from app.security import TokenCipher
-from app.services.activity_import_writer import ActivityImportWriter
+from app.services.activity_summary import (
+    distance_km,
+    format_moving_time,
+    format_pace,
+    pace_seconds_per_km,
+    speed_kph,
+    summary_metric_display,
+)
 from app.services.cache_invalidator import UserCacheInvalidator
 from app.services.read_model_builder import RUN_BEST_EFFORT_DISTANCES, ReadModelBuilder
 from app.services.local_route_matcher import ROUTE_MODEL_VERSION
 from app.services.route_index_builder import RouteIndexBuilder, RouteIndexStats
+from app.services.stream_sanitizer import sanitize_stream_payload
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
 ACTIVITY_CHECKPOINT_TYPE = "activities"
@@ -46,9 +55,6 @@ class BaseImportService:
         self.sync_jobs = SyncJobRepository(session)
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
-        self.activity_writer = ActivityImportWriter(
-            activities=self.activities, activity_streams=self.activity_streams
-        )
         self.checkpoints = SyncCheckpointRepository(session)
         self.cache_invalidator = UserCacheInvalidator()
         self.read_model_builder = ReadModelBuilder(session)
@@ -184,7 +190,9 @@ class BaseImportService:
                 extra={"sync_job.id": sync_job_id, "user.id": user_id},
             )
         route_stats = (
-            self._rebuild_local_routes(user_id) if route_rebuild_required else None
+            self._rebuild_local_routes(user_id)
+            if route_rebuild_required
+            else None
         )
         if imported_count > 0 or rebuild_required or route_stats is not None:
             self.cache_invalidator.invalidate_user(user_id)
@@ -222,16 +230,90 @@ class BaseImportService:
         return checkpoint.checkpoint_value
 
     def _upsert_activity(self, *, user_id: int, payload: dict) -> Activity:
-        self.activity_writer = ActivityImportWriter(
-            activities=self.activities, activity_streams=self.activity_streams
+        activity = self.activities.get_by_source_activity_id(user_id, payload["id"])
+        if activity is None:
+            activity = Activity(
+                user_id=user_id,
+                strava_activity_id=payload["id"],
+                name=payload.get("name") or "Unnamed activity",
+                sport_type=payload["type"],
+                start_date_utc=self._parse_datetime(
+                    self._first_present(
+                        payload, "start_date", "start_date_utc", "start_date_local"
+                    )
+                ),
+            )
+        activity.description = payload.get("description")
+        activity.sport_type = payload["type"]
+        activity.name = payload.get("name") or activity.name
+        activity.start_date_utc = self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local"))  # type: ignore[assignment]
+        activity.start_date_local = self._parse_datetime(
+            payload.get("start_date_local") or payload.get("start_date")
         )
-        return self.activity_writer.upsert_activity(user_id=user_id, payload=payload)
+        activity.distance_meters = Decimal(
+            str(self._first_present(payload, "distance", "distance_meters") or 0)
+        )
+        activity.moving_time_seconds = int(
+            self._first_present(payload, "moving_time", "moving_time_seconds") or 0
+        )
+        activity.elapsed_time_seconds = (
+            self._first_present(payload, "elapsed_time", "elapsed_time_seconds")
+            or activity.moving_time_seconds
+        )
+        activity.total_elevation_gain_meters = self._decimal_or_none(
+            self._first_present(
+                payload, "total_elevation_gain", "total_elevation_gain_meters"
+            )
+        )
+        activity.average_speed_mps = self._decimal_or_none(
+            self._first_present(payload, "average_speed", "avg_speed"), scale=4
+        )
+        activity.average_speed_kph = speed_kph(activity.average_speed_mps)
+        activity.max_speed_mps = self._decimal_or_none(
+            self._first_present(payload, "max_speed", "max_speed_mps"), scale=4
+        )
+        activity.average_heartrate_bpm = self._decimal_or_none(
+            self._first_present(payload, "average_heartrate", "avg_hr", "average_hr")
+        )
+        activity.average_cadence = self._decimal_or_none(
+            self._first_present(payload, "average_cadence", "avg_cadence")
+        )
+        activity.distance_km = distance_km(activity.distance_meters)
+        activity.moving_time_display = format_moving_time(activity.moving_time_seconds)
+        activity.average_pace_seconds_per_km = pace_seconds_per_km(
+            activity.distance_meters,
+            activity.moving_time_seconds,
+            activity.sport_type,
+        )
+        activity.average_pace_display = format_pace(
+            activity.average_pace_seconds_per_km
+        )
+        activity.summary_metric_display = summary_metric_display(
+            activity.sport_type,
+            pace_display=activity.average_pace_display,
+            speed_kph_value=activity.average_speed_kph,
+        )
+        return self.activities.save(activity)
 
     def _upsert_stream(self, *, activity: Activity, payload: dict) -> ActivityStream:
-        self.activity_writer = ActivityImportWriter(
-            activities=self.activities, activity_streams=self.activity_streams
-        )
-        return self.activity_writer.upsert_stream(activity=activity, payload=payload)
+        sanitized = sanitize_stream_payload(payload, activity.sport_type)
+        activity_stream = self.activity_streams.get_by_activity_id(activity.id)
+        if activity_stream is None:
+            activity_stream = ActivityStream(activity_id=activity.id)
+        activity_stream.time_stream = sanitized.get("time")
+        activity_stream.distance_stream = sanitized.get("distance")
+        activity_stream.latlng_stream = sanitized.get("latlng")
+        activity_stream.altitude_stream = sanitized.get("altitude")
+        activity_stream.velocity_smooth_stream = sanitized.get("velocity_smooth")
+        activity_stream.heartrate_stream = sanitized.get("heartrate")
+        speed_values = [
+            value
+            for value in (activity_stream.velocity_smooth_stream or {}).get("data", [])
+            if isinstance(value, int | float) and not isinstance(value, bool)
+        ]
+        if speed_values:
+            activity.max_speed_mps = self._decimal_or_none(max(speed_values), scale=4)
+        return self.activity_streams.save(activity_stream)
 
     def _load_source_run_efforts(
         self, *, athlete_id: str, api_key: str
@@ -313,15 +395,28 @@ class BaseImportService:
 
     @staticmethod
     def _parse_datetime(value: str | None) -> datetime | None:
-        return ActivityImportWriter.parse_datetime(value)
+        if value is None:
+            return None
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed
 
     @staticmethod
-    def _decimal_or_none(value: float | int | None, *, scale: int = 2):
-        return ActivityImportWriter.decimal_or_none(value, scale=scale)
+    def _decimal_or_none(
+        value: float | int | None, *, scale: int = 2
+    ) -> Decimal | None:
+        if value is None:
+            return None
+        quantize_value = "0." + ("0" * (scale - 1)) + "1"
+        return Decimal(str(value)).quantize(Decimal(quantize_value))
 
     @staticmethod
     def _first_present(payload: dict, *keys: str):
-        return ActivityImportWriter.first_present(payload, *keys)
+        for key in keys:
+            if payload.get(key) is not None:
+                return payload[key]
+        return None
 
     @staticmethod
     def _to_checkpoint_value(value: datetime | None) -> str | None:
