@@ -115,7 +115,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
                     />
                 </div>
                 <DetailChart accent="orange" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label={detail.series.pace_minutes_per_km.length ? "Pace" : "Speed"} onSelectIndex={onSelectSeriesIndex} referenceValue={paceReferenceValue} thresholds={detail.thresholds} valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"} values={paceOrSpeed}/>
-                <DetailChart accent="red" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Heart Rate" onSelectIndex={onSelectSeriesIndex} referenceValue={heartRateReferenceValue} thresholds={detail.thresholds} valueKind="heart_rate" values={detail.series.moving_average_heartrate}/>
+                {detail.series.moving_average_heartrate.length ? <DetailChart accent="red" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Heart Rate" onSelectIndex={onSelectSeriesIndex} referenceValue={heartRateReferenceValue} thresholds={detail.thresholds} valueKind="heart_rate" values={detail.series.moving_average_heartrate}/> : null}
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
             {detail.route_comparison ? (
