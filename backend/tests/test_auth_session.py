@@ -16,7 +16,7 @@ def test_current_user_service_returns_user_from_session() -> None:
             "session": {
                 "user": {
                     "id": 1,
-                    "strava_athlete_id": 162181,
+                        "external_user_id": "162181",
                     "display_name": "Test Athlete",
                     "profile_picture_url": None,
                 }
@@ -29,7 +29,8 @@ def test_current_user_service_returns_user_from_session() -> None:
     assert current_user is not None
     assert current_user.model_dump() == {
         "id": 1,
-        "strava_athlete_id": 162181,
+                "external_user_id": "162181",
+            "source_provider": "garmin",
         "display_name": "Test Athlete",
         "profile_picture_url": None,
     }

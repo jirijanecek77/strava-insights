@@ -1,7 +1,7 @@
 import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {Bar, Brush, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 
-import {adminAthleteId} from "../constants";
+import {adminExternalUserId} from "../constants";
 import {aggregateTrendItems, buildCalendarWeeks, buildComparisonPeriodOptions, groupBestEffortsBySport, shiftMonth, sortComparisons} from "../utils/data";
 import {
     formatComparisonRange,
@@ -319,7 +319,7 @@ export function SettingsView({
                     </div>
                 </div>
                 <div className="settings-list">
-                    <div className="settings-row"><span>Intervals Athlete</span><strong>{user.strava_athlete_id}</strong></div>
+                    <div className="settings-row"><span>Garmin account</span><strong>{user.external_user_id}</strong></div>
                 </div>
                 <div className="profile-account-actions">
                     <button className="ghost-button inline-button logout-button" onClick={onLogout} type="button">Log out</button>
@@ -426,14 +426,14 @@ export function AdminView({actionUserId, adminUsers, busy, onDisableUser}) {
             {!busy && adminUsers.length > 0 ? (
                 <div aria-label="Users audit list" className="admin-user-list">
                     {adminUsers.map((item) => {
-                        const isSelf = item.strava_athlete_id === adminAthleteId;
+                        const isSelf = item.external_user_id === adminExternalUserId;
                         const isDisabled = !item.is_active;
                         return (
                             <article key={item.id} className="admin-user-card">
                                 <div className="admin-user-main">
                                     <div>
                                         <strong>{item.display_name}</strong>
-                                        <p className="copy">Athlete {item.strava_athlete_id ?? "n/a"}</p>
+                                        <p className="copy">Garmin account {item.external_user_id ?? "n/a"}</p>
                                     </div>
                                     <span className={isDisabled ? "status-pill is-disabled" : "status-pill is-active"}>{isDisabled ? "Disabled" : "Active"}</span>
                                 </div>

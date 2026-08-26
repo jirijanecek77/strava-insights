@@ -16,4 +16,4 @@ def test_user_cache_invalidator_deletes_user_scoped_pattern() -> None:
     deleted = UserCacheInvalidator(cache).invalidate_user(9)
 
     assert deleted == 3
-    assert cache.patterns == ["intervals_insights:user:9:*"]
+    assert cache.patterns == ["garmin_insights:user:9:*"]

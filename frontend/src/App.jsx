@@ -2,7 +2,7 @@ import {startTransition, useEffect, useEffectEvent, useMemo, useRef, useState} f
 import "leaflet/dist/leaflet.css";
 
 import {
-    adminAthleteId,
+    adminExternalUserId,
     defaultLandingCredentialState,
     syncPollIntervalMs,
     views,
@@ -78,7 +78,7 @@ export default function App() {
             }),
         [dateFrom, dateTo, selectedSport],
     );
-    const isAdmin = user?.strava_athlete_id === adminAthleteId;
+    const isAdmin = user?.external_user_id === adminExternalUserId;
     const availableViews = isAdmin ? [...views, "admin"] : views;
 
     useEffect(() => {
@@ -87,21 +87,21 @@ export default function App() {
 
     const loadLandingCredentialState = useEffectEvent(async () => {
         try {
-            const payload = await fetchJson("/auth/intervals/credentials");
+            const payload = await fetchJson("/auth/garmin/credentials");
             setLandingCredentialState(payload);
             setAuthForm({
-                athleteId: payload.athlete_id ?? "",
-                apiKey: "",
+                email: "",
+                password: "",
                 mode: payload.can_connect ? "saved" : "manual",
             });
         } catch (error) {
             setLandingCredentialState(defaultLandingCredentialState);
             setAuthForm({
-                athleteId: "",
-                apiKey: "",
+                email: "",
+                password: "",
                 mode: "manual",
             });
-            setErrorMessage(error.message ?? "Failed to load saved Intervals.icu credentials.");
+            setErrorMessage(error.message ?? "Failed to load saved Garmin credentials.");
         }
     });
 
@@ -377,14 +377,12 @@ export default function App() {
     async function handleLogin() {
         try {
             setAuthBusy(true);
-            await fetchJson("/auth/intervals/login", {
+            await fetchJson("/auth/garmin/login", {
                 method: "POST",
-                body: JSON.stringify(
-                    authForm.mode === "saved"
-                        ? {use_saved_credentials: true}
+                body: JSON.stringify(authForm.mode === "saved" ? {use_saved_credentials: true}
                         : {
-                            athlete_id: authForm.athleteId.trim(),
-                            api_key: authForm.apiKey.trim(),
+                            email: authForm.email.trim(),
+                            password: authForm.password,
                             use_saved_credentials: false,
                         },
                 ),
@@ -400,13 +398,13 @@ export default function App() {
             if (authForm.mode === "saved") {
                 setAuthForm((current) => ({
                     ...current,
-                    athleteId: current.athleteId || landingCredentialState.athlete_id || "",
-                    apiKey: "",
+                    email: current.email,
+                    password: "",
                     mode: "manual",
                 }));
                 setSetupModalOpen(true);
             }
-            setErrorMessage(error.message ?? "Failed to connect Intervals.icu.");
+            setErrorMessage(error.message ?? "Failed to connect Garmin.");
         } finally {
             setAuthBusy(false);
         }
@@ -428,7 +426,7 @@ export default function App() {
     }
 
     function hasManualCredentials() {
-        return authForm.athleteId.trim().length > 0 && authForm.apiKey.trim().length > 0;
+        return authForm.email.trim().length > 0 && authForm.password.length > 0;
     }
 
     function handleAuthPrimaryAction() {

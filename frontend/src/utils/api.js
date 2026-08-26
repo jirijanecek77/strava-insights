@@ -59,6 +59,7 @@ export async function fetchJson(path, options = {}) {
 
     if (!response.ok) {
         let message = `Request failed with status ${response.status}`;
+        let errorDetail;
         const responseType = response.headers?.get?.("content-type") ?? "";
         if (responseType.includes("application/json")) {
             try {
@@ -66,6 +67,8 @@ export async function fetchJson(path, options = {}) {
                 if (typeof payload?.detail === "string" && payload.detail.trim()) {
                     message = payload.detail;
                 }
+                const detail = payload?.detail;
+                errorDetail = detail;
             } catch {
                 // Ignore malformed error bodies and keep the status-based message.
             }
@@ -92,6 +95,7 @@ export async function fetchJson(path, options = {}) {
         error.status = response.status;
         error.requestId = responseRequestId;
         error.url = url;
+        error.detail = errorDetail;
         throw error;
     }
 

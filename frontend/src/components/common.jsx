@@ -26,11 +26,11 @@ export function AuthScreen({
                                onLogin,
                            }) {
     const hasSavedCredentials = authForm.mode === "saved" && landingCredentialState.can_connect;
-    const hasManualCredentials = authForm.athleteId.trim().length > 0 && authForm.apiKey.trim().length > 0;
+    const hasManualCredentials = (authForm.email ?? "").trim().length > 0 && (authForm.password ?? "").length > 0;
     const canConnect = hasSavedCredentials || hasManualCredentials;
-    const primaryButtonLabel = authBusy ? "Connecting..." : "Connect Intervals.icu";
+    const primaryButtonLabel = authBusy ? "Connecting..." : "Connect Garmin";
     const heroTitle = isLoggedOut ? "Back to your training archive." : "Your Garmin history, kept simple.";
-    const subCopy = hasSavedCredentials ? "Your data is still here. Log in again and continue." : "Enter your Intervals.icu athlete ID and API key.";
+    const subCopy = hasSavedCredentials ? "Your data is still here. Log in again and continue." : "Enter your Garmin Connect email and password.";
 
     return (
         <main className="app-shell landing-shell">
@@ -51,16 +51,16 @@ export function AuthScreen({
                         </button>
                     </div>
                 </div>
-                <div className="auth-brand-card landing-hero-card" aria-label="Intervals.icu compatibility notice">
+                <div className="auth-brand-card landing-hero-card" aria-label="Garmin Connect">
                     <div className="auth-brand-lockup landing-brand-copy">
-                        <div className="auth-brand-wordmark" aria-label="Intervals.icu">
+                        <div className="auth-brand-wordmark" aria-label="Garmin Connect">
                             <span className="intervals-connect-chevron tall"/>
                             <span className="intervals-connect-chevron short"/>
-                            <span className="auth-brand-word">Intervals.icu</span>
+                            <span className="auth-brand-word">Garmin Connect</span>
                         </div>
-                        <p className="auth-brand-mark">Powered by your Intervals.icu archive</p>
+                        <p className="auth-brand-mark">Powered by your Garmin activity archive</p>
                         <p className="copy landing-legal-copy">
-                            Connect with the API key from your Intervals.icu settings.
+                            Connect with your Garmin Connect account.
                         </p>
                     </div>
                 </div>
@@ -70,34 +70,29 @@ export function AuthScreen({
                     <section aria-labelledby="setup-dialog-title" aria-modal="true" className="setup-modal" role="dialog">
                         <div className="setup-modal-header">
                             <div>
-                                <p className="eyebrow">Intervals.icu</p>
-                                <h2 id="setup-dialog-title">Connect Intervals.icu</h2>
+                                <p className="eyebrow">Garmin Connect</p>
+                                <h2 id="setup-dialog-title">Connect Garmin</h2>
                                 <p className="copy">
-                                    Enter your athlete ID and personal API key from Intervals.icu settings. </p>
-                                <p className="copy">For more information, see the {" "}
-                                    <a href={landingCredentialState.intervals_settings_url || "https://intervals.icu/settings"} >
-                                        Intervals.icu settings
-                                    </a> guide.
-                                </p>
+                                    Enter your Garmin email and password. </p>
                             </div>
                         </div>
                         <div className="auth-credential-grid">
                             <label className="control-chip">
-                                <span>Intervals Athlete ID</span>
+                                <span>Garmin email</span>
                                 <input
                                     autoComplete="off"
-                                    type="text"
-                                    value={authForm.athleteId}
-                                    onChange={(event) => onChangeAuthField("athleteId", event.target.value)}
+                                    type="email"
+                                    value={authForm.email}
+                                    onChange={(event) => onChangeAuthField("email", event.target.value)}
                                 />
                             </label>
                             <label className="control-chip">
-                                <span>Intervals API Key</span>
+                                <span>Garmin password</span>
                                 <input
                                     autoComplete="off"
                                     type="password"
-                                    value={authForm.apiKey}
-                                    onChange={(event) => onChangeAuthField("apiKey", event.target.value)}
+                                    value={authForm.password}
+                                    onChange={(event) => onChangeAuthField("password", event.target.value)}
                                 />
                             </label>
                         </div>

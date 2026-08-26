@@ -42,11 +42,28 @@ Required values:
 - `worker/.env.secrets`
   - `SESSION_SECRET_KEY`
 
-## Intervals.icu API Setup
+## Garmin Connect Setup
 
-- Each athlete must enter their Intervals.icu athlete ID and personal API key on the landing/login screen before connecting.
+- Each athlete enters their Garmin Connect email and password on the landing/login screen; MFA is completed when Garmin requests it.
 - The landing/login screen should link users to `https://intervals.icu/settings` for credential lookup.
-- Callback configuration is not required; Intervals.icu access uses athlete ID plus API key credentials.
+- Garmin tokens are encrypted in PostgreSQL and are never placed in environment files.
+
+### Reconnecting an existing account after migration
+
+Back up the database before changing the existing account. The migration keeps all activities and marks them `legacy`; a successful Garmin login updates only the user identity and creates encrypted Garmin session storage.
+
+```sql
+-- 1. Backup (run outside psql): pg_dump "$DATABASE_URL" > strava-insights-before-garmin.sql
+-- 2. Verify the retained account and legacy data:
+SELECT id, source_provider, external_user_id, is_active FROM users ORDER BY id;
+SELECT source_provider, count(*) FROM activities GROUP BY source_provider ORDER BY source_provider;
+-- 3. After signing in through the Garmin screen, verify the new connection:
+SELECT u.id, u.source_provider, u.external_user_id, c.external_user_id
+FROM users u JOIN garmin_credentials c ON c.user_id = u.id;
+SELECT source_provider, count(*) FROM activities GROUP BY source_provider ORDER BY source_provider;
+```
+
+Do not insert Garmin passwords, MFA codes, or token JSON through SQL or environment files. The login flow writes only encrypted session material.
 - Keep `FRONTEND_VITE_API_BASE_URL` set to the same public origin, for example `https://app.example.com`.
 
 ## Deployment Commands

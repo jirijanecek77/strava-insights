@@ -1,30 +1,28 @@
 from pydantic import BaseModel, model_validator
 
 
-class IntervalsCredentialStateResponse(BaseModel):
-    athlete_id: str | None = None
+class GarminCredentialStateResponse(BaseModel):
+    external_user_id: str | None = None
     has_saved_secret: bool
     can_connect: bool
-    intervals_settings_url: str
+    provider: str = "garmin"
 
 
-class StartIntervalsLoginRequest(BaseModel):
-    athlete_id: str | None = None
-    api_key: str | None = None
+class StartGarminLoginRequest(BaseModel):
+    email: str | None = None
+    password: str | None = None
     use_saved_credentials: bool = False
 
     @model_validator(mode="after")
-    def validate_mode(self) -> "StartIntervalsLoginRequest":
-        has_manual_credentials = bool((self.athlete_id or "").strip()) and bool(
-            (self.api_key or "").strip()
-        )
+    def validate_mode(self) -> "StartGarminLoginRequest":
+        has_manual_credentials = bool((self.email or "").strip()) and bool((self.password or "").strip())
         if self.use_saved_credentials == has_manual_credentials:
             raise ValueError(
-                "Provide either saved credentials or both athlete_id and api_key."
+                "Provide either saved credentials or both email and password."
             )
         return self
 
 
-class StartIntervalsLoginResponse(BaseModel):
+class StartGarminLoginResponse(BaseModel):
     user_id: int
     is_new_user: bool

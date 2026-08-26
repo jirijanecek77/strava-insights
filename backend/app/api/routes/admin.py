@@ -12,7 +12,7 @@ from app.infrastructure.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/admin")
 logger = logging.getLogger(__name__)
-ADMIN_ATHLETE_ID = settings.effective_admin_athlete_id
+ADMIN_EXTERNAL_USER_ID = settings.effective_admin_external_user_id
 
 
 def _require_admin_user(
@@ -23,7 +23,7 @@ def _require_admin_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
         )
-    if user.strava_athlete_id != ADMIN_ATHLETE_ID:
+    if user.external_user_id != ADMIN_EXTERNAL_USER_ID:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required."
         )
@@ -59,7 +59,7 @@ def disable_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
         )
-    if target_user.strava_athlete_id == ADMIN_ATHLETE_ID:
+    if target_user.external_user_id == ADMIN_EXTERNAL_USER_ID:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The admin account cannot be disabled.",

@@ -23,6 +23,12 @@ def speed_kph(average_speed_mps: Decimal | None) -> Decimal | None:
     return _quantize(average_speed_mps * Decimal("3.6"), "0.01")
 
 
+def average_speed_mps(distance_meters: Decimal, moving_time_seconds: int) -> Decimal | None:
+    if distance_meters <= 0 or moving_time_seconds <= 0:
+        return None
+    return _quantize(distance_meters / Decimal(moving_time_seconds), "0.0001")
+
+
 def pace_seconds_per_km(distance_meters: Decimal, moving_time_seconds: int, sport_type: str) -> Decimal | None:
     if sport_type != "Run" or distance_meters <= 0:
         return None

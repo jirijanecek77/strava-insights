@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, String, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.base import Base
@@ -11,6 +11,7 @@ from app.infrastructure.db.models.mixins import TimestampMixin
 class Activity(TimestampMixin, Base):
     __tablename__ = "activities"
     __table_args__ = (
+        UniqueConstraint("user_id", "source_provider", "source_activity_id", name="uq_activities_user_provider_source"),
         Index("ix_activities_user_start_date_desc", "user_id", "start_date_utc"),
         Index(
             "ix_activities_user_sport_start_date_desc",
@@ -22,9 +23,8 @@ class Activity(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    strava_activity_id: Mapped[int] = mapped_column(
-        BigInteger, unique=True, nullable=False
-    )
+    source_activity_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="garmin")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     sport_type: Mapped[str] = mapped_column(String(50), nullable=False)

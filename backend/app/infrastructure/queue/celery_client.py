@@ -7,7 +7,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
-    "intervals_insights_backend",
+    "garmin_insights_backend",
     broker=settings.redis_url,
     backend=settings.redis_url,
 )

@@ -1,6 +1,6 @@
+from app.services.activity_summary import average_speed_mps, distance_km, format_moving_time, format_pace, \
+    pace_seconds_per_km, speed_kph, summary_metric_display
 from decimal import Decimal
-
-from app.services.activity_summary import distance_km, format_moving_time, format_pace, pace_seconds_per_km, speed_kph, summary_metric_display
 
 
 def test_activity_summary_helpers_compute_normalized_values() -> None:
@@ -11,3 +11,4 @@ def test_activity_summary_helpers_compute_normalized_values() -> None:
     assert format_pace(Decimal("270.00")) == "4:30"
     assert summary_metric_display("Run", pace_display="4:30", speed_kph_value=Decimal("13.32")) == "4:30 /km"
     assert summary_metric_display("Ride", pace_display=None, speed_kph_value=Decimal("31.50")) == "31.50 km/h"
+    assert average_speed_mps(Decimal("10000"), 3600) == Decimal("2.7778")

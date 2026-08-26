@@ -42,13 +42,14 @@ class SyncJob(Base):
     )
 
 
-class IntervalsCredential(Base):
-    __tablename__ = "intervals_credentials"
+class GarminCredential(Base):
+    __tablename__ = "garmin_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    athlete_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    api_key_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
+    email_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
+    token_json_encrypted: Mapped[str] = mapped_column(String(16384), nullable=False)
+    external_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
 
 
 class Activity(Base):
@@ -56,7 +57,8 @@ class Activity(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    strava_activity_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_activity_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="garmin")
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None]
     sport_type: Mapped[str] = mapped_column(String(50), nullable=False)

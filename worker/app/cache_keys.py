@@ -1,5 +1,5 @@
 class CacheKeys:
-    USER_PREFIX = "intervals_insights:user"
+    USER_PREFIX = "garmin_insights:user"
 
     @classmethod
     def user_pattern(cls, user_id: int) -> str:

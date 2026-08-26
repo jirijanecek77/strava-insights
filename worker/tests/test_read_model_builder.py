@@ -17,7 +17,7 @@ class ActivityStub:
         total_elevation_gain_meters: str | None,
     ) -> None:
         self.id = activity_id
-        self.strava_activity_id = activity_id
+        self.source_activity_id = activity_id
         self.sport_type = sport_type
         self.start_date_utc = start_date_utc
         self.start_date_local = start_date_local

@@ -17,7 +17,7 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - Authentication uses Intervals.icu athlete ID plus personal API key in the first Intervals.icu integration iteration.
 - Before a user can connect, the landing/login screen must collect that user's Intervals.icu athlete ID and API key.
 - The system supports multiple users with isolated data.
-- Supported sports in v1 are running, cycling, and e-bike ride types.
+- Supported sports in v1 are running, cycling, and e-bike ride types; strength-training activities are omitted.
 - First login triggers a background full historical import.
 - Ongoing synchronization runs daily, with optional refresh on startup when data is stale.
 - Users cannot export, delete, or disconnect their data in v1.
@@ -197,6 +197,8 @@ At minimum, imported activity metadata must support:
 - `type`
 - `distance`
 - `moving_time`
+- use Garmin's moving pace/speed fields when provided; otherwise derive average pace or speed from moving time,
+  excluding pauses represented by elapsed time
 - `elapsed_time`
 - `total_elevation_gain`
 - `average_speed`
@@ -214,6 +216,10 @@ When available, the system must persist streams needed for local detail renderin
 - `altitude`
 - `velocity_smooth`
 - `heartrate`
+
+Garmin positional activity-detail metrics must be normalized from their descriptor keys (including `sumDuration`,
+`sumDistance`, `directLatitude`, `directLongitude`,
+`directElevation`, `directHeartRate`, and `directSpeed`) before persistence.
 
 Imported and previously stored streams must be sanitized without changing sample-array alignment:
 
@@ -483,6 +489,8 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Manual refresh is incremental only and must not trigger a full reimport.
 - New data invalidates affected cache entries and recomputes summaries as needed.
 - Manual refresh recomputes summaries, sanitizes existing streams, and refreshes top-five efforts even when no new activity is imported.
+- Manual refresh backfills missing or empty streams for already-imported activities without reimporting populated
+  streams.
 - Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
 - Local route signatures and groups are rebuilt after activity import, after a manual refresh, or when the versioned `route_model` checkpoint is stale.
 - Existing activities receive local route comparisons after the first successful route-index rebuild; no source reimport or destructive data migration is required.

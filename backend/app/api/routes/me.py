@@ -100,7 +100,8 @@ def update_user_profile_details(
         user_repository.save(
             User(
                 id=user.id,
-                strava_athlete_id=user.strava_athlete_id,
+                external_user_id=user.external_user_id,
+                source_provider=user.source_provider,
                 display_name=user.display_name,
                 profile_picture_url=user.profile_picture_url,
                 is_active=True,

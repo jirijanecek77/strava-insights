@@ -2,15 +2,16 @@ from dataclasses import dataclass
 
 
 @dataclass(slots=True)
-class IntervalsCredentials:
-    athlete_id: str
-    api_key: str
+class GarminCredentials:
+    email: str
+    password: str | None = None
+    token_json: str | None = None
 
 
 @dataclass(slots=True)
 class AuthenticatedUser:
     id: int
-    strava_athlete_id: int
+    external_user_id: str
     display_name: str
     profile_picture_url: str | None
     is_new_user: bool = False

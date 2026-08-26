@@ -8,7 +8,7 @@ from app.models import (
     ActivityRouteSignature,
     ActivityStream,
     BestEffort,
-    IntervalsCredential,
+    GarminCredential,
     PeriodSummary,
     RouteGroup,
     SyncCheckpoint,
@@ -27,7 +27,7 @@ class UserRepository:
     def list_incremental_sync_candidates(self) -> list[int]:
         rows = (
             self.session.query(User.id)
-            .join(IntervalsCredential, IntervalsCredential.user_id == User.id)
+            .join(GarminCredential, GarminCredential.user_id == User.id)
             .filter(User.is_active.is_(True))
             .distinct()
             .all()
@@ -35,14 +35,14 @@ class UserRepository:
         return [user_id for (user_id,) in rows]
 
 
-class IntervalsCredentialRepository:
+class GarminCredentialRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_for_user(self, user_id: int) -> IntervalsCredential | None:
+    def get_for_user(self, user_id: int) -> GarminCredential | None:
         return (
-            self.session.query(IntervalsCredential)
-            .filter(IntervalsCredential.user_id == user_id)
+            self.session.query(GarminCredential)
+            .filter(GarminCredential.user_id == user_id)
             .one_or_none()
         )
 
@@ -123,27 +123,29 @@ class ActivityRepository:
         self.session = session
 
     def get_by_source_activity_id(
-        self, user_id: int, source_activity_id: int
+        self, user_id: int, source_activity_id: int, source_provider: str = "garmin"
     ) -> Activity | None:
         return (
             self.session.query(Activity)
             .filter(
                 Activity.user_id == user_id,
-                Activity.strava_activity_id == source_activity_id,
+                Activity.source_provider == source_provider,
+                Activity.source_activity_id == source_activity_id,
             )
             .one_or_none()
         )
 
     def list_existing_source_activity_ids_for_user(
-        self, user_id: int, source_activity_ids: list[int]
+        self, user_id: int, source_activity_ids: list[int], source_provider: str = "garmin"
     ) -> set[int]:
         if not source_activity_ids:
             return set()
         rows = (
-            self.session.query(Activity.strava_activity_id)
+            self.session.query(Activity.source_activity_id)
             .filter(
                 Activity.user_id == user_id,
-                Activity.strava_activity_id.in_(source_activity_ids),
+                Activity.source_provider == source_provider,
+                Activity.source_activity_id.in_(source_activity_ids),
             )
             .all()
         )

@@ -195,7 +195,7 @@ class ReadModelBuilder:
         candidates_by_code: dict[tuple[str, str], list[BestEffort]] = {}
 
         for activity in activities:
-            source_efforts = source_run_efforts.get(activity.strava_activity_id)
+            source_efforts = source_run_efforts.get(activity.source_activity_id)
             if activity.sport_type == RUN_SPORT and source_efforts is not None:
                 for effort_code, best_time in source_efforts.items():
                     target_distance = RUN_BEST_EFFORT_DISTANCES.get(effort_code)

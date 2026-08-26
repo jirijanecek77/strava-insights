@@ -1,7 +1,12 @@
-import {act, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
+import {fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 
 import App from "./App";
-import {buildThresholdGuides, buildCalendarSummary, parseSummaryMetricAverage, resolveDetailReferenceValue} from "./utils/data";
+import {
+    buildCalendarSummary,
+    buildThresholdGuides,
+    parseSummaryMetricAverage,
+    resolveDetailReferenceValue
+} from "./utils/data";
 import {formatAltitudeAxisValue, formatAxisValue} from "./utils/formatters";
 
 function jsonResponse(body, status = 200) {
@@ -27,12 +32,12 @@ describe("App", () => {
             if (url.includes("/auth/session")) {
                 return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
             }
-            if (url.includes("/auth/intervals/credentials")) {
+            if (url.includes("/auth/garmin/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    athlete_id: null,
+                    external_user_id: null,
                     has_saved_secret: false,
                     can_connect: false,
-                    intervals_settings_url: "https://intervals.icu/settings",
+                    provider: "garmin",
                 }));
             }
             return Promise.reject(new Error(`Unhandled fetch: ${url}`));
@@ -41,17 +46,15 @@ describe("App", () => {
         render(<App/>);
 
         expect(await screen.findByRole("heading", {name: /your garmin history, kept simple/i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /connect intervals\.icu/i})).toBeInTheDocument();
-        expect(screen.getByText(/^intervals\.icu$/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect garmin/i})).toBeInTheDocument();
+        expect(screen.getByText(/^garmin connect$/i)).toBeInTheDocument();
         expect(screen.queryByText(/setup required/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/flow/i)).not.toBeInTheDocument();
-        fireEvent.click(screen.getByRole("button", {name: /connect intervals\.icu/i}));
-        const dialog = await screen.findByRole("dialog", {name: /connect intervals\.icu/i});
+        fireEvent.click(screen.getByRole("button", {name: /connect garmin/i}));
+        const dialog = await screen.findByRole("dialog", {name: /connect garmin/i});
         expect(dialog).toBeInTheDocument();
-        expect(within(dialog).getByRole("link", {name: /intervals\.icu settings/i})).toHaveAttribute(
-            "href",
-            "https://intervals.icu/settings",
-        );
+        expect(within(dialog).getByLabelText("Garmin email")).toBeInTheDocument();
+        expect(within(dialog).getByLabelText("Garmin password")).toBeInTheDocument();
     });
 
     it("renders the shared auth screen with saved credentials after logout", async () => {
@@ -69,12 +72,12 @@ describe("App", () => {
                 expect(init?.method).toBe("POST");
                 return Promise.resolve({ok: true, status: 204, headers: {get: vi.fn().mockReturnValue(null)}});
             }
-            if (url.includes("/auth/intervals/credentials")) {
+            if (url.includes("/auth/garmin/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    athlete_id: "12345",
+                    external_user_id: "garmin-user-123",
                     has_saved_secret: true,
                     can_connect: true,
-                    intervals_settings_url: "https://intervals.icu/settings",
+                    provider: "garmin",
                 }));
             }
             if (url.includes("/sync/status")) {
@@ -119,10 +122,10 @@ describe("App", () => {
         fireEvent.click(await screen.findByRole("button", {name: /log out/i}));
 
         expect(await screen.findByRole("heading", {name: /back to your training archive\./i})).toBeInTheDocument();
-        expect(screen.getByRole("button", {name: /connect intervals\.icu/i})).toBeInTheDocument();
-        expect(screen.getByText(/^intervals\.icu$/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /connect garmin/i})).toBeInTheDocument();
+        expect(screen.getByText(/^garmin connect$/i)).toBeInTheDocument();
         expect(screen.getByText(/your data is still here\. log in again and continue\./i)).toBeInTheDocument();
-        expect(screen.getByText(/powered by your intervals\.icu archive/i)).toBeInTheDocument();
+        expect(screen.getByText(/powered by your garmin activity archive/i)).toBeInTheDocument();
     });
 
     it("stages manual credentials in the setup modal and uses them for login", async () => {
@@ -140,19 +143,19 @@ describe("App", () => {
                 }
                 return Promise.resolve(jsonResponse({detail: "Authentication required."}, 401));
             }
-            if (url.includes("/auth/intervals/credentials")) {
+            if (url.includes("/auth/garmin/credentials")) {
                 return Promise.resolve(jsonResponse({
-                    athlete_id: null,
+                    external_user_id: null,
                     has_saved_secret: false,
                     can_connect: false,
-                    intervals_settings_url: "https://intervals.icu/settings",
+                    provider: "garmin",
                 }));
             }
-            if (url.includes("/auth/intervals/login")) {
+            if (url.includes("/auth/garmin/login")) {
                 expect(init?.method).toBe("POST");
                 expect(init?.body).toBe(JSON.stringify({
-                    athlete_id: "45678",
-                    api_key: "super-secret",
+                    email: "athlete@example.com",
+                    password: "garmin-password",
                     use_saved_credentials: false,
                 }));
                 loggedIn = true;
@@ -181,19 +184,19 @@ describe("App", () => {
 
         render(<App/>);
 
-        fireEvent.click(await screen.findByRole("button", {name: /connect intervals\.icu/i}));
-        const dialog = await screen.findByRole("dialog", {name: /connect intervals\.icu/i});
-        fireEvent.change(within(dialog).getByLabelText("Intervals Athlete ID"), {target: {value: "45678"}});
-        fireEvent.change(within(dialog).getByLabelText("Intervals API Key"), {target: {value: "super-secret"}});
-        fireEvent.click(within(dialog).getByRole("button", {name: /connect intervals\.icu/i}));
+        fireEvent.click(await screen.findByRole("button", {name: /connect garmin/i}));
+        const dialog = await screen.findByRole("dialog", {name: /connect garmin/i});
+        fireEvent.change(within(dialog).getByLabelText("Garmin email"), {target: {value: "athlete@example.com"}});
+        fireEvent.change(within(dialog).getByLabelText("Garmin password"), {target: {value: "garmin-password"}});
+        fireEvent.click(within(dialog).getByRole("button", {name: /connect garmin/i}));
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
-                expect.stringContaining("/auth/intervals/login"),
+                expect.stringContaining("/auth/garmin/login"),
                 expect.objectContaining({
                     body: JSON.stringify({
-                        athlete_id: "45678",
-                        api_key: "super-secret",
+                        email: "athlete@example.com",
+                        password: "garmin-password",
                         use_saved_credentials: false,
                     }),
                     method: "POST",
@@ -486,7 +489,7 @@ describe("App", () => {
         expect(screen.queryByText(/zone summary/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/intervals/i)).not.toBeInTheDocument();
         expect(screen.getByText(/running analysis/i)).toBeInTheDocument();
-        const performance = screen.getByRole("region", {name: /performance/i});
+        const matchingRoutes = screen.getByRole("region", {name: /matching routes/i});
         const bestEffortsKpi = screen.getByLabelText(/best efforts in this activity/i);
         expect(bestEffortsKpi).toHaveClass("best-efforts-kpi");
         expect(bestEffortsKpi.parentElement).toHaveClass("kpi-grid");
@@ -498,12 +501,12 @@ describe("App", () => {
         expect(within(bestEffortsKpi).getByText("#2")).toHaveClass("is-silver");
         expect(within(bestEffortsKpi).getByText("#3")).toHaveClass("is-bronze");
         expect(within(bestEffortsKpi).getByText("#4")).not.toHaveClass("is-best", "is-silver", "is-bronze");
-        expect(within(performance).queryByText(/best efforts/i)).not.toBeInTheDocument();
-        expect(within(performance).getByRole("table", {name: /activities on this route/i})).toBeInTheDocument();
-        expect(within(performance).queryByText("Same route \u00b7 Run \u00b7 10 km \u00b7 5:00\/km")).not.toBeInTheDocument();
-        expect(within(performance).queryByText(/^this activity$/i)).not.toBeInTheDocument();
-        expect(within(performance).queryByText(/^personal best$/i)).not.toBeInTheDocument();
-        expect(within(performance).queryByText(/^difference$/i)).not.toBeInTheDocument();
+        expect(within(matchingRoutes).queryByText(/best efforts/i)).not.toBeInTheDocument();
+        expect(within(matchingRoutes).getByRole("table", {name: /activities on this route/i})).toBeInTheDocument();
+        expect(within(matchingRoutes).queryByText("Same route \u00b7 Run \u00b7 10 km \u00b7 5:00\/km")).not.toBeInTheDocument();
+        expect(within(matchingRoutes).queryByText(/^this activity$/i)).not.toBeInTheDocument();
+        expect(within(matchingRoutes).queryByText(/^personal best$/i)).not.toBeInTheDocument();
+        expect(within(matchingRoutes).queryByText(/^difference$/i)).not.toBeInTheDocument();
         expect(screen.getByText(/pace above hr/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/improving signal/i)).toBeInTheDocument();
         expect(screen.queryByLabelText(/strain warning/i)).not.toBeInTheDocument();
@@ -1560,7 +1563,7 @@ describe("App", () => {
             if (url.includes("/auth/session")) {
                 return Promise.resolve(jsonResponse({
                     id: 1,
-                    strava_athlete_id: 632291,
+                    external_user_id: "68c0e5b9-3370-4e83-904b-de6edcf24551",
                     display_name: "Admin Athlete",
                     profile_picture_url: null,
                 }));
@@ -1588,7 +1591,7 @@ describe("App", () => {
                     items: [
                         {
                             id: 1,
-                            strava_athlete_id: 632291,
+                            external_user_id: "68c0e5b9-3370-4e83-904b-de6edcf24551",
                             display_name: "Admin Athlete",
                             is_active: true,
                             created_at: "2026-03-20T09:00:00Z",
@@ -1597,7 +1600,7 @@ describe("App", () => {
                         },
                         {
                             id: 2,
-                            strava_athlete_id: 200,
+                            external_user_id: "200",
                             display_name: "Second Athlete",
                             is_active: true,
                             created_at: "2026-03-21T09:00:00Z",

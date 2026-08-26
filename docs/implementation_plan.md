@@ -1,4 +1,4 @@
-# Intervals Insights Implementation Plan
+# Garmin Insights Implementation Plan
 
 ## Purpose
 
@@ -23,7 +23,7 @@ This document tracks implementation status against [specification.md](specificat
 
 - [x] Implemented the core PostgreSQL schema and Alembic migrations for users, auth tokens, activities, streams, summaries, sync tracking, and analytics-related tables.
 - [x] Added the required indexes described in the specification.
-- [x] Replaced source OAuth with Intervals.icu athlete ID/API key credential login, Intervals-specific encrypted credential persistence, and cookie-based session auth.
+- [x] Replaced legacy source login with Garmin email/password credential login, encrypted Garmin token persistence, MFA handling, and cookie-based session auth.
 - [x] Added current-user and sync-status endpoints.
 - [x] Added Redis-backed cache utilities needed by current reads and sync behavior.
 - [x] Replaced shared env-based source credentials with per-user Intervals.icu credentials entered on the landing screen and persisted encrypted in the database.
@@ -85,7 +85,7 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Added a separate production deployment path with production Dockerfiles, a single-host Docker Compose stack, and reverse-proxy TLS support for low-cost VPS hosting.
 - [x] Added backend, worker, and beat logging to Docker console with request and task lifecycle coverage.
 - [x] Standardized backend, worker, and frontend log prefixes with readable timestamps, service labels, and frontend INFO-level filtering.
-- [x] Switched the import source to Intervals.icu while preserving the existing local activity/stream schema for the first iteration.
+- [x] Switched the import source to Garmin Connect while preserving existing local activity/stream data and local analytics.
 - [x] Removed live source API/OAuth integration code and source-specific env configuration.
 - [x] Hardened activity detail reads for Intervals.icu stream compatibility, including scalar-only GPS streams and sparse null samples in numeric streams.
 - [x] Removed unused heart-rate drift analytics, dead analytics helpers, unused activity metadata columns, user email storage, and the unused activity-level effort table through an explicit migration.
@@ -98,6 +98,14 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Made manual sync recalculate analytics while scheduled no-change syncs skip an already-current read-model rebuild.
 - [x] Applied migration `20260810_0014` and validated a real manual refresh over 148 activities; the worker completed in about 11 seconds and persisted ranked efforts plus sanitized streams.
 - [x] Restored the documented Windows build wrapper, updated vulnerable frontend dependencies to audited versions, and split charting code out of the initial production bundle.
+- [x] Aligned Garmin login with the public `garminconnect` flow, added a non-MFA regression seam, corrected saved-token reconnect, and mapped expected Garmin failures to structured HTTP responses.
+- [x] Rebuilt and restarted the local backend after the Garmin authentication fix; the health endpoint returned 200.
+- [x] Temporarily disabled MFA in the active login flow to keep Garmin non-MFA login deterministic while authentication is stabilized.
+- [x] Added migration `20260826_0018` to convert renamed external Garmin identities from PostgreSQL `BIGINT` to the application’s text contract after live login exposed the type mismatch.
+- [x] Corrected Garmin activity-detail metric normalization, omitted strength-training activities, and added
+  non-destructive stream backfill for existing activities with empty stream JSON.
+- [x] Derived imported average pace and speed from moving time, excluding pauses from elapsed duration.
+- [x] Prefer Garmin's `averageMovingSpeed` field when available, with moving-time derivation as the fallback.
 
 ## Remaining Work
 
@@ -107,6 +115,13 @@ This document tracks implementation status against [specification.md](specificat
 - [ ] Validate login, import, dashboard, calendar, activity detail, and best-efforts flows end to end in the running Docker stack.
 - [ ] Validate the admin user audit and disable flow end to end in the running Docker stack.
 - [ ] Validate that cache-backed and database-backed reads meet the expected latency target under normal use.
+
+### Garmin-only migration completed
+
+- [x] Added backward-safe migration `20260826_0017` with generic external identity fields, provider-aware activity uniqueness, legacy markers, and encrypted Garmin credentials.
+- [x] Added Garmin Connect authentication, saved-session reconnect, short-lived MFA challenge handling, and sensitive-token encryption.
+- [x] Added Garmin activity/detail normalization and removed imported source pace-curve dependencies; best efforts are local.
+- [x] Removed active legacy source clients, credentials, settings, and provider-specific tests.
 
 ### Architecture and Codebase Cleanup
 

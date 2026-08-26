@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.base import Base
@@ -11,7 +11,8 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    strava_athlete_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    external_user_id: Mapped[str | None] = mapped_column(String(255))
+    source_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="garmin")
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     profile_picture_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
@@ -23,6 +24,4 @@ class User(TimestampMixin, Base):
     sync_jobs = relationship("SyncJob", back_populates="user")
     sync_checkpoints = relationship("SyncCheckpoint", back_populates="user")
     threshold_profiles = relationship("UserThresholdProfile", back_populates="user")
-    intervals_credential = relationship(
-        "IntervalsCredential", back_populates="user", uselist=False
-    )
+    garmin_credential = relationship("GarminCredential", back_populates="user", uselist=False)

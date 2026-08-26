@@ -1,24 +1,19 @@
 import logging
-from datetime import UTC, datetime
-from decimal import Decimal
-
-import httpx
-from sqlalchemy.orm import Session
-
-from app.intervals_client import (
-    IntervalsActivityStreamNotFoundError,
-    IntervalsApiClient,
+from app.garmin_client import (
+    GarminActivityStreamNotFoundError,
+    GarminApiClient,
 )
 from app.models import Activity, ActivityStream
 from app.repositories import (
     ActivityRepository,
     ActivityStreamRepository,
-    IntervalsCredentialRepository,
+    GarminCredentialRepository,
     SyncCheckpointRepository,
     SyncJobRepository,
 )
 from app.security import TokenCipher
 from app.services.activity_summary import (
+    average_speed_mps,
     distance_km,
     format_moving_time,
     format_pace,
@@ -27,10 +22,13 @@ from app.services.activity_summary import (
     summary_metric_display,
 )
 from app.services.cache_invalidator import UserCacheInvalidator
-from app.services.read_model_builder import RUN_BEST_EFFORT_DISTANCES, ReadModelBuilder
 from app.services.local_route_matcher import ROUTE_MODEL_VERSION
+from app.services.read_model_builder import ReadModelBuilder
 from app.services.route_index_builder import RouteIndexBuilder, RouteIndexStats
 from app.services.stream_sanitizer import sanitize_stream_payload
+from datetime import UTC, datetime
+from decimal import Decimal
+from sqlalchemy.orm import Session
 
 SUPPORTED_SPORTS = {"Run", "Ride", "EBikeRide"}
 ACTIVITY_CHECKPOINT_TYPE = "activities"
@@ -45,13 +43,13 @@ class BaseImportService:
         self,
         session: Session,
         *,
-        intervals_client: IntervalsApiClient | None = None,
+        garmin_client: GarminApiClient | None = None,
         token_cipher: TokenCipher | None = None,
     ) -> None:
         self.session = session
-        self.intervals_client = intervals_client or IntervalsApiClient()
+        self.garmin_client = garmin_client or GarminApiClient()
         self.token_cipher = token_cipher or TokenCipher()
-        self.intervals_credentials = IntervalsCredentialRepository(session)
+        self.garmin_credentials = GarminCredentialRepository(session)
         self.sync_jobs = SyncJobRepository(session)
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
@@ -76,18 +74,14 @@ class BaseImportService:
             },
         )
 
-        athlete_id, api_key = self._get_intervals_credentials(user_id)
+        token_json = self._get_garmin_credentials(user_id)
         activities_payload = [
             activity
-            for activity in self.intervals_client.get_activities(
-                athlete_id, api_key, after=after
+            for activity in self.garmin_client.get_activities(
+                token_json, after=after
             )
             if activity.get("type") in SUPPORTED_SPORTS
         ]
-        for fetched_activity in activities_payload:
-            fetched_activity["id"] = self.intervals_client.parse_activity_id(
-                fetched_activity["id"]
-            )
         existing_source_activity_ids = (
             self.activities.list_existing_source_activity_ids_for_user(
                 user_id,
@@ -102,9 +96,12 @@ class BaseImportService:
             activity
             for activity in activities_payload
             if activity.get("id") not in existing_source_activity_ids
+               or self._existing_activity_needs_stream_backfill(
+                user_id=user_id, source_activity_id=activity["id"]
+            )
         ]
         logger.info(
-            "Fetched Intervals.icu activities for import.",
+            "Fetched Garmin activities for import.",
             extra={
                 "sync_job.id": sync_job_id,
                 "user.id": user_id,
@@ -121,16 +118,16 @@ class BaseImportService:
         for index, activity_payload in enumerate(activities_payload, start=1):
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             try:
-                stream_payload = self.intervals_client.get_activity_stream(
-                    api_key, activity.strava_activity_id
+                stream_payload = self.garmin_client.get_activity_stream(
+                    token_json, activity.source_activity_id
                 )
-            except IntervalsActivityStreamNotFoundError:
+            except GarminActivityStreamNotFoundError:
                 logger.warning(
-                    "Skipping missing Intervals.icu streams for activity.",
+                    "Skipping missing Garmin streams for activity.",
                     extra={
                         "sync_job.id": sync_job_id,
                         "user.id": user_id,
-                        "activity.source_id": activity.strava_activity_id,
+                        "activity.source_id": activity.source_activity_id,
                     },
                 )
             else:
@@ -149,7 +146,7 @@ class BaseImportService:
                 extra={
                     "sync_job.id": sync_job_id,
                     "user.id": user_id,
-                    "activity.source_id": activity.strava_activity_id,
+                    "activity.source_id": activity.source_activity_id,
                     "progress.completed": index,
                     "progress.total": len(activities_payload),
                 },
@@ -172,9 +169,7 @@ class BaseImportService:
             or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
         )
         if rebuild_required:
-            source_run_efforts = self._load_source_run_efforts(
-                athlete_id=athlete_id, api_key=api_key
-            )
+            source_run_efforts = self._load_source_run_efforts()
             self.read_model_builder.rebuild_for_user(
                 user_id, source_run_efforts=source_run_efforts
             )
@@ -214,14 +209,11 @@ class BaseImportService:
         )
         return imported_count
 
-    def _get_intervals_credentials(self, user_id: int) -> tuple[str, str]:
-        credential = self.intervals_credentials.get_for_user(user_id)
+    def _get_garmin_credentials(self, user_id: int) -> str:
+        credential = self.garmin_credentials.get_for_user(user_id)
         if credential is None:
-            raise ValueError("Intervals.icu credentials not found for user.")
-
-        return credential.athlete_id, self.token_cipher.decrypt(
-            credential.api_key_encrypted
-        )
+            raise ValueError("Garmin credentials not found for user.")
+        return self.token_cipher.decrypt(credential.token_json_encrypted)
 
     def _get_existing_checkpoint_value(self, user_id: int) -> str | None:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)
@@ -234,7 +226,8 @@ class BaseImportService:
         if activity is None:
             activity = Activity(
                 user_id=user_id,
-                strava_activity_id=payload["id"],
+                source_activity_id=payload["id"],
+                source_provider="garmin",
                 name=payload.get("name") or "Unnamed activity",
                 sport_type=payload["type"],
                 start_date_utc=self._parse_datetime(
@@ -266,8 +259,13 @@ class BaseImportService:
             )
         )
         activity.average_speed_mps = self._decimal_or_none(
-            self._first_present(payload, "average_speed", "avg_speed"), scale=4
+            self._first_present(payload, "average_moving_speed", "average_speed"),
+            scale=4,
         )
+        if activity.average_speed_mps is None:
+            activity.average_speed_mps = average_speed_mps(
+                activity.distance_meters, activity.moving_time_seconds
+            )
         activity.average_speed_kph = speed_kph(activity.average_speed_mps)
         activity.max_speed_mps = self._decimal_or_none(
             self._first_present(payload, "max_speed", "max_speed_mps"), scale=4
@@ -315,55 +313,31 @@ class BaseImportService:
             activity.max_speed_mps = self._decimal_or_none(max(speed_values), scale=4)
         return self.activity_streams.save(activity_stream)
 
-    def _load_source_run_efforts(
-        self, *, athlete_id: str, api_key: str
-    ) -> dict[int, dict[str, int]]:
-        requested_distances = list(RUN_BEST_EFFORT_DISTANCES.values())
-        try:
-            payload = self.intervals_client.get_run_pace_curves(
-                athlete_id,
-                api_key,
-                distances_meters=requested_distances,
+    def _existing_activity_needs_stream_backfill(
+            self, *, user_id: int, source_activity_id: int
+    ) -> bool:
+        activity = self.activities.get_by_source_activity_id(
+            user_id, source_activity_id
+        )
+        if activity is None:
+            return False
+        stream = self.activity_streams.get_by_activity_id(activity.id)
+        if stream is None:
+            return True
+        return not any(
+            stream_value
+            for stream_value in (
+                stream.time_stream,
+                stream.distance_stream,
+                stream.latlng_stream,
+                stream.altitude_stream,
+                stream.velocity_smooth_stream,
+                stream.heartrate_stream,
             )
-        except (httpx.HTTPError, ValueError):
-            logger.warning(
-                "Intervals.icu pace curves are unavailable; using linear local best-effort calculation.",
-                exc_info=True,
-            )
-            return {}
+        )
 
-        response_distances = payload.get("distances") or requested_distances
-        code_by_distance = {
-            distance: code for code, distance in RUN_BEST_EFFORT_DISTANCES.items()
-        }
-        efforts: dict[int, dict[str, int]] = {}
-        for curve in payload.get("curves", []):
-            if (
-                not isinstance(curve, dict)
-                or curve.get("id") is None
-                or not isinstance(curve.get("secs"), list)
-            ):
-                continue
-            source_activity_id = self.intervals_client.parse_activity_id(curve["id"])
-            activity_efforts: dict[str, int] = {}
-            for distance, seconds in zip(response_distances, curve["secs"]):
-                effort_code = next(
-                    (
-                        code
-                        for known_distance, code in code_by_distance.items()
-                        if abs(float(distance) - known_distance) < 0.01
-                    ),
-                    None,
-                )
-                if (
-                    effort_code is None
-                    or not isinstance(seconds, int | float)
-                    or seconds <= 0
-                ):
-                    continue
-                activity_efforts[effort_code] = round(seconds)
-            efforts[source_activity_id] = activity_efforts
-        return efforts
+    def _load_source_run_efforts(self, **_: str) -> dict[int, dict[str, int]]:
+        return {}
 
     def _analytics_rebuild_required(self, user_id: int) -> bool:
         checkpoint = self.checkpoints.get_for_user(user_id, ANALYTICS_CHECKPOINT_TYPE)

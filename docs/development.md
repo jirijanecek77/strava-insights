@@ -28,7 +28,7 @@ Expected env templates:
 - `worker/.env.secrets.template`
 - Log output is written to the Docker console for `backend`, `worker`, and `beat`.
 - The backend is started through a small Python Uvicorn runner so application logging remains authoritative in Docker.
-- Intervals.icu API credentials are not provided through service env files; each athlete enters their Intervals.icu athlete ID and personal API key on the landing/login screen and the backend stores them encrypted after validation.
+- Garmin credentials are not provided through service env files; each athlete enters their Garmin email and password on the landing/login screen and the backend stores only encrypted session tokens after validation.
 
 ## Commands
 

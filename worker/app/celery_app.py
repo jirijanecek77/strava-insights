@@ -10,7 +10,7 @@ from app.logging import configure_logging
 
 
 celery_app = Celery(
-    "intervals_insights_worker",
+    "garmin_insights_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=["app.tasks.sync"],

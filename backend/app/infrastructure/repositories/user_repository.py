@@ -10,10 +10,10 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> User | None:
         return self.session.query(User).filter(User.id == user_id).one_or_none()
 
-    def get_by_strava_athlete_id(self, athlete_id: int) -> User | None:
+    def get_by_external_user_id(self, external_user_id: str, provider: str = "garmin") -> User | None:
         return (
             self.session.query(User)
-            .filter(User.strava_athlete_id == athlete_id)
+            .filter(User.external_user_id == external_user_id, User.source_provider == provider)
             .one_or_none()
         )
 

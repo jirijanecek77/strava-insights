@@ -1,7 +1,7 @@
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export const views = ["dashboard", "calendar", "activities", "best-efforts", "settings"];
-export const adminAthleteId = Number(import.meta.env.VITE_ADMIN_ATHLETE_ID ?? 632291);
+export const adminExternalUserId = String(import.meta.env.VITE_ADMIN_EXTERNAL_USER_ID ?? "68c0e5b9-3370-4e83-904b-de6edcf24551");
 export const windows = [
     {id: "week", label: "Week"},
     {id: "month", label: "Month"},
@@ -15,8 +15,8 @@ export const sports = [
 ];
 export const syncPollIntervalMs = 60*1000;
 export const defaultLandingCredentialState = {
-    athlete_id: "",
+    external_user_id: "",
     has_saved_secret: false,
     can_connect: false,
-    intervals_settings_url: "https://intervals.icu/settings",
+    provider: "garmin",
 };
