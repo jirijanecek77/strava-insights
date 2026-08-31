@@ -1,7 +1,7 @@
 """Small adapter around garminconnect; no Garmin objects cross the app boundary."""
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, NoReturn
 
 
 class GarminLoginError(Exception):
@@ -49,7 +49,7 @@ class GarminAuthClient:
             self._raise_mapped_login_error(exc)
 
     @staticmethod
-    def _raise_mapped_login_error(exc: Exception) -> None:
+    def _raise_mapped_login_error(exc: Exception) -> NoReturn:
         name = type(exc).__name__
         chain_text = GarminAuthClient._exception_chain_text(exc).lower()
         if "429" in chain_text or "rate limited" in chain_text or "rate limit" in chain_text:

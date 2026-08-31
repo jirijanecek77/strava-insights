@@ -75,13 +75,16 @@ class BaseImportService:
         )
 
         token_json = self._get_garmin_credentials(user_id)
+        garmin_session = self.garmin_client.connect(token_json)
+        self._persist_garmin_credentials(user_id, garmin_session.token_json())
         activities_payload = [
             activity
             for activity in self.garmin_client.get_activities(
-                token_json, after=after
+                garmin_session, after=after
             )
             if activity.get("type") in SUPPORTED_SPORTS
         ]
+        self._persist_garmin_credentials(user_id, garmin_session.token_json())
         existing_source_activity_ids = (
             self.activities.list_existing_source_activity_ids_for_user(
                 user_id,
@@ -119,7 +122,7 @@ class BaseImportService:
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             try:
                 stream_payload = self.garmin_client.get_activity_stream(
-                    token_json, activity.source_activity_id
+                    garmin_session, activity.source_activity_id
                 )
             except GarminActivityStreamNotFoundError:
                 logger.warning(
@@ -132,6 +135,7 @@ class BaseImportService:
                 )
             else:
                 self._upsert_stream(activity=activity, payload=stream_payload)
+                self._persist_garmin_credentials(user_id, garmin_session.token_json())
             imported_count += 1
             latest_checkpoint_value = self._max_checkpoint_value(
                 latest_checkpoint_value,
@@ -214,6 +218,14 @@ class BaseImportService:
         if credential is None:
             raise ValueError("Garmin credentials not found for user.")
         return self.token_cipher.decrypt(credential.token_json_encrypted)
+
+    def _persist_garmin_credentials(self, user_id: int, token_json: str) -> None:
+        credential = self.garmin_credentials.get_for_user(user_id)
+        if credential is None:
+            raise ValueError("Garmin credentials not found for user.")
+        credential.token_json_encrypted = self.token_cipher.encrypt(token_json)
+        self.session.flush()
+        self.session.commit()
 
     def _get_existing_checkpoint_value(self, user_id: int) -> str | None:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)

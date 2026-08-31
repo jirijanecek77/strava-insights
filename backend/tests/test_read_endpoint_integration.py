@@ -1,6 +1,3 @@
-from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
-
 from app.application.auth.current_user import CurrentUserService
 from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.db.models.activity import Activity
@@ -14,13 +11,16 @@ from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.user import User
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 from app.main import app
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 
 
 class CurrentUserServiceStub:
     def __init__(self, user_id: int) -> None:
         self.user = CurrentUserResponse(
             id=user_id,
-            strava_athlete_id=162181,
+            external_user_id="162181",
+            source_provider="garmin",
             display_name="Integration Athlete",
             profile_picture_url=None,
         )
@@ -40,7 +40,8 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
 
     user = User(
         id=1,
-        strava_athlete_id=162181,
+        external_user_id="162181",
+        source_provider="garmin",
         display_name="Integration Athlete",
         profile_picture_url=None,
         is_active=True,
@@ -56,7 +57,8 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
     activity = Activity(
         id=5,
         user_id=1,
-        strava_activity_id=1005,
+        source_activity_id=1005,
+        source_provider="garmin",
         name="Morning Run",
         description="steady effort",
         sport_type="Run",
@@ -80,7 +82,8 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
     faster_route_activity = Activity(
         id=6,
         user_id=1,
-        strava_activity_id=1006,
+        source_activity_id=1006,
+        source_provider="garmin",
         name="Earlier River Run",
         sport_type="Run",
         start_date_utc=datetime.now(UTC) - timedelta(days=3),

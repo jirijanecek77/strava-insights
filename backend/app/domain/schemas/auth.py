@@ -5,6 +5,7 @@ class GarminCredentialStateResponse(BaseModel):
     external_user_id: str | None = None
     has_saved_secret: bool
     can_connect: bool
+    connection_status: str | None = None
     provider: str = "garmin"
 
 

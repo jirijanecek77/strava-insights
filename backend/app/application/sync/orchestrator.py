@@ -1,13 +1,12 @@
 import logging
-
-from fastapi import Depends
-from sqlalchemy.orm import Session
-
 from app.api.dependencies import get_db_session
 from app.application.sync.dto import CreatedSyncJob
 from app.infrastructure.db.models.sync_job import SyncJob
 from app.infrastructure.queue.celery_client import CeleryQueueClient
+from app.infrastructure.repositories.garmin_credential_repository import GarminCredentialRepository
 from app.infrastructure.repositories.sync_job_repository import SyncJobRepository
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,7 @@ class SyncOrchestrator:
     ) -> None:
         self.db_session = db_session
         self.sync_job_repository = SyncJobRepository(db_session)
+        self.garmin_credentials = GarminCredentialRepository(db_session)
         self.queue_client = queue_client
 
     def enqueue_first_import_if_needed(self, user_id: int) -> CreatedSyncJob | None:
@@ -38,6 +38,9 @@ class SyncOrchestrator:
         )
 
     def enqueue_incremental_sync(self, user_id: int) -> CreatedSyncJob:
+        credential = self.garmin_credentials.get_for_user(user_id)
+        if credential is None or credential.connection_status != "connected":
+            raise HTTPException(status_code=409, detail="Reconnect Garmin before starting a sync.")
         active_job = self.sync_job_repository.get_active_for_user(user_id)
         if active_job is not None:
             logger.info(

@@ -1,7 +1,3 @@
-from datetime import UTC, datetime
-
-from sqlalchemy.orm import Session
-
 from app.models import (
     Activity,
     ActivityRouteMembership,
@@ -15,6 +11,8 @@ from app.models import (
     SyncJob,
     User,
 )
+from datetime import UTC, datetime
+from sqlalchemy.orm import Session
 
 
 class UserRepository:
@@ -28,7 +26,10 @@ class UserRepository:
         rows = (
             self.session.query(User.id)
             .join(GarminCredential, GarminCredential.user_id == User.id)
-            .filter(User.is_active.is_(True))
+            .filter(
+                User.is_active.is_(True),
+                GarminCredential.connection_status == "connected",
+            )
             .distinct()
             .all()
         )
@@ -45,6 +46,18 @@ class GarminCredentialRepository:
             .filter(GarminCredential.user_id == user_id)
             .one_or_none()
         )
+
+    def save(self, credential: GarminCredential) -> GarminCredential:
+        self.session.add(credential)
+        self.session.flush()
+        return credential
+
+    def mark_reauthentication_required(self, user_id: int) -> None:
+        credential = self.get_for_user(user_id)
+        if credential is None:
+            return
+        credential.connection_status = "reauthentication_required"
+        self.session.flush()
 
 
 class SyncJobRepository:
@@ -115,6 +128,16 @@ class SyncJobRepository:
         sync_job.status = "failed"
         sync_job.finished_at = datetime.now(UTC)
         sync_job.error_message = error_message
+        self.session.flush()
+
+    def require_authentication(self, sync_job: SyncJob) -> None:
+        sync_job.status = "authentication_required"
+        sync_job.finished_at = datetime.now(UTC)
+        sync_job.error_message = "Garmin connection expired. Sign in again, then start a sync."
+        sync_job.metadata_json = {
+            **(sync_job.metadata_json or {}),
+            "phase": "authentication_required",
+        }
         self.session.flush()
 
 

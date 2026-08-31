@@ -1,5 +1,8 @@
+import pytest
 from app.application.sync.orchestrator import SyncOrchestrator
+from app.infrastructure.db.models.garmin_credential import GarminCredential
 from app.infrastructure.db.models.sync_job import SyncJob
+from fastapi import HTTPException
 
 
 class SyncJobRepositoryStub:
@@ -54,3 +57,25 @@ def test_enqueue_first_import_if_needed_skips_when_job_already_exists() -> None:
 
     assert created_job is None
     assert service.queue_client.enqueued is None
+
+
+def test_manual_sync_requires_a_connected_garmin_credential() -> None:
+    service = SyncOrchestrator(db_session=SessionStub(), queue_client=QueueClientStub())
+    service.garmin_credentials = type(
+        "CredentialRepositoryStub",
+        (),
+        {
+            "get_for_user": lambda _self, _user_id: GarminCredential(
+                user_id=1,
+                email_encrypted="encrypted-email",
+                token_json_encrypted="encrypted-token",
+                external_user_id="athlete",
+                connection_status="reauthentication_required",
+            )
+        },
+    )()
+
+    with pytest.raises(HTTPException, match="Reconnect Garmin") as error:
+        service.enqueue_incremental_sync(1)
+
+    assert error.value.status_code == 409

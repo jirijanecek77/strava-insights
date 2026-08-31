@@ -120,6 +120,8 @@ This document tracks implementation status against [specification.md](specificat
 
 - [x] Added backward-safe migration `20260826_0017` with generic external identity fields, provider-aware activity uniqueness, legacy markers, and encrypted Garmin credentials.
 - [x] Added Garmin Connect authentication, saved-session reconnect, short-lived MFA challenge handling, and sensitive-token encryption.
+- [x] Persisted refreshed Garmin worker sessions, added controlled reauthentication state after final Garmin 401
+  responses, paused scheduled syncs for disconnected credentials, and required a manual sync after reconnect.
 - [x] Added Garmin activity/detail normalization and removed imported source pace-curve dependencies; best efforts are local.
 - [x] Removed active legacy source clients, credentials, settings, and provider-specific tests.
 

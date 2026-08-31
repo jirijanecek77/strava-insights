@@ -1,26 +1,19 @@
 import {startTransition, useEffect, useEffectEvent, useMemo, useRef, useState} from "react";
 import "leaflet/dist/leaflet.css";
 
+import {adminExternalUserId, defaultLandingCredentialState, syncPollIntervalMs, views,} from "./constants";
+import {AmbientBackdrop, AuthScreen, LoadingScreen, Sidebar, Toolbar} from "./components/common";
 import {
-    adminExternalUserId,
-    defaultLandingCredentialState,
-    syncPollIntervalMs,
-    views,
-} from "./constants";
-import {AuthScreen, AmbientBackdrop, LoadingScreen, Sidebar, Toolbar} from "./components/common";
-import {AdminView, ActivitiesView, BestEffortsView, CalendarView, DashboardView, SettingsView} from "./components/views";
+    ActivitiesView,
+    AdminView,
+    BestEffortsView,
+    CalendarView,
+    DashboardView,
+    SettingsView
+} from "./components/views";
 import {fetchJson, generateRequestId} from "./utils/api";
-import {
-    buildComparisonPeriodOptions,
-    buildQuery,
-    isSyncInFlight,
-    startOfMonth,
-} from "./utils/data";
-import {
-    buildProfileFormFromItem,
-    formatDateInput,
-    parsePaceInput,
-} from "./utils/formatters";
+import {buildComparisonPeriodOptions, buildQuery, isSyncInFlight, startOfMonth,} from "./utils/data";
+import {buildProfileFormFromItem, formatDateInput, parsePaceInput,} from "./utils/formatters";
 import {setFrontendLoggerUser} from "./utils/logger";
 
 export default function App() {
@@ -631,6 +624,7 @@ export default function App() {
                                 setProfileForm((current) => ({...current, [field]: value}));
                             }}
                             onLogout={handleLogout}
+                            onReconnectGarmin={handleLogout}
                             onRefreshSync={handleRefreshSync}
                             onSaveProfile={handleSaveProfile}
                             onStartNewThresholdProfile={() => {

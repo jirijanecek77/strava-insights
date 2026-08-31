@@ -2,7 +2,14 @@ import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {Bar, Brush, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 
 import {adminExternalUserId} from "../constants";
-import {aggregateTrendItems, buildCalendarWeeks, buildComparisonPeriodOptions, groupBestEffortsBySport, shiftMonth, sortComparisons} from "../utils/data";
+import {
+    aggregateTrendItems,
+    buildCalendarWeeks,
+    buildComparisonPeriodOptions,
+    groupBestEffortsBySport,
+    shiftMonth,
+    sortComparisons
+} from "../utils/data";
 import {
     formatComparisonRange,
     formatDateLabel,
@@ -304,6 +311,7 @@ export function SettingsView({
     onChangeProfileField,
     onStartNewThresholdProfile,
     onLogout,
+                                 onReconnectGarmin,
     onRefreshSync,
     onSaveProfile,
 }) {
@@ -404,6 +412,12 @@ export function SettingsView({
                     <div className="settings-row"><span>Started</span><strong>{syncStatus?.started_at ? formatDateTime(syncStatus.started_at) : "n/a"}</strong></div>
                     <div className="settings-row"><span>Finished</span><strong>{syncStatus?.finished_at ? formatDateTime(syncStatus.finished_at) : "n/a"}</strong></div>
                 </div>
+                {syncStatus?.status === "authentication_required" ?
+                    <p className="copy">Garmin connection expired. Reconnect Garmin, then press Refresh
+                        Sync.</p> : null}
+                {syncStatus?.status === "authentication_required" ?
+                    <button className="ghost-button" onClick={onReconnectGarmin} type="button">Reconnect
+                        Garmin</button> : null}
                 <button className="ghost-button" disabled={syncBusy} onClick={onRefreshSync} type="button">
                     {syncBusy ? "Refreshing..." : "Refresh Sync"}
                 </button>

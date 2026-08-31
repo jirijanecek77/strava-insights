@@ -50,6 +50,9 @@ class GarminCredential(Base):
     email_encrypted: Mapped[str] = mapped_column(String(4096), nullable=False)
     token_json_encrypted: Mapped[str] = mapped_column(String(16384), nullable=False)
     external_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    connection_status: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="connected"
+    )
 
 
 class Activity(Base):

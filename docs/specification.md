@@ -46,7 +46,9 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - Activity detail must be renderable from locally stored activity and stream data.
 - Duplicate activities must be upserted by source activity id. Intervals.icu `i123` activity ids are stored as numeric `123` in the existing activity id column for the no-schema-change migration.
 - A manual sync always refreshes analytics. A scheduled sync with no imported or analytically stale data skips the read-model rebuild.
-- Token expiry during sync must trigger refresh and retry.
+- Token expiry during sync must reuse and persist the refreshed Garmin session. A final Garmin authentication rejection
+  must mark the connection as requiring reauthentication, stop scheduled syncs, and preserve imported data until the
+  user reconnects and manually starts a sync.
 - Temporary Intervals.icu API failures should retry with backoff before a sync job is marked failed.
 - Partial import failure for one activity must not corrupt already persisted valid data.
 
