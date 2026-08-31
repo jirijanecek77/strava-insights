@@ -1,26 +1,22 @@
 import logging
 import re
-from datetime import UTC, datetime
-
-from fastapi import Depends, HTTPException
-from sqlalchemy.orm import Session
-
 from app.api.dependencies import get_db_session
 from app.application.auth.dto import AuthenticatedUser, GarminCredentials
 from app.domain.schemas.auth import GarminCredentialStateResponse
 from app.infrastructure.db.models.garmin_credential import GarminCredential
 from app.infrastructure.db.models.user import User
-from app.infrastructure.garmin.client import (
-    GarminAuthClient,
-    GarminLoginError,
-    GarminRateLimitError,
-    GarminTemporaryError,
-)
+from app.infrastructure.garmin.client import GarminAuthClient, GarminLoginError, GarminRateLimitError, \
+    GarminTemporaryError
 from app.infrastructure.repositories.garmin_credential_repository import GarminCredentialRepository
 from app.infrastructure.repositories.user_repository import UserRepository
 from app.infrastructure.security.token_cipher import TokenCipher
+from datetime import UTC, datetime
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
+
+
 def _safe_failure_details(exc: BaseException) -> str:
     details: list[str] = []
     current: BaseException | None = exc
@@ -55,7 +51,12 @@ class GarminCredentialService:
 
     def state(self, remembered_user_id: int | None) -> GarminCredentialStateResponse:
         credential = self.credentials.get_for_user(remembered_user_id) if remembered_user_id else None
-        return GarminCredentialStateResponse(external_user_id=credential.external_user_id if credential else None, has_saved_secret=credential is not None, can_connect=credential is not None)
+        return GarminCredentialStateResponse(
+            external_user_id=credential.external_user_id if credential else None,
+            has_saved_secret=credential is not None,
+            can_connect=credential is not None,
+            connection_status=credential.connection_status if credential else None,
+        )
 
     def authenticate(self, credentials: GarminCredentials, remembered_user_id: int | None) -> AuthenticatedUser:
         try:
@@ -88,9 +89,11 @@ class GarminCredentialService:
         stored = self.credentials.get_for_user(user.id)
         if stored is None:
             stored = GarminCredential(user_id=user.id, email_encrypted="", token_json_encrypted="", external_user_id=profile.external_user_id)
+        token_json = self.garmin_client.token_json(client)
         stored.email_encrypted = self.token_cipher.encrypt(email)
-        stored.token_json_encrypted = self.token_cipher.encrypt(self.garmin_client.token_json(client))
+        stored.token_json_encrypted = self.token_cipher.encrypt(token_json)
         stored.external_user_id = profile.external_user_id
+        stored.connection_status = "connected"
         self.credentials.save(stored)
         self.db_session.commit()
         return AuthenticatedUser(user.id, profile.external_user_id, user.display_name, user.profile_picture_url, is_new)
