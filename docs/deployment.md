@@ -16,6 +16,7 @@ The production deployment runs:
 - `backend` as FastAPI
 - `worker` as a Celery worker
 - `beat` as the scheduled Celery beat process
+- `sync-dispatcher` as the durable-outbox publisher for sync commands
 - `postgres`
 - `redis`
 
@@ -45,7 +46,6 @@ Required values:
 ## Garmin Connect Setup
 
 - Each athlete enters their Garmin Connect email and password on the landing/login screen; MFA is completed when Garmin requests it.
-- The landing/login screen should link users to `https://intervals.icu/settings` for credential lookup.
 - Garmin tokens are encrypted in PostgreSQL and are never placed in environment files.
 
 ### Reconnecting an existing account after migration

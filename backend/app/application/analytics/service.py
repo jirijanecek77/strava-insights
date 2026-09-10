@@ -1,16 +1,14 @@
-from datetime import datetime
-
 from app.application.analytics.cycling_analysis import build_cycling_analysis
 from app.application.analytics.detail_series import (
-    calculate_pace_minutes_per_km,
+    calculate_segment_pace_minutes_per_km,
     calculate_slope_percent,
     format_pace_minutes_per_km,
     meters_to_kilometers,
-    moving_average_heartrate,
-    moving_average_speed_kph,
     normalize_numeric_series,
+    speed_stream_kph,
 )
 from app.application.analytics.running_analysis import build_running_analysis
+from datetime import datetime
 
 
 class ActivityDetailAnalyticsService:
@@ -35,19 +33,19 @@ class ActivityDetailAnalyticsService:
             if distance_stream_meters
             else []
         )
-        heartrate_ma = (
-            moving_average_heartrate(heartrate_stream_bpm or [], range_points=10)
+        heartrate_bpm = (
+            normalize_numeric_series(heartrate_stream_bpm or [])
             if heartrate_stream_bpm
             else []
         )
-        speed_ma_kph = (
-            moving_average_speed_kph(velocity_smooth_stream_mps or [], range_points=10)
+        speed_kph = (
+            speed_stream_kph(velocity_smooth_stream_mps or [])
             if velocity_smooth_stream_mps
             else []
         )
         pace_minutes_per_km = (
-            calculate_pace_minutes_per_km(
-                time_stream or [], distance_stream_meters or [], range_points=20
+            calculate_segment_pace_minutes_per_km(
+                time_stream or [], distance_stream_meters or []
             )
             if sport_type == "Run" and time_stream and distance_stream_meters
             else []
@@ -70,8 +68,8 @@ class ActivityDetailAnalyticsService:
         result = {
             "distance_km": distance_km,
             "altitude_meters": normalize_numeric_series(altitude_stream_meters or []),
-            "moving_average_heartrate": heartrate_ma,
-            "moving_average_speed_kph": speed_ma_kph,
+            "heartrate_bpm": heartrate_bpm,
+            "speed_kph": speed_kph,
             "pace_minutes_per_km": pace_minutes_per_km,
             "pace_display": pace_display,
             "slope_percent": slope_percent,
@@ -79,12 +77,12 @@ class ActivityDetailAnalyticsService:
             "cycling_analysis": None,
         }
 
-        if sport_type in {"Ride", "EBikeRide"} and speed_ma_kph:
+        if sport_type in {"Ride", "EBikeRide"} and speed_kph:
             result["cycling_analysis"] = build_cycling_analysis(
                 distance_km=distance_km,
-                speed_kph=speed_ma_kph,
+                speed_kph=speed_kph,
                 slope_percent=slope_percent,
-                heart_rate_bpm=heartrate_ma,
+                heart_rate_bpm=heartrate_bpm,
                 average_cadence=average_cadence,
                 aet_heart_rate_bpm=(
                     float(aet_heart_rate_bpm)
@@ -101,7 +99,7 @@ class ActivityDetailAnalyticsService:
         if (
             sport_type != "Run"
             or not pace_minutes_per_km
-            or not heartrate_ma
+                or not heartrate_bpm
             or aet_heart_rate_bpm is None
             or ant_heart_rate_bpm is None
             or aet_pace_min_per_km is None
@@ -112,7 +110,7 @@ class ActivityDetailAnalyticsService:
         result["running_analysis"] = build_running_analysis(
             distance_km=distance_km,
             pace_minutes_per_km=pace_minutes_per_km,
-            heart_rate_bpm=heartrate_ma,
+            heart_rate_bpm=heartrate_bpm,
             aet_pace_min_per_km=float(aet_pace_min_per_km),
             ant_pace_min_per_km=float(ant_pace_min_per_km),
             aet_heart_rate_bpm=float(aet_heart_rate_bpm),

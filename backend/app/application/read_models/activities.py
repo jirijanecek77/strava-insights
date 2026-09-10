@@ -1,12 +1,3 @@
-from datetime import date
-from decimal import Decimal
-from math import isfinite
-from numbers import Real
-from typing import Any
-
-from fastapi import Depends
-from sqlalchemy.orm import Session
-
 from app.api.dependencies import get_db_session
 from app.application.analytics.service import ActivityDetailAnalyticsService
 from app.application.read_models.effort_rankings import rank_best_efforts
@@ -31,6 +22,13 @@ from app.infrastructure.repositories.best_effort_repository import BestEffortRep
 from app.infrastructure.repositories.user_profile_repository import (
     UserProfileRepository,
 )
+from datetime import date
+from decimal import Decimal
+from fastapi import Depends
+from math import isfinite
+from numbers import Real
+from sqlalchemy.orm import Session
+from typing import Any
 
 
 class ActivityReadService:
@@ -235,8 +233,8 @@ class ActivityReadService:
             series=ActivitySeries(
                 distance_km=analytics["distance_km"],
                 altitude_meters=analytics["altitude_meters"],
-                moving_average_heartrate=analytics["moving_average_heartrate"],
-                moving_average_speed_kph=analytics["moving_average_speed_kph"],
+                heartrate_bpm=analytics["heartrate_bpm"],
+                speed_kph=analytics["speed_kph"],
                 pace_minutes_per_km=analytics["pace_minutes_per_km"],
                 pace_display=analytics["pace_display"],
                 slope_percent=analytics["slope_percent"],

@@ -1,7 +1,7 @@
+from app.services.read_model_builder import ReadModelBuilder
 from datetime import UTC, datetime
 from decimal import Decimal
-
-from app.services.read_model_builder import ReadModelBuilder
+from typing import Any
 
 
 class ActivityStub:
@@ -67,7 +67,7 @@ class ActivityStreamRepositoryStub:
 
 class PeriodSummaryRepositoryStub:
     def __init__(self) -> None:
-        self.summaries = None
+        self.summaries: list[Any] = []
 
     def replace_for_user(self, *, user_id: int, summaries):
         self.user_id = user_id
@@ -76,7 +76,7 @@ class PeriodSummaryRepositoryStub:
 
 class BestEffortRepositoryStub:
     def __init__(self) -> None:
-        self.efforts = None
+        self.efforts: list[Any] = []
 
     def replace_for_user(self, *, user_id: int, efforts):
         self.user_id = user_id
@@ -121,8 +121,10 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
             ),
         ]
     )
-    builder.period_summaries = PeriodSummaryRepositoryStub()
-    builder.best_efforts = BestEffortRepositoryStub()
+    period_summaries = PeriodSummaryRepositoryStub()
+    best_efforts = BestEffortRepositoryStub()
+    builder.period_summaries = period_summaries
+    builder.best_efforts = best_efforts
 
     builder.rebuild_for_user(
         7,
@@ -136,12 +138,12 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
         },
     )
 
-    assert builder.period_summaries.user_id == 7
-    assert len(builder.period_summaries.summaries) == 6
-    assert builder.best_efforts.user_id == 7
+    assert period_summaries.user_id == 7
+    assert len(period_summaries.summaries) == 6
+    assert best_efforts.user_id == 7
     assert {
         (effort.sport_type, effort.effort_code)
-        for effort in builder.best_efforts.efforts
+               for effort in best_efforts.efforts
     } == {
         ("Run", "1km"),
         ("Run", "5km"),
@@ -155,7 +157,7 @@ def test_read_model_builder_rebuilds_period_summaries_and_best_efforts() -> None
     assert (
         next(
             effort.best_time_seconds
-            for effort in builder.best_efforts.efforts
+            for effort in best_efforts.efforts
             if effort.sport_type == "Run" and effort.effort_code == "1km"
         )
         == 240

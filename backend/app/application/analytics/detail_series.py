@@ -1,20 +1,6 @@
+from collections.abc import Sequence
 from numbers import Real
 from typing import Any
-
-
-def moving_average(data: list[float], range_points: int) -> list[float]:
-    if not data or range_points <= 0:
-        return []
-
-    data = normalize_numeric_series(data)
-    averages: list[float] = []
-    length = len(data)
-    for index in range(length):
-        start = max(0, index - range_points)
-        end = min(length, index + range_points + 1)
-        window = data[start:end]
-        averages.append(sum(window) / len(window))
-    return averages
 
 
 def meters_to_kilometers(distance_stream_meters: list[float]) -> list[float]:
@@ -24,36 +10,25 @@ def meters_to_kilometers(distance_stream_meters: list[float]) -> list[float]:
     ]
 
 
-def moving_average_speed_kph(
-    velocity_smooth_stream_mps: list[float], range_points: int = 10
+def speed_stream_kph(
+        velocity_stream_mps: Sequence[float | None],
 ) -> list[float]:
-    return moving_average(
-        [
-            speed * 3.6
-            for speed in normalize_numeric_series(velocity_smooth_stream_mps)
-        ],
-        range_points=range_points,
-    )
+    return [
+        speed * 3.6 for speed in normalize_numeric_series(velocity_stream_mps)
+    ]
 
 
-def moving_average_heartrate(
-    heartrate_stream_bpm: list[float], range_points: int = 10
-) -> list[float]:
-    return moving_average(heartrate_stream_bpm, range_points=range_points)
-
-
-def calculate_pace_minutes_per_km(
-    seconds: list[int],
-    distances_meters: list[float],
-    range_points: int = 20,
+def calculate_segment_pace_minutes_per_km(
+        seconds: Sequence[int | None],
+        distances_meters: Sequence[float | None],
 ) -> list[float]:
     numeric_seconds = normalize_numeric_series(seconds)
     numeric_distances = normalize_numeric_series(distances_meters)
     sample_count = min(len(numeric_seconds), len(numeric_distances))
     paces: list[float] = []
     for index in range(sample_count):
-        start_index = max(0, index - range_points)
-        end_index = min(sample_count - 1, index + range_points)
+        start_index = max(0, index - 1)
+        end_index = min(sample_count - 1, index + 1) if index == 0 else index
         total_time_seconds = numeric_seconds[end_index] - numeric_seconds[start_index]
         total_distance_meters = (
             numeric_distances[end_index] - numeric_distances[start_index]
@@ -112,7 +87,7 @@ def calculate_slope_percent(
     return slopes + ([0.0] * (len(distance_stream_meters) - len(slopes)))
 
 
-def normalize_numeric_series(values: list[Any]) -> list[float]:
+def normalize_numeric_series(values: Sequence[Any]) -> list[float]:
     normalized: list[float] = []
     previous = 0.0
     for value in values:

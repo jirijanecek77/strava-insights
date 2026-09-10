@@ -1,34 +1,31 @@
-from datetime import UTC, datetime
-from decimal import Decimal
-
+import pytest
 from app.application.analytics.detail_series import (
-    calculate_pace_minutes_per_km,
+    calculate_segment_pace_minutes_per_km,
     calculate_slope_percent,
     format_pace_minutes_per_km,
-    moving_average,
-    moving_average_speed_kph,
+    speed_stream_kph,
 )
 from app.application.analytics.running_analysis import build_running_analysis
 from app.application.analytics.service import ActivityDetailAnalyticsService
+from datetime import UTC, datetime
+from decimal import Decimal
 
 
-def test_detail_series_match_legacy_formulas() -> None:
-    assert moving_average([1, 2, 3, 4, 5], range_points=1) == [1.5, 2.0, 3.0, 4.0, 4.5]
-    assert moving_average_speed_kph([1.0, 2.0, 3.0], range_points=1) == [5.4, 7.2, 9.0]
-    paces = calculate_pace_minutes_per_km(
-        [0, 60, 120, 180], [0, 250, 500, 750], range_points=1
+def test_detail_series_return_raw_speed_and_adjacent_segment_pace() -> None:
+    assert speed_stream_kph([1.0, 2.0, 3.0]) == [3.6, 7.2, 10.8]
+    paces = calculate_segment_pace_minutes_per_km(
+        [0, 60, 120, 180], [0, 250, 500, 750]
     )
     assert paces == [4.0, 4.0, 4.0, 4.0]
     assert format_pace_minutes_per_km([4.0, float("inf")]) == ["4:00", "0:00"]
 
 
 def test_detail_series_tolerate_intervals_null_samples() -> None:
-    assert moving_average_speed_kph([1.0, None, 3.0], range_points=0) == []
-    assert moving_average_speed_kph([1.0, None, 3.0], range_points=1) == [3.6, 6.0, 7.2]
-    paces = calculate_pace_minutes_per_km(
-        [0, 60, None, 180], [0, 250, 500, 750], range_points=1
+    assert speed_stream_kph([1.0, None, 3.0]) == [3.6, 3.6, 10.8]
+    paces = calculate_segment_pace_minutes_per_km(
+        [0, 60, None, 180], [0, 250, 500, 750]
     )
-    assert paces == [4.0, 2.0, 4.0, 8.0]
+    assert paces == [4.0, 4.0, 0.0, 8.0]
 
 
 def test_slope_is_clamped_and_padded_like_legacy_code() -> None:
@@ -143,6 +140,29 @@ def test_activity_detail_service_builds_threshold_running_analysis() -> None:
     assert payload["pace_display"][0] == "4:00"
     assert payload["running_analysis"] is not None
     assert payload["running_analysis"]["agreement"]["matching_distance_km"] >= 0
+
+
+def test_activity_detail_service_returns_raw_series_for_activity_detail() -> None:
+    service = ActivityDetailAnalyticsService()
+
+    payload = service.build(
+        sport_type="Run",
+        start_date_utc=datetime(2026, 3, 9, 6, 0, tzinfo=UTC),
+        time_stream=[0, 10, 20, 30],
+        distance_stream_meters=[0, 50, 100, 250],
+        heartrate_stream_bpm=[100, 150, 100, 200],
+        altitude_stream_meters=[],
+        velocity_smooth_stream_mps=[1.0, 2.0, 3.0, 4.0],
+        average_cadence=None,
+        aet_heart_rate_bpm=None,
+        ant_heart_rate_bpm=None,
+        aet_pace_min_per_km=None,
+        ant_pace_min_per_km=None,
+    )
+
+    assert payload["heartrate_bpm"] == [100.0, 150.0, 100.0, 200.0]
+    assert payload["speed_kph"] == [3.6, 7.2, 10.8, 14.4]
+    assert payload["pace_minutes_per_km"] == pytest.approx([10 / 3, 10 / 3, 10 / 3, 10 / 9])
 
 
 def test_activity_detail_service_omits_running_analysis_without_complete_thresholds() -> (

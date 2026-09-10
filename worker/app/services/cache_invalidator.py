@@ -1,14 +1,17 @@
 import logging
-
 from app.cache import RedisCache
 from app.cache_keys import CacheKeys
-
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
 
+class CacheInvalidationStore(Protocol):
+    def delete_pattern(self, pattern: str) -> int: ...
+
+
 class UserCacheInvalidator:
-    def __init__(self, cache: RedisCache | None = None) -> None:
+    def __init__(self, cache: CacheInvalidationStore | None = None) -> None:
         self.cache = cache or RedisCache()
 
     def invalidate_user(self, user_id: int) -> int:

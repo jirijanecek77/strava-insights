@@ -1,8 +1,4 @@
 import logging
-from dataclasses import dataclass
-from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal
-
 from app.models import ActivityStream, BestEffort, PeriodSummary
 from app.repositories import (
     ActivityRepository,
@@ -11,6 +7,10 @@ from app.repositories import (
     PeriodSummaryRepository,
 )
 from app.services.stream_sanitizer import sanitize_persisted_stream
+from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Protocol
 
 RUN_SPORT = "Run"
 RIDE_SPORTS = {"Ride", "EBikeRide"}
@@ -30,6 +30,26 @@ TOP_EFFORTS_PER_DISTANCE = 5
 logger = logging.getLogger(__name__)
 
 
+class ActivityStore(Protocol):
+    def list_for_user(self, user_id: int) -> list[Any]: ...
+
+    def save(self, activity: Any) -> Any: ...
+
+
+class ActivityStreamStore(Protocol):
+    def get_by_activity_ids(self, activity_ids: list[int]) -> list[Any]: ...
+
+    def save(self, stream: Any) -> Any: ...
+
+
+class PeriodSummaryStore(Protocol):
+    def replace_for_user(self, *, user_id: int, summaries: list[PeriodSummary]) -> None: ...
+
+
+class BestEffortStore(Protocol):
+    def replace_for_user(self, *, user_id: int, efforts: list[BestEffort]) -> None: ...
+
+
 def _quantize(value: Decimal, precision: str) -> Decimal:
     return value.quantize(Decimal(precision), rounding=ROUND_HALF_UP)
 
@@ -46,10 +66,10 @@ class AggregateInput:
 class ReadModelBuilder:
     def __init__(self, session) -> None:
         self.session = session
-        self.activities = ActivityRepository(session)
-        self.activity_streams = ActivityStreamRepository(session)
-        self.period_summaries = PeriodSummaryRepository(session)
-        self.best_efforts = BestEffortRepository(session)
+        self.activities: ActivityStore = ActivityRepository(session)
+        self.activity_streams: ActivityStreamStore = ActivityStreamRepository(session)
+        self.period_summaries: PeriodSummaryStore = PeriodSummaryRepository(session)
+        self.best_efforts: BestEffortStore = BestEffortRepository(session)
 
     def rebuild_for_user(
         self,

@@ -198,6 +198,56 @@ export function expandChartDomain(minValue, maxValue) {
     };
 }
 
+const MINIMUM_OUTLIER_SAMPLE_COUNT = 8;
+const MINIMUM_INTERIOR_SAMPLE_COUNT = 6;
+
+export function resolveDetailChartPresentation({valueKind, values}) {
+    const presentationValues = values.map((value) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) ? numericValue : null;
+    });
+    const numericValues = presentationValues.filter(Number.isFinite);
+    if (numericValues.length < MINIMUM_OUTLIER_SAMPLE_COUNT || valueKind === "slope") {
+        return {domainValues: numericValues, presentationValues};
+    }
+
+    const interiorValues = presentationValues
+        .slice(1, -1)
+        .filter(Number.isFinite);
+    if (interiorValues.length < MINIMUM_INTERIOR_SAMPLE_COUNT) {
+        return {domainValues: numericValues, presentationValues};
+    }
+
+    const sortedValues = [...interiorValues].sort((left, right) => left - right);
+    const lowerQuartile = percentile(sortedValues, 0.25);
+    const upperQuartile = percentile(sortedValues, 0.75);
+    const interquartileRange = upperQuartile - lowerQuartile;
+    const lowerBound = lowerQuartile - (interquartileRange * 1.5);
+    const upperBound = upperQuartile + (interquartileRange * 1.5);
+    const endpointPresentationValues = presentationValues.map((value, index) => {
+        const isEndpoint = index === 0 || index === presentationValues.length - 1;
+        const isAbnormalEndpoint = value != null && (
+            value < lowerBound || (valueKind === "pace" && value > upperBound)
+        );
+        return isEndpoint && isAbnormalEndpoint ? null : value;
+    });
+    const domainValues = endpointPresentationValues.filter(Number.isFinite);
+    return domainValues.length >= 4
+        ? {domainValues, presentationValues: endpointPresentationValues}
+        : {domainValues: numericValues, presentationValues};
+}
+
+function percentile(sortedValues, percentileValue) {
+    const index = (sortedValues.length - 1) * percentileValue;
+    const lowerIndex = Math.floor(index);
+    const upperIndex = Math.ceil(index);
+    if (lowerIndex === upperIndex) {
+        return sortedValues[lowerIndex];
+    }
+    const fraction = index - lowerIndex;
+    return sortedValues[lowerIndex] + ((sortedValues[upperIndex] - sortedValues[lowerIndex]) * fraction);
+}
+
 export function resolveDetailReferenceValue({averageValue, summaryMetricKind, valueKind, values}) {
     if (valueKind === "slope") {
         return 0;
@@ -321,7 +371,7 @@ export function buildThresholdGuides({maxValue, minValue, thresholds, valueKind,
 
 export function computeDetailTooltipPosition({activePoint, maxValue, minValue, valueKind, xMax, xMin}) {
     if (!activePoint || !Number.isFinite(activePoint.distance) || !Number.isFinite(activePoint.value)) {
-        return {leftPercent: 50, preferBelow: false, topPercent: 18};
+        return {horizontalAnchor: "center", leftPercent: 50, topPercent: 50, verticalPlacement: "above"};
     }
     const xRange = xMax - xMin;
     const xRatio = xRange > 0 ? (activePoint.distance - xMin) / xRange : 0.5;
@@ -332,11 +382,13 @@ export function computeDetailTooltipPosition({activePoint, maxValue, minValue, v
     const normalizedYRatio = valueKind === "pace" ? rawYRatio : 1 - rawYRatio;
     const clampedYRatio = Math.min(Math.max(normalizedYRatio, 0.12), 0.82);
     const topPercent = 10 + (clampedYRatio * 74);
+    const leftPercent = 9 + (clampedXRatio * 82);
 
     return {
-        leftPercent: 9 + (clampedXRatio * 82),
-        preferBelow: topPercent < 22,
+        horizontalAnchor: leftPercent < 30 ? "left" : leftPercent > 70 ? "right" : "center",
+        leftPercent,
         topPercent,
+        verticalPlacement: topPercent < 38 ? "below" : "above",
     };
 }
 

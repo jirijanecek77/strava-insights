@@ -283,8 +283,8 @@ describe("App", () => {
                         series: {
                             distance_km: [0, 5, 10],
                             altitude_meters: [220, 260, 240],
-                            moving_average_heartrate: [140, 150, 155],
-                            moving_average_speed_kph: [11, 12, 12],
+                            heartrate_bpm: [140, 150, 155],
+                            speed_kph: [11, 12, 12],
                             pace_minutes_per_km: [5.2, 5.0, 4.9],
                             pace_display: ["5:12", "5:00", "4:54"],
                             slope_percent: [0.5, 1.2, -0.3],
@@ -836,8 +836,8 @@ describe("App", () => {
                     series: {
                         distance_km: [0, 5, 10],
                         altitude_meters: [220, 260, 240],
-                        moving_average_heartrate: [140, 150, 155],
-                        moving_average_speed_kph: [11, 12, 12],
+                        heartrate_bpm: [140, 150, 155],
+                        speed_kph: [11, 12, 12],
                         pace_minutes_per_km: [5.2, 5.0, 4.9],
                         pace_display: ["5:12", "5:00", "4:54"],
                         slope_percent: [0.5, 1.2, -0.3],
@@ -900,8 +900,8 @@ describe("App", () => {
                     series: {
                         distance_km: [0, 20, 42],
                         altitude_meters: [220, 410, 260],
-                        moving_average_heartrate: [136, 149, 168],
-                        moving_average_speed_kph: [22, 24, 31],
+                        heartrate_bpm: [136, 149, 168],
+                        speed_kph: [22, 24, 31],
                         pace_minutes_per_km: [],
                         pace_display: [],
                         slope_percent: [0.5, 3.2, -2.1],

@@ -21,6 +21,7 @@ import {
     expandChartDomain,
     findClosestDistanceIndex,
     findClosestPointIndex,
+    resolveDetailChartPresentation,
     resolveDetailReferenceValue,
 } from "../utils/data";
 import {
@@ -33,7 +34,6 @@ import {
     formatDistanceKm,
     formatDistanceMeters,
     formatDuration,
-    formatLabel,
     formatNumber,
     formatPaceSeconds,
     formatPercentage,
@@ -63,7 +63,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
     const isRide = detail.sport_type === "Ride" || detail.sport_type === "EBikeRide";
     const paceOrSpeed = detail.series.pace_minutes_per_km.length
         ? detail.series.pace_minutes_per_km
-        : detail.series.moving_average_speed_kph;
+        : detail.series.speed_kph;
     const paceReferenceValue = resolveDetailReferenceValue({
         averageValue: detail.kpis.summary_metric_display,
         summaryMetricKind: detail.kpis.summary_metric_kind ?? (detail.series.pace_minutes_per_km.length ? "pace" : "speed"),
@@ -73,7 +73,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
     const heartRateReferenceValue = resolveDetailReferenceValue({
         averageValue: detail.kpis.average_heartrate_bpm,
         valueKind: "heart_rate",
-        values: detail.series.moving_average_heartrate,
+        values: detail.series.heartrate_bpm,
     });
     const slopeReferenceValue = resolveDetailReferenceValue({
         valueKind: "slope",
@@ -115,7 +115,14 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
                     />
                 </div>
                 <DetailChart accent="orange" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label={detail.series.pace_minutes_per_km.length ? "Pace" : "Speed"} onSelectIndex={onSelectSeriesIndex} referenceValue={paceReferenceValue} thresholds={detail.thresholds} valueKind={detail.series.pace_minutes_per_km.length ? "pace" : "speed"} values={paceOrSpeed}/>
-                {detail.series.moving_average_heartrate.length ? <DetailChart accent="red" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Heart Rate" onSelectIndex={onSelectSeriesIndex} referenceValue={heartRateReferenceValue} thresholds={detail.thresholds} valueKind="heart_rate" values={detail.series.moving_average_heartrate}/> : null}
+                {detail.series.heartrate_bpm.length ? <DetailChart accent="red" activeIndex={resolvedActiveIndex}
+                                                                   altitudeValues={detail.series.altitude_meters}
+                                                                   distanceValues={detail.series.distance_km}
+                                                                   label="Heart Rate"
+                                                                   onSelectIndex={onSelectSeriesIndex}
+                                                                   referenceValue={heartRateReferenceValue}
+                                                                   thresholds={detail.thresholds} valueKind="heart_rate"
+                                                                   values={detail.series.heartrate_bpm}/> : null}
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
             {detail.route_comparison ? (
@@ -374,8 +381,20 @@ function DetailChartTooltip({active, label, payload, position, valueKind}) {
     if (!active || !point) {
         return null;
     }
+    const horizontalTransform = position.horizontalAnchor === "left"
+        ? "translateX(0)"
+        : position.horizontalAnchor === "right"
+            ? "translateX(-100%)"
+            : "translateX(-50%)";
+    const verticalTransform = position.verticalPlacement === "below"
+        ? "translateY(12px)"
+        : "translateY(calc(-100% - 12px))";
     return (
-        <div className="detail-chart-tooltip" style={{left: `${position.leftPercent}%`, top: `${position.topPercent}%`, transform: position.preferBelow ? "translate(-50%, 12px)" : "translate(-50%, calc(-100% - 12px))"}}>
+        <div className="detail-chart-tooltip" style={{
+            left: `${position.leftPercent}%`,
+            top: `${position.topPercent}%`,
+            transform: `${horizontalTransform} ${verticalTransform}`
+        }}>
             <span>{label}: {formatTooltipSeriesValue(valueKind, point.value)}</span>
             <span>Distance: {formatNumber(point.distance)} km</span>
             {Number.isFinite(point.altitude) ? <span>Elevation: {formatAltitudeAxisValue(point.altitude)}</span> : null}
@@ -404,15 +423,17 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                 : altitudeValues?.length
                     ? altitudeValues.slice(0, seriesLength).map((value) => Number(value ?? 0))
                     : [];
+        const presentation = resolveDetailChartPresentation({valueKind, values});
         return values.map((value, index) => ({
             altitude: Number.isFinite(Number(altitudeSeries[index])) ? Number(altitudeSeries[index]) : null,
             distance: Number.isFinite(Number(xValues[index])) ? Number(xValues[index]) : index,
+            presentationValue: presentation.presentationValues[index],
             sourceIndex: index,
             value: Number.isFinite(Number(value)) ? Number(value) : null,
         }));
-    }, [altitudeValues, distanceValues, values]);
+    }, [altitudeValues, distanceValues, valueKind, values]);
     const sampledChartData = useMemo(() => downsampleChartData(chartData, activeIndex), [activeIndex, chartData]);
-    const numericValues = useMemo(() => chartData.map((point) => point.value).filter(Number.isFinite), [chartData]);
+    const numericValues = useMemo(() => chartData.map((point) => point.presentationValue).filter(Number.isFinite), [chartData]);
     const numericDistances = useMemo(() => chartData.map((point) => point.distance).filter(Number.isFinite), [chartData]);
     const numericAltitudes = useMemo(() => chartData.map((point) => point.altitude).filter(Number.isFinite), [chartData]);
     const lineColor = getDetailAccentColor(accent);
@@ -435,12 +456,12 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
     const maxValuePoint = useMemo(() => {
         let candidate = null;
         for (const point of chartData) {
-            if (!Number.isFinite(point.value) || !Number.isFinite(point.distance)) {
+            if (!Number.isFinite(point.presentationValue) || !Number.isFinite(point.distance)) {
                 continue;
             }
             const isBetterCandidate = valueKind === "pace"
-                ? !candidate || point.value < candidate.value
-                : !candidate || point.value > candidate.value;
+                ? !candidate || point.presentationValue < candidate.presentationValue
+                : !candidate || point.presentationValue > candidate.presentationValue;
             if (isBetterCandidate) {
                 candidate = point;
             }
@@ -495,14 +516,17 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                         <ReferenceArea key={`threshold-band-${valueKind}-${band.code}`} fill={band.color} fillOpacity={0.1} ifOverflow="extendDomain" x1={xMin} x2={xMax} y1={band.y1} y2={band.y2}/>
                     ))}
                     <Area dataKey="altitude" fill={`url(#${gradientId})`} isAnimationActive={false} stroke="rgba(100, 116, 139, 0.28)" strokeWidth={1} type="monotone" yAxisId="altitude"/>
-                    <Line activeDot={false} connectNulls dataKey="value" dot={false} isAnimationActive={false} stroke={lineColor} strokeWidth={2.25} type="monotone"/>
+                    <Line activeDot={false} connectNulls dataKey="presentationValue" dot={false}
+                          isAnimationActive={false} stroke={lineColor} strokeWidth={2.25} type="monotone"/>
                     {Number.isFinite(referenceValue) ? <ReferenceLine ifOverflow="extendDomain" stroke={referenceLineColor} strokeDasharray="5 5" strokeWidth={1.5} y={referenceValue}/> : null}
                     {thresholdGuides.lines.map((line) => (
                         <ReferenceLine ifOverflow="extendDomain" key={`threshold-line-${valueKind}-${line.label}`} label={{fill: line.color, fontSize: 10, position: "insideTopRight", value: line.label}} stroke={line.color} strokeDasharray="3 4" strokeWidth={1} y={line.value}/>
                     ))}
                     {maxValuePoint ? <ReferenceLine stroke={referenceLineColor} strokeDasharray="3 3" strokeWidth={1.8} x={maxValuePoint.distance}/> : null}
                     {activePoint && Number.isFinite(activePoint.distance) ? <ReferenceLine stroke="rgba(29, 122, 243, 0.32)" strokeDasharray="4 4" x={activePoint.distance}/> : null}
-                    {activePoint && Number.isFinite(activePoint.distance) && Number.isFinite(activePoint.value) ? <ReferenceDot fill="#ffffff" r={4} stroke={lineColor} strokeWidth={2} x={activePoint.distance} y={activePoint.value}/> : null}
+                    {activePoint && Number.isFinite(activePoint.distance) && Number.isFinite(activePoint.presentationValue) ?
+                        <ReferenceDot fill="#ffffff" r={4} stroke={lineColor} strokeWidth={2} x={activePoint.distance}
+                                      y={activePoint.presentationValue}/> : null}
                 </ComposedChart>
             </ResponsiveContainer>
         </div>

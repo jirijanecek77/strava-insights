@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     session_secret_key: str = "change-me"
     daily_sync_cron_hour_utc: int = 3
     daily_sync_cron_minute_utc: int = 0
+    sync_dispatch_poll_interval_seconds: int = 2
 
     model_config = SettingsConfigDict(
         env_file=".env",

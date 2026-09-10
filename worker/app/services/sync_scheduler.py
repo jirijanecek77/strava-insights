@@ -1,10 +1,10 @@
 import logging
-
+from app.repositories import (
+    SyncDispatchOutboxRepository,
+    SyncJobRepository,
+    UserRepository,
+)
 from sqlalchemy.orm import Session
-
-from app.celery_app import celery_app
-from app.repositories import SyncJobRepository, UserRepository
-
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ class DailyIncrementalSyncScheduler:
         self.session = session
         self.users = UserRepository(session)
         self.sync_jobs = SyncJobRepository(session)
+        self.dispatch_store = SyncDispatchOutboxRepository(session)
 
     def run(self) -> int:
         scheduled_jobs = 0
@@ -30,14 +31,14 @@ class DailyIncrementalSyncScheduler:
                 sync_type="incremental_sync",
                 metadata_json={"source": "daily_schedule"},
             )
-            # Persist the queued job before enqueuing the Celery task so workers can load it immediately.
-            self.session.commit()
-            celery_app.send_task(
-                "app.tasks.sync.run_incremental_sync",
-                kwargs={"sync_job_id": sync_job.id, "user_id": user_id},
+            self.dispatch_store.record_sync_dispatch(
+                sync_job_id=sync_job.id,
+                user_id=user_id,
+                sync_type=sync_job.sync_type,
             )
+            self.session.commit()
             logger.info(
-                "Scheduled incremental sync job.",
+                "Scheduled durable incremental sync dispatch.",
                 extra={"user.id": user_id, "sync_job.id": sync_job.id},
             )
             scheduled_jobs += 1

@@ -8,6 +8,11 @@ from app.services.sync_import import FullImportService, IncrementalSyncService
 from app.services.sync_scheduler import DailyIncrementalSyncScheduler
 
 logger = logging.getLogger(__name__)
+MAX_SYNC_RETRIES = 3
+
+
+def _retry_delay_seconds(retry_count: int) -> int:
+    return min(300, 2 ** (retry_count + 1))
 
 
 def _set_task_log_user_name(session, user_id: int):
@@ -23,12 +28,20 @@ def _handle_authentication_required(session, sync_jobs, *, sync_job_id: int, use
     session.commit()
 
 
-@celery_app.task(name="app.tasks.sync.run_full_import")
-def run_full_import(*, sync_job_id: int, user_id: int) -> None:
+@celery_app.task(bind=True, name="app.tasks.sync.run_full_import")
+def run_full_import(self, *, sync_job_id: int, user_id: int) -> None:
     session = SessionLocal()
     log_user_token = _set_task_log_user_name(session, user_id)
     sync_jobs = SyncJobRepository(session)
     try:
+        if sync_jobs.claim_for_execution(
+                sync_job_id=sync_job_id, user_id=user_id
+        ) is None:
+            logger.info(
+                "Skipping duplicate full import task delivery.",
+                extra={"sync_job.id": sync_job_id, "user.id": user_id},
+            )
+            return
         logger.info("Running full import task.", extra={"sync_job.id": sync_job_id, "user.id": user_id})
         FullImportService(session).run(sync_job_id=sync_job_id, user_id=user_id)
     except GarminAuthenticationError:
@@ -39,6 +52,20 @@ def run_full_import(*, sync_job_id: int, user_id: int) -> None:
     except Exception as exc:
         session.rollback()
         sync_job = sync_jobs.get(sync_job_id, user_id)
+        if sync_job is not None and self.request.retries < MAX_SYNC_RETRIES:
+            sync_jobs.requeue_after_transient_failure(
+                sync_job, error_message=str(exc)
+            )
+            session.commit()
+            logger.warning(
+                "Retrying full import after a transient failure.",
+                extra={"sync_job.id": sync_job_id, "user.id": user_id},
+            )
+            raise self.retry(
+                exc=exc,
+                countdown=_retry_delay_seconds(self.request.retries),
+                max_retries=MAX_SYNC_RETRIES,
+            )
         if sync_job is not None:
             sync_jobs.fail(sync_job, error_message=str(exc))
             session.commit()
@@ -53,12 +80,20 @@ def run_full_import(*, sync_job_id: int, user_id: int) -> None:
         session.close()
 
 
-@celery_app.task(name="app.tasks.sync.run_incremental_sync")
-def run_incremental_sync(*, sync_job_id: int, user_id: int) -> None:
+@celery_app.task(bind=True, name="app.tasks.sync.run_incremental_sync")
+def run_incremental_sync(self, *, sync_job_id: int, user_id: int) -> None:
     session = SessionLocal()
     log_user_token = _set_task_log_user_name(session, user_id)
     sync_jobs = SyncJobRepository(session)
     try:
+        if sync_jobs.claim_for_execution(
+                sync_job_id=sync_job_id, user_id=user_id
+        ) is None:
+            logger.info(
+                "Skipping duplicate incremental sync task delivery.",
+                extra={"sync_job.id": sync_job_id, "user.id": user_id},
+            )
+            return
         logger.info("Running incremental sync task.", extra={"sync_job.id": sync_job_id, "user.id": user_id})
         IncrementalSyncService(session).run(sync_job_id=sync_job_id, user_id=user_id)
     except GarminAuthenticationError:
@@ -69,6 +104,20 @@ def run_incremental_sync(*, sync_job_id: int, user_id: int) -> None:
     except Exception as exc:
         session.rollback()
         sync_job = sync_jobs.get(sync_job_id, user_id)
+        if sync_job is not None and self.request.retries < MAX_SYNC_RETRIES:
+            sync_jobs.requeue_after_transient_failure(
+                sync_job, error_message=str(exc)
+            )
+            session.commit()
+            logger.warning(
+                "Retrying incremental sync after a transient failure.",
+                extra={"sync_job.id": sync_job_id, "user.id": user_id},
+            )
+            raise self.retry(
+                exc=exc,
+                countdown=_retry_delay_seconds(self.request.retries),
+                max_retries=MAX_SYNC_RETRIES,
+            )
         if sync_job is not None:
             sync_jobs.fail(sync_job, error_message=str(exc))
             session.commit()

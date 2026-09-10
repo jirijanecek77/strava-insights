@@ -10,6 +10,7 @@ This document describes how to run and validate the local stack. Product behavio
 - `backend`: FastAPI application
 - `worker`: Celery worker
 - `beat`: Celery beat scheduler
+- `sync-dispatcher`: durable-outbox publisher for Celery sync commands
 - `postgres`: PostgreSQL
 - `redis`: Redis
 

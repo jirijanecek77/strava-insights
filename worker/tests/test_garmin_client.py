@@ -1,5 +1,6 @@
 from app.garmin_client import GarminApiClient
 from app.services.sync_import import BaseImportService
+from typing import Any, cast
 
 
 def test_normalize_summary_omits_non_run_and_non_ride_activities() -> None:
@@ -102,7 +103,7 @@ def test_existing_activity_with_empty_stream_is_selected_for_backfill() -> None:
                 },
             )()
 
-    service = BaseImportService.__new__(BaseImportService)
+    service = cast(Any, BaseImportService.__new__(BaseImportService))
     service.activities = ActivityRepositoryStub()
     service.activity_streams = ActivityStreamRepositoryStub()
 

@@ -26,7 +26,8 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Replaced legacy source login with Garmin email/password credential login, encrypted Garmin token persistence, MFA handling, and cookie-based session auth.
 - [x] Added current-user and sync-status endpoints.
 - [x] Added Redis-backed cache utilities needed by current reads and sync behavior.
-- [x] Replaced shared env-based source credentials with per-user Intervals.icu credentials entered on the landing screen and persisted encrypted in the database.
+- [x] Replaced shared env-based source credentials with per-user Garmin credentials entered on the landing screen and
+  persisted as encrypted session material in the database.
 
 ### Completed Sync and Import Work
 
@@ -42,13 +43,15 @@ This document tracks implementation status against [specification.md](specificat
 
 ### Completed Analytics and API Work
 
-- [x] Ported activity-detail derivations for smoothed heart rate, smoothed speed, derived running pace, slope, and running-specific detail analytics.
+- [x] Ported activity-detail derivations for raw sanitized heart-rate and speed samples, adjacent-segment running pace,
+  slope, and running-specific detail analytics.
 - [x] Implemented reusable backend analytics for activity detail, aggregations, best efforts.
 - [x] Implemented dashboard aggregations, comparisons, and best-effort derivation.
 - [x] Implemented auth, profile, sync, dashboard, activities, and best-efforts API endpoints.
 - [x] Defined stable response payloads for activity summaries, detail views, and interval-analysis data.
 - [x] Added admin-only user audit APIs plus admin UI for the configured admin athlete, including user disable/reject actions.
-- [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through Intervals.icu credentials.
+- [x] Added disabled-user enforcement on authenticated requests and blocked disabled users from reconnecting through
+  Garmin credentials.
 - [x] Added user `last_login_at` persistence for admin audit visibility.
 
 ### Completed Frontend Work
@@ -65,7 +68,8 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Restored AeT and AnT guides on running pace and heart-rate detail charts while keeping the average lines.
 - [x] Added first-pass cycling activity analytics for rides and e-bike rides using speed, heart rate, cadence, and terrain data already stored locally.
 - [x] Added landing/login credential capture with saved-credential reconnect behavior after logout.
-- [x] Simplified the landing/login flow to a single Intervals.icu connection action that uses saved credentials when available and falls back to an athlete ID/API key setup modal.
+- [x] Simplified the landing/login flow to a single Garmin connection action that uses saved credentials when available
+  and falls back to Garmin credential setup.
 
 ### Completed Validation and Hardening Work
 
@@ -87,13 +91,20 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Standardized backend, worker, and frontend log prefixes with readable timestamps, service labels, and frontend INFO-level filtering.
 - [x] Switched the import source to Garmin Connect while preserving existing local activity/stream data and local analytics.
 - [x] Removed live source API/OAuth integration code and source-specific env configuration.
-- [x] Hardened activity detail reads for Intervals.icu stream compatibility, including scalar-only GPS streams and sparse null samples in numeric streams.
+- [x] Hardened activity detail reads for Garmin stream compatibility, including scalar-only GPS streams and sparse null
+  samples in numeric streams.
 - [x] Removed unused heart-rate drift analytics, dead analytics helpers, unused activity metadata columns, user email storage, and the unused activity-level effort table through an explicit migration.
 - [x] Added aligned stream sanitation for speed, distance, GPS, altitude, and heart-rate artifacts, including segmented route rendering across missing GPS runs.
 - [x] Added current elevation to every activity-detail graph tooltip.
-- [x] Replaced quadratic best-effort scans with Intervals bulk running pace curves plus a linear local fallback for cycling and source-missing activities.
+- [x] Kept raw detail samples in tooltips while excluding only abnormal first and last samples from detail-chart line
+  rendering and Y-axis scaling, preserving interior interval-session values.
+- [x] Made activity-detail chart tooltips choose bounds-safe vertical and horizontal placement for high, low, left-edge,
+  and right-edge points.
+- [x] Replaced quadratic best-effort scans with linear local calculations over sanitized streams for running and cycling
+  activities.
 - [x] Persisted and exposed the top five best efforts per sport and distance, with collapsed ranking UI, source activity links, and activity-detail rank badges.
-- [x] Removed the unavailable premium Intervals route-assignment dependency and implemented versioned, direction-aware local GPS route matching with additive signature, group, and membership tables.
+- [x] Removed the unavailable external route-assignment dependency and implemented versioned, direction-aware local GPS
+  route matching with additive signature, group, and membership tables.
 - [x] Added an icon-led, four-column Best Efforts KPI with rank colors to Activity Detail and kept same-route ranking, attempt history, links, and trend in a separate compact Performance band after the slope chart.
 - [x] Made manual sync recalculate analytics while scheduled no-change syncs skip an already-current read-model rebuild.
 - [x] Applied migration `20260810_0014` and validated a real manual refresh over 148 activities; the worker completed in about 11 seconds and persisted ranked efforts plus sanitized streams.
@@ -106,6 +117,9 @@ This document tracks implementation status against [specification.md](specificat
   non-destructive stream backfill for existing activities with empty stream JSON.
 - [x] Derived imported average pace and speed from moving time, excluding pauses from elapsed duration.
 - [x] Prefer Garmin's `averageMovingSpeed` field when available, with moving-time derivation as the fallback.
+- [x] Added a durable `sync_dispatch_outbox` so accepted API and scheduled sync jobs survive broker outages, plus a
+  dedicated dispatcher process that retries Celery publication with backoff.
+- [x] Made sync-task delivery idempotent and added bounded exponential retries for temporary import failures.
 
 ## Remaining Work
 

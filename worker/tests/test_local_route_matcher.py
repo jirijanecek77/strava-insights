@@ -1,6 +1,6 @@
-from math import cos, pi, sin
-
 from app.services.local_route_matcher import LocalRouteMatcher, RouteInput
+from collections.abc import Sequence
+from math import cos, pi, sin
 
 
 def _open_route(*, count: int = 121) -> list[list[float]]:
@@ -20,7 +20,7 @@ def _loop_route(*, count: int = 120) -> list[list[float]]:
 
 def _route_input(
     activity_id: int,
-    points: list[list[float] | None],
+        points: Sequence[list[float] | tuple[float, float] | None],
     *,
     distance_meters: float = 4_300.0,
     sport_type: str = "Run",

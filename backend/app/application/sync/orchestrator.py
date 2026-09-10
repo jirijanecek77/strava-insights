@@ -2,8 +2,10 @@ import logging
 from app.api.dependencies import get_db_session
 from app.application.sync.dto import CreatedSyncJob
 from app.infrastructure.db.models.sync_job import SyncJob
-from app.infrastructure.queue.celery_client import CeleryQueueClient
 from app.infrastructure.repositories.garmin_credential_repository import GarminCredentialRepository
+from app.infrastructure.repositories.sync_dispatch_outbox_repository import (
+    SyncDispatchOutboxRepository,
+)
 from app.infrastructure.repositories.sync_job_repository import SyncJobRepository
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -15,12 +17,11 @@ class SyncOrchestrator:
     def __init__(
         self,
         db_session: Session = Depends(get_db_session),
-        queue_client: CeleryQueueClient = Depends(CeleryQueueClient),
     ) -> None:
         self.db_session = db_session
         self.sync_job_repository = SyncJobRepository(db_session)
+        self.dispatch_store = SyncDispatchOutboxRepository(db_session)
         self.garmin_credentials = GarminCredentialRepository(db_session)
-        self.queue_client = queue_client
 
     def enqueue_first_import_if_needed(self, user_id: int) -> CreatedSyncJob | None:
         latest_job = self.sync_job_repository.get_latest_for_user(user_id)
@@ -80,6 +81,11 @@ class SyncOrchestrator:
             metadata_json=metadata,
         )
         self.sync_job_repository.save(sync_job)
+        self.dispatch_store.record_sync_dispatch(
+            sync_job_id=sync_job.id,
+            user_id=user_id,
+            sync_type=sync_type,
+        )
         self.db_session.commit()
         self.db_session.refresh(sync_job)
         logger.info(
@@ -91,16 +97,8 @@ class SyncOrchestrator:
             },
         )
 
-        if sync_type == "full_import":
-            self.queue_client.enqueue_full_import(
-                sync_job_id=sync_job.id, user_id=user_id
-            )
-        else:
-            self.queue_client.enqueue_incremental_sync(
-                sync_job_id=sync_job.id, user_id=user_id
-            )
         logger.info(
-            "Enqueued sync job to Celery.",
+            "Persisted pending sync dispatch.",
             extra={
                 "user.id": user_id,
                 "sync_job.id": sync_job.id,

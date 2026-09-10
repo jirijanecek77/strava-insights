@@ -1,8 +1,10 @@
-# Intervals Insights Specification
+# Garmin Insights Specification
 
 ## Purpose
 
-Intervals Insights is a desktop-first web application for athletes who want fast analytics over their Garmin-backed activity history without depending on live external-source reads during normal app use. The system imports Intervals.icu data into local storage, computes derived metrics, and serves dashboards and activity detail views from the local database and cache.
+Garmin Insights is a desktop-first web application for athletes who want fast analytics over their Garmin Connect
+activity history without depending on live Garmin reads during normal app use. The system imports Garmin data into local
+storage, computes derived metrics, and serves dashboards and activity detail views from the local database and cache.
 
 ## Documentation Roles
 
@@ -14,17 +16,19 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 
 ### Core Requirements
 
-- Authentication uses Intervals.icu athlete ID plus personal API key in the first Intervals.icu integration iteration.
-- Before a user can connect, the landing/login screen must collect that user's Intervals.icu athlete ID and API key.
+- Authentication connects a user's Garmin account with Garmin email/password and stores only encrypted session material
+  after successful validation.
+- Before a user can connect, the landing/login screen must collect that user's Garmin credentials or offer reconnect
+  through remembered encrypted session material.
 - The system supports multiple users with isolated data.
 - Supported sports in v1 are running, cycling, and e-bike ride types; strength-training activities are omitted.
 - First login triggers a background full historical import.
 - Ongoing synchronization runs daily, with optional refresh on startup when data is stale.
 - Users cannot export, delete, or disconnect their data in v1.
 - A single admin athlete with source athlete id `632291` by default can review user access and disable other users.
-- Historical edits and deletions performed later in Intervals.icu are out of scope for v1.
+- Historical edits and deletions performed later in Garmin Connect are out of scope for v1.
 - Imported streams are sanitized before persistence so impossible speed, distance, GPS, altitude, and heart-rate samples do not contaminate reads or analytics.
-- Activities sharing an Intervals.icu route id and sport can be compared from local data.
+- Activities of the same sport sharing a locally matched GPS route can be compared from local data.
 - Desktop is the primary target. Mobile optimization is not required for v1.
 
 ### Required Screens
@@ -42,14 +46,16 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 ## Performance and Operational Requirements
 
 - Normal UI reads should complete within 500 ms when served from local storage or cache.
-- Standard page rendering must not depend on synchronous Intervals.icu API calls.
+- Standard page rendering must not depend on synchronous Garmin Connect API calls.
 - Activity detail must be renderable from locally stored activity and stream data.
-- Duplicate activities must be upserted by source activity id. Intervals.icu `i123` activity ids are stored as numeric `123` in the existing activity id column for the no-schema-change migration.
+- Duplicate activities must be upserted by `(source_provider, source_activity_id)`. Garmin numeric activity IDs are
+  retained as their source activity IDs.
 - A manual sync always refreshes analytics. A scheduled sync with no imported or analytically stale data skips the read-model rebuild.
 - Token expiry during sync must reuse and persist the refreshed Garmin session. A final Garmin authentication rejection
   must mark the connection as requiring reauthentication, stop scheduled syncs, and preserve imported data until the
   user reconnects and manually starts a sync.
-- Temporary Intervals.icu API failures should retry with backoff before a sync job is marked failed.
+- Sync commands must be recorded durably before Celery publishing. Temporary broker and Garmin Connect failures retry
+  with exponential backoff before a sync job is marked failed.
 - Partial import failure for one activity must not corrupt already persisted valid data.
 
 ## Technology and Delivery Constraints
@@ -79,7 +85,7 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - The admin identity is fixed to the configured athlete whose stored source athlete id is `632291` by default.
 - The admin screen must show all users with basic audit fields: display name, source athlete id, active status, created/updated timestamps, and last login timestamp.
 - The admin can disable any non-admin user.
-- A disabled user must be blocked from further app use and from reconnecting through Intervals.icu credentials.
+- A disabled user must be blocked from further app use and from reconnecting through Garmin credentials.
 - The admin account cannot disable itself.
 
 ## Architecture
@@ -90,6 +96,7 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 - `backend`: FastAPI application for auth, read APIs, profile management, and sync orchestration
 - `worker`: Celery worker for full import, incremental sync, and read-model refresh
 - `beat`: Celery beat scheduler for daily sync orchestration
+- `sync-dispatcher`: durable-outbox publisher that retries Celery task publication independently of request handling
 - `postgres`: source of truth for persisted application data
 - `redis`: cache plus Celery broker/backend
 
@@ -97,7 +104,7 @@ Intervals Insights is a desktop-first web application for athletes who want fast
 
 - Keep framework code at the edges.
 - Keep business logic in testable domain and application layers.
-- Isolate infrastructure concerns such as Intervals.icu access, persistence, cache, and background jobs.
+- Isolate infrastructure concerns such as Garmin Connect access, persistence, cache, and background jobs.
 - Avoid coupling UI code, HTTP handlers, and persistence logic directly.
 - Maintain clear separation between auth, sync, analytics, and read APIs.
 - Keep read APIs reusable so future machine-consumable or insight-oriented endpoints can be added without major redesign.
@@ -110,8 +117,10 @@ flowchart LR
     FE --> MAPY[Map Provider]
     API --> R[(Redis)]
     API --> DB[(PostgreSQL)]
-    API --> W[Celery Worker]
-    W --> INTERVALS[Intervals.icu API]
+    D[Sync Dispatcher] --> DB
+    D --> R
+    D --> W[Celery Worker]
+    W --> GARMIN[Garmin Connect]
     W --> DB
     W --> R
 ```
@@ -290,10 +299,8 @@ For every configured sport and distance, the read model retains the five fastest
 
 Implementation rule:
 
-- prefer imported source best-effort or split-like data when available and trustworthy
-- otherwise derive best efforts locally from persisted activity and stream data
-- import running effort curves from Intervals.icu in one bulk request during analytics refresh
-- derive cycling efforts with a linear sliding-window algorithm over sanitized local streams
+- derive best efforts locally from persisted sanitized activity streams
+- derive running and cycling efforts with a linear sliding-window algorithm over sanitized local streams
 - show rank 1 by default on the Best Efforts screen and allow expanding ranks 2 through 5
 - link every effort to its originating local activity
 - show all top-five efforts owned by an activity in Activity Detail
@@ -310,6 +317,11 @@ Implementation rule:
 - slope when available
 - hover-linked active marker on the map driven by graph focus
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
+- detail-chart axis scaling may ignore abnormal first and last source samples for presentation while preserving their
+  original values for tooltips and linked interactions; interior samples must remain visible so interval sessions retain
+  their full range
+- detail-chart tooltips must remain inside the chart bounds by choosing above or below placement and left, center, or
+  right alignment from the active point position
 - cycling analysis for ride and e-bike ride activities using available speed, heart-rate, cadence, and terrain data
 - top-five best-effort ranks owned by the activity
 - a same-route comparison when at least two local activities of the same sport match by sanitized GPS geometry
@@ -364,9 +376,9 @@ Route comparison behavior:
 For v1, these are the canonical activity-detail derivations:
 
 - `distance_km` comes from stream distance values in meters
-- moving-average heart rate uses a centered moving average with `range_points = 10`
-- moving-average speed uses `velocity_smooth * 3.6` with `range_points = 10`
-- running pace uses stream `time` and `distance` with a centered window of `range_points = 20`
+- heart rate uses sanitized imported samples without an additional moving average
+- speed uses sanitized imported `velocity_smooth` samples converted to `km/h` without an additional moving average
+- running pace uses the adjacent stream `time` and `distance` samples
 - running pace values are capped at `16 min/km`
 - running pace must be available both as numeric `min/km` and display-ready `MM:SS /km`
 - slope uses altitude change over a 30-point window divided by horizontal distance and converted to percent
@@ -374,8 +386,8 @@ For v1, these are the canonical activity-detail derivations:
 
 Current pace derivation behavior to preserve:
 
-- `start_index = max(0, i - range_points)`
-- `end_index = min(len(stream) - 1, i + range_points)`
+- for the first point, `start_index = 0` and `end_index = min(len(stream) - 1, 1)`
+- for later points, `start_index = i - 1` and `end_index = i`
 - `pace_min_per_km = delta_time_minutes / delta_distance_km`
 
 If `delta_distance` is zero, pace should be treated as infinite and legacy-compatible formatted output should render `0:00`.
@@ -451,7 +463,8 @@ Cycling speed should not be treated as a physiological threshold proxy in the wa
 - Missing heart-rate data must hide heart-rate KPIs and related graph content without failing the page.
 - Missing GPS data must hide the route map and hover-linked marker behavior.
 - Missing or ineligible GPS route signatures must hide route comparison without affecting activity detail.
-- Incomplete GPS coordinate streams, including scalar-only or null-containing Intervals.icu stream data, must be treated as missing GPS data unless valid `[latitude, longitude]` pairs are available.
+- Incomplete GPS coordinate streams, including scalar-only or null-containing Garmin stream data, must be treated as
+  missing GPS data unless valid `[latitude, longitude]` pairs are available.
 - Missing altitude data must hide elevation and slope visualizations.
 - Sparse null samples inside numeric streams must not fail activity detail rendering; valid numeric samples should remain usable for charts and analytics.
 - Slope must only be computed when both altitude and distance streams are available.
@@ -486,6 +499,14 @@ The calendar should feel closer to a training overview than to a traditional ent
 ## Sync Model
 
 - First login enqueues a full historical import.
+- Creating a sync job and its `sync_dispatch_outbox` command must commit atomically before any broker publication is
+  attempted.
+- The sync dispatcher leases pending commands, retries failed task publication with exponential backoff, and marks a
+  command dispatched only after Celery accepts it.
+- Sync task delivery is at least once; workers must claim a queued sync job before importing so duplicate deliveries are
+  harmless.
+- Temporary import failures retry with bounded exponential backoff. Final Garmin authentication rejection requires
+  reconnection rather than retry.
 - Users can use the app while import is running and see sync progress.
 - Daily refresh imports only newly available activities.
 - Manual refresh is incremental only and must not trigger a full reimport.
@@ -496,26 +517,27 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
 - Local route signatures and groups are rebuilt after activity import, after a manual refresh, or when the versioned `route_model` checkpoint is stale.
 - Existing activities receive local route comparisons after the first successful route-index rebuild; no source reimport or destructive data migration is required.
-- Deletions and later historical edits in Intervals.icu remain out of scope for v1.
+- Deletions and later historical edits in Garmin Connect remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
-- If Intervals.icu activity streams return `404`, import the activity and continue without streams.
+- If Garmin activity streams return `404`, import the activity and continue without streams.
 
 ```mermaid
 sequenceDiagram
     participant User
     participant Frontend
     participant API
+    participant Dispatcher
     participant Worker
-    participant Intervals
+    participant Garmin
     participant DB
 
-    User->>Frontend: Enter Intervals.icu athlete ID and API key
-    User->>Frontend: Connect Intervals.icu
-    Frontend->>API: Validate submitted or remembered credentials
-    API->>DB: Create or update user
-    API->>Worker: Enqueue full import
+    User->>Frontend: Enter Garmin credentials or reconnect
+    User->>Frontend: Connect Garmin
+    Frontend->>API: Validate submitted or remembered Garmin session
+    API->>DB: Create or update user, sync job, and durable dispatch
     API-->>Frontend: Auth success + sync pending
-    Worker->>Intervals: Fetch activities and streams
+    Dispatcher->>Worker: Publish full-import task
+    Worker->>Garmin: Fetch activities and streams
     Worker->>DB: Store activities, streams, summaries
 ```
 
@@ -524,7 +546,7 @@ sequenceDiagram
 ### Core Entities
 
 - `users`
-- `intervals_credentials`
+- `garmin_credentials`
 - `user_threshold_profiles`
 - `activities`
 - `activity_streams`
@@ -534,13 +556,14 @@ sequenceDiagram
 - `route_groups`
 - `activity_route_memberships`
 - `sync_jobs`
+- `sync_dispatch_outbox`
 - `sync_checkpoints`
 
 ### Persistence Expectations
 
 The schema must support:
 
-- user-scoped Intervals.icu credentials needed for activity and stream imports
+- user-scoped encrypted Garmin session material needed for activity and stream imports
 - imported activity metadata
 - versioned, downsampled GPS signatures used for local candidate search and comparison
 - user-scoped route groups and one route-group membership per eligible activity
@@ -565,7 +588,7 @@ The schema must support:
 
 The backend must expose:
 
-- auth endpoints for Intervals.icu credential-state lookup plus credential login
+- auth endpoints for Garmin credential-state lookup plus credential login
 - current-user profile endpoint
 - sync-status endpoint
 - dashboard endpoint
@@ -578,7 +601,8 @@ The backend must expose:
 
 - Elevation tooltip data is available immediately for activities that already have altitude streams.
 - Stream cleanup and rebuilt aggregate values appear after the first manual sync following this release; later manual syncs recalculate them on demand.
-- Top-five efforts appear after that manual analytics refresh. Intervals running curves are used for Intervals activities; cycling and source-missing activities use sanitized local streams.
-- Route comparisons appear after Intervals.icu assigns route ids and a manual sync refreshes those assignments. Legacy route identity is not inferred or migrated.
+- Top-five efforts appear after that manual analytics refresh and are derived from sanitized local streams.
+- Route comparisons appear after local route-index rebuilds; route identity is derived from persisted sanitized GPS data
+  rather than a provider route assignment.
 
 The backend should remain extensible for future user-scoped insight features by keeping analytics and read models accessible through stable backend service boundaries.

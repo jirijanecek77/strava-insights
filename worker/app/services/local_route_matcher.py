@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import h3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from math import asin, cos, isfinite, pi, radians, sin, sqrt
 from numbers import Real
-
-import h3
 from shapely import LineString, Point, frechet_distance, hausdorff_distance
 
 EARTH_RADIUS_METERS = 6_371_000.0
@@ -25,6 +25,7 @@ H3_RESOLUTION = 9
 
 Coordinate = tuple[float, float]
 ProjectedPoint = tuple[float, float]
+CoordinateInput = list[float] | tuple[float, float] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +33,7 @@ class RouteInput:
     activity_id: int
     sport_type: str
     distance_meters: float
-    coordinates: list[list[float] | tuple[float, float] | None]
+    coordinates: Sequence[CoordinateInput]
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,9 +240,7 @@ class LocalRouteMatcher:
         return groups
 
 
-def _coordinate(
-    value: list[float] | tuple[float, float] | None,
-) -> Coordinate | None:
+def _coordinate(value: CoordinateInput) -> Coordinate | None:
     if not isinstance(value, list | tuple) or len(value) < 2:
         return None
     latitude = _finite_number(value[0])

@@ -8,10 +8,13 @@ from app.models import (
     PeriodSummary,
     RouteGroup,
     SyncCheckpoint,
+    SyncDispatchOutbox,
     SyncJob,
     User,
 )
 from datetime import UTC, datetime
+from datetime import timedelta
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 
@@ -81,6 +84,28 @@ class SyncJobRepository:
             .first()
         )
 
+    def claim_for_execution(self, *, sync_job_id: int, user_id: int) -> SyncJob | None:
+        claimed = (
+            self.session.query(SyncJob)
+            .filter(
+                SyncJob.id == sync_job_id,
+                SyncJob.user_id == user_id,
+                SyncJob.status == "queued",
+            )
+            .update(
+                {
+                    SyncJob.status: "running",
+                    SyncJob.started_at: datetime.now(UTC),
+                },
+                synchronize_session=False,
+            )
+        )
+        if claimed != 1:
+            self.session.rollback()
+            return None
+        self.session.commit()
+        return self.get(sync_job_id, user_id)
+
     def create_queued(
         self, *, user_id: int, sync_type: str, metadata_json: dict | None = None
     ) -> SyncJob:
@@ -130,6 +155,13 @@ class SyncJobRepository:
         sync_job.error_message = error_message
         self.session.flush()
 
+    def requeue_after_transient_failure(
+            self, sync_job: SyncJob, *, error_message: str
+    ) -> None:
+        sync_job.status = "queued"
+        sync_job.error_message = error_message[:1000]
+        self.session.flush()
+
     def require_authentication(self, sync_job: SyncJob) -> None:
         sync_job.status = "authentication_required"
         sync_job.finished_at = datetime.now(UTC)
@@ -139,6 +171,72 @@ class SyncJobRepository:
             "phase": "authentication_required",
         }
         self.session.flush()
+
+
+class SyncDispatchOutboxRepository:
+    _LEASE_DURATION = timedelta(minutes=1)
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def record_sync_dispatch(
+            self, *, sync_job_id: int, user_id: int, sync_type: str
+    ) -> SyncDispatchOutbox:
+        dispatch = SyncDispatchOutbox(
+            sync_job_id=sync_job_id,
+            user_id=user_id,
+            sync_type=sync_type,
+            payload_json={"sync_job_id": sync_job_id, "user_id": user_id},
+            status="pending",
+        )
+        self.session.add(dispatch)
+        self.session.flush()
+        return dispatch
+
+    def claim_pending(self, *, limit: int) -> list[SyncDispatchOutbox]:
+        now = datetime.now(UTC)
+        reclaimable = and_(
+            SyncDispatchOutbox.status == "dispatching",
+            SyncDispatchOutbox.lease_expires_at <= now,
+        )
+        pending = and_(
+            SyncDispatchOutbox.status == "pending",
+            or_(
+                SyncDispatchOutbox.next_attempt_at.is_(None),
+                SyncDispatchOutbox.next_attempt_at <= now,
+            ),
+        )
+        dispatches = (
+            self.session.query(SyncDispatchOutbox)
+            .filter(or_(pending, reclaimable))
+            .order_by(SyncDispatchOutbox.created_at.asc())
+            .with_for_update(skip_locked=True)
+            .limit(limit)
+            .all()
+        )
+        for dispatch in dispatches:
+            dispatch.status = "dispatching"
+            dispatch.attempt_count += 1
+            dispatch.lease_expires_at = now + self._LEASE_DURATION
+        self.session.commit()
+        return dispatches
+
+    def mark_dispatched(self, dispatch: SyncDispatchOutbox) -> None:
+        dispatch.status = "dispatched"
+        dispatch.dispatched_at = datetime.now(UTC)
+        dispatch.lease_expires_at = None
+        dispatch.last_error = None
+        self.session.commit()
+
+    def reschedule_after_publish_failure(
+            self, dispatch: SyncDispatchOutbox, *, error_message: str
+    ) -> None:
+        delay_seconds = min(300, 2 ** min(dispatch.attempt_count, 8))
+        dispatch.status = "pending"
+        dispatch.next_attempt_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+        dispatch.lease_expires_at = None
+        dispatch.last_error = error_message[:1000]
+        self.session.commit()
 
 
 class ActivityRepository:
