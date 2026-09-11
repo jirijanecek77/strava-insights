@@ -18,9 +18,9 @@ import {
     buildThresholdGuides,
     computeDetailTooltipPosition,
     downsampleChartData,
-    expandChartDomain,
     findClosestDistanceIndex,
     findClosestPointIndex,
+    resolveDetailChartDomain,
     resolveDetailChartPresentation,
     resolveDetailReferenceValue,
 } from "../utils/data";
@@ -443,12 +443,10 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
         return <EmptyState compact text="No series available."/>;
     }
 
-    const {max: maxValue, min: minValue} = useMemo(() => {
-        if (valueKind === "slope") {
-            return expandChartDomain(Math.min(...numericValues, 0), Math.max(...numericValues, 0));
-        }
-        return expandChartDomain(Math.min(...numericValues), Math.max(...numericValues));
-    }, [numericValues, valueKind]);
+    const {max: maxValue, min: minValue} = useMemo(
+        () => resolveDetailChartDomain({valueKind, values: numericValues}),
+        [numericValues, valueKind],
+    );
     const {xMax, xMin} = useMemo(() => ({xMax: Math.max(...numericDistances), xMin: Math.min(...numericDistances)}), [numericDistances]);
     const thresholdGuides = useMemo(() => buildThresholdGuides({maxValue, minValue, thresholds, valueKind, xMax, xMin}), [maxValue, minValue, thresholds, valueKind, xMax, xMin]);
     const clampedActiveIndex = activeIndex == null ? null : Math.min(activeIndex, chartData.length - 1);
@@ -459,6 +457,9 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
             if (!Number.isFinite(point.presentationValue) || !Number.isFinite(point.distance)) {
                 continue;
             }
+            if (point.presentationValue < minValue || point.presentationValue > maxValue) {
+                continue;
+            }
             const isBetterCandidate = valueKind === "pace"
                 ? !candidate || point.presentationValue < candidate.presentationValue
                 : !candidate || point.presentationValue > candidate.presentationValue;
@@ -467,7 +468,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
             }
         }
         return candidate;
-    }, [chartData, valueKind]);
+    }, [chartData, maxValue, minValue, valueKind]);
     const [isTooltipVisible, setIsTooltipVisible] = useState(false);
     const gradientId = `detail-elevation-${accent}-${valueKind}`;
 
@@ -509,7 +510,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                     </defs>
                     <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
                     <XAxis axisLine={false} dataKey="distance" domain={[xMin, xMax]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => Math.round(value)} tickLine={false} type="number"/>
-                    <YAxis axisLine={false} domain={[minValue, maxValue]} reversed={valueKind === "pace"} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => formatAxisValue(valueKind, value)} tickLine={false} width={34}/>
+                    <YAxis allowDataOverflow axisLine={false} domain={[minValue, maxValue]} reversed={valueKind === "pace"} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => formatAxisValue(valueKind, value)} tickLine={false} width={34}/>
                     <YAxis axisLine={false} dataKey="altitude" domain={["dataMin", "dataMax"]} hide={!numericAltitudes.length} orientation="right" tick={{fill: "rgba(100, 116, 139, 0.88)", fontSize: 10}} tickFormatter={formatAltitudeAxisValue} tickLine={false} width={30} yAxisId="altitude"/>
                     <Tooltip content={() => null} cursor={{stroke: "rgba(29, 122, 243, 0.28)", strokeDasharray: "4 4"}}/>
                     {thresholdGuides.bands.map((band) => (
@@ -518,7 +519,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                     <Area dataKey="altitude" fill={`url(#${gradientId})`} isAnimationActive={false} stroke="rgba(100, 116, 139, 0.28)" strokeWidth={1} type="monotone" yAxisId="altitude"/>
                     <Line activeDot={false} connectNulls dataKey="presentationValue" dot={false}
                           isAnimationActive={false} stroke={lineColor} strokeWidth={2.25} type="monotone"/>
-                    {Number.isFinite(referenceValue) ? <ReferenceLine ifOverflow="extendDomain" stroke={referenceLineColor} strokeDasharray="5 5" strokeWidth={1.5} y={referenceValue}/> : null}
+                    {Number.isFinite(referenceValue) ? <ReferenceLine ifOverflow="hidden" stroke={referenceLineColor} strokeDasharray="5 5" strokeWidth={1.5} y={referenceValue}/> : null}
                     {thresholdGuides.lines.map((line) => (
                         <ReferenceLine ifOverflow="extendDomain" key={`threshold-line-${valueKind}-${line.label}`} label={{fill: line.color, fontSize: 10, position: "insideTopRight", value: line.label}} stroke={line.color} strokeDasharray="3 4" strokeWidth={1} y={line.value}/>
                     ))}

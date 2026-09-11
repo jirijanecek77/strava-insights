@@ -1,6 +1,39 @@
 import {describe, expect, it} from "vitest";
 
-import {computeDetailTooltipPosition, resolveDetailChartPresentation} from "./data";
+import {computeDetailTooltipPosition, resolveDetailChartDomain, resolveDetailChartPresentation} from "./data";
+
+describe("resolveDetailChartDomain", () => {
+    it("ignores interior glitch spikes so the domain hugs the bulk of the series", () => {
+        const values = Array.from({length: 200}, (_, index) => 5 + ((index % 5) * 0.05));
+        values[40] = 2.1;
+        values[120] = 17;
+
+        const {max, min} = resolveDetailChartDomain({valueKind: "pace", values});
+
+        expect(min).toBeGreaterThan(4.5);
+        expect(max).toBeLessThan(5.7);
+    });
+
+    it("keeps genuine slow sections that span a meaningful share of the series", () => {
+        const values = [
+            ...Array.from({length: 150}, () => 5),
+            ...Array.from({length: 50}, () => 6.5),
+        ];
+
+        const {max, min} = resolveDetailChartDomain({valueKind: "pace", values});
+
+        expect(min).toBeLessThanOrEqual(5);
+        expect(max).toBeGreaterThanOrEqual(6.5);
+    });
+
+    it("keeps short series untrimmed and always includes zero for slope", () => {
+        expect(resolveDetailChartDomain({valueKind: "pace", values: [4, 5, 12]})).toEqual({max: 12.64, min: 3.36});
+
+        const slopeDomain = resolveDetailChartDomain({valueKind: "slope", values: [2, 4, 6]});
+        expect(slopeDomain.min).toBeLessThan(0);
+        expect(slopeDomain.max).toBeGreaterThan(6);
+    });
+});
 
 describe("resolveDetailChartPresentation", () => {
     it("excludes only abnormal endpoint speed values while preserving an interior interval value", () => {

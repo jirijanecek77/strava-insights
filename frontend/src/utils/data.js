@@ -200,6 +200,46 @@ export function expandChartDomain(minValue, maxValue) {
 
 const MINIMUM_OUTLIER_SAMPLE_COUNT = 8;
 const MINIMUM_INTERIOR_SAMPLE_COUNT = 6;
+const MINIMUM_ROBUST_DOMAIN_SAMPLE_COUNT = 20;
+const ROBUST_DOMAIN_TAIL_PERCENTILE = 0.01;
+
+export function resolveDetailChartDomain({valueKind, values}) {
+    const numericValues = (values ?? [])
+        .map((value) => Number(value))
+        .filter(Number.isFinite);
+    if (!numericValues.length) {
+        return {max: 1, min: 0};
+    }
+
+    const sortedValues = [...numericValues].sort((left, right) => left - right);
+    let lowerValue = sortedValues[0];
+    let upperValue = sortedValues[sortedValues.length - 1];
+
+    if (sortedValues.length >= MINIMUM_ROBUST_DOMAIN_SAMPLE_COUNT) {
+        const lowerQuartile = percentile(sortedValues, 0.25);
+        const upperQuartile = percentile(sortedValues, 0.75);
+        const interquartileRange = upperQuartile - lowerQuartile;
+        if (interquartileRange > 0) {
+            // Clip a value only when it sits beyond the IQR fence *and* inside the outer
+            // percentile tail, so short glitch spikes go while genuine slow/fast sections stay.
+            lowerValue = Math.max(lowerValue, Math.min(
+                lowerQuartile - (interquartileRange * 1.5),
+                percentile(sortedValues, ROBUST_DOMAIN_TAIL_PERCENTILE),
+            ));
+            upperValue = Math.min(upperValue, Math.max(
+                upperQuartile + (interquartileRange * 1.5),
+                percentile(sortedValues, 1 - ROBUST_DOMAIN_TAIL_PERCENTILE),
+            ));
+        }
+    }
+
+    if (valueKind === "slope") {
+        lowerValue = Math.min(lowerValue, 0);
+        upperValue = Math.max(upperValue, 0);
+    }
+
+    return expandChartDomain(lowerValue, upperValue);
+}
 
 export function resolveDetailChartPresentation({valueKind, values}) {
     const presentationValues = values.map((value) => {
