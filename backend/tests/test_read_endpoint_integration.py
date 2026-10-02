@@ -257,6 +257,11 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
             activities_response.json()["items"][0]["summary_metric_display"] == "4:30"
         )
         assert activities_response.json()["items"][0]["summary_metric_kind"] == "pace"
+        first_activity = activities_response.json()["items"][0]
+        assert first_activity["moving_time_seconds"] == 2700
+        assert first_activity["average_pace_seconds_per_km"] == "270.00"
+        assert first_activity["average_speed_kph"] == "13.32"
+        assert first_activity["aerobic_efficiency_m_per_beat"] == 1.48
 
         activity_detail_response = client.get("/activities/5")
         assert activity_detail_response.status_code == 200

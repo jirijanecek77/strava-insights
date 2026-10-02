@@ -166,6 +166,20 @@ The application must support:
 - sport type
 - date range
 
+### Activity List Filter
+
+The activities view adds a local filter on top of the shared filters. It narrows the already loaded activity list in the
+browser and does not issue extra API requests.
+
+- case-insensitive substring match on the activity name
+- KPI rules with `>`, `<`, or `=` operators, combined with AND
+- KPIs: distance (km), moving time (min), elevation gain (m), average heart rate (bpm), aerobic efficiency (m/beat),
+  and pace (min/km) or speed (km/h)
+- pace is offered only when the loaded activities use pace as their summary metric and speed only when they use speed,
+  so the choice follows the selected sport; a pace or speed rule only matches activities with that summary metric
+- `=` compares at the precision shown in the UI; activities missing the filtered KPI are excluded
+- filter state is not persisted and resets when leaving the activities view
+
 ### Dashboard Comparison Windows
 
 - current week versus previous week
@@ -593,7 +607,7 @@ The backend must expose:
 - sync-status endpoint
 - dashboard endpoint
 - comparison and trend endpoints
-- activity list endpoint with sport and date filters
+- activity list endpoint with sport and date filters, returning numeric moving time, pace, speed, and aerobic efficiency fields for client-side KPI filtering
 - activity detail endpoint
 - best-efforts endpoint
 

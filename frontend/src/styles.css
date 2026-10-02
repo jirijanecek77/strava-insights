@@ -1184,6 +1184,118 @@ button {
     padding-right: 0.2rem;
 }
 
+.activity-filter-count {
+    color: var(--text-subtle);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.activity-filter {
+    display: grid;
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+}
+
+.activity-filter-row {
+    align-items: center;
+    display: flex;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.activity-filter-field,
+.activity-filter-button {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    height: 2.1rem;
+    min-width: 0;
+    padding: 0 0.55rem;
+}
+
+.activity-filter-field:focus,
+.activity-filter-field:focus-within {
+    border-color: var(--accent);
+    outline: 0;
+}
+
+.activity-filter-name {
+    flex: 1 1 auto;
+}
+
+.activity-filter-kpi {
+    flex: 1 1 6rem;
+}
+
+.activity-filter-operator {
+    flex: 0 0 auto;
+    padding: 0 0.35rem;
+}
+
+.activity-filter-value {
+    align-items: center;
+    display: flex;
+    flex: 0 1 6.5rem;
+    gap: 0.25rem;
+}
+
+.activity-filter-value input {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    min-width: 0;
+    outline: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.activity-filter-unit {
+    color: var(--text-subtle);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.activity-filter-button {
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.activity-filter-add {
+    font-size: 1rem;
+    padding: 0;
+    width: 2.1rem;
+}
+
+.activity-filter-button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.activity-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.activity-filter-chip {
+    background: var(--accent-soft);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.25rem 0.65rem;
+}
+
+.activity-filter-chip:hover {
+    border-color: var(--accent);
+}
+
 .activity-detail-panel {
     height: auto;
     min-height: 0;

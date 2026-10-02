@@ -3,6 +3,13 @@ import {Bar, Brush, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Too
 
 import {adminExternalUserId} from "../constants";
 import {
+    activityFilterOperators,
+    buildActivityFilterRule,
+    filterActivities,
+    formatActivityFilterRule,
+    resolveAvailableFilterKpis,
+} from "../utils/activity-filters";
+import {
     aggregateTrendItems,
     buildCalendarWeeks,
     buildComparisonPeriodOptions,
@@ -143,6 +150,19 @@ export function ActivitiesView({
     onSelectActivity,
 }) {
     const selectedRowRef = useRef(null);
+    const [nameFilter, setNameFilter] = useState("");
+    const [filterRules, setFilterRules] = useState([]);
+    const availableKpis = useMemo(() => resolveAvailableFilterKpis(activities), [activities]);
+    // Rules for a KPI the current sport no longer offers (e.g. pace after switching to rides) are ignored.
+    const activeRules = useMemo(
+        () => filterRules.filter((rule) => availableKpis.some((kpi) => kpi.id === rule.kpi)),
+        [availableKpis, filterRules],
+    );
+    const visibleActivities = useMemo(
+        () => filterActivities(activities, {name: nameFilter, rules: activeRules}),
+        [activities, activeRules, nameFilter],
+    );
+    const isFiltered = nameFilter.trim().length > 0 || activeRules.length > 0;
 
     useEffect(() => {
         if (!selectedRowRef.current || typeof selectedRowRef.current.scrollIntoView !== "function") {
@@ -158,10 +178,30 @@ export function ActivitiesView({
                     <div>
                         <p className="eyebrow">Activities</p>
                     </div>
+                    {activities.length > 0 ? (
+                        <span className="activity-filter-count">
+                            {isFiltered ? `${visibleActivities.length} / ${activities.length}` : activities.length}
+                        </span>
+                    ) : null}
                 </div>
+                {activities.length > 0 ? (
+                    <ActivityListFilter
+                        availableKpis={availableKpis}
+                        nameFilter={nameFilter}
+                        rules={activeRules}
+                        onAddRule={(rule) => setFilterRules((current) => [...current, rule])}
+                        onChangeName={setNameFilter}
+                        onClear={() => {
+                            setNameFilter("");
+                            setFilterRules([]);
+                        }}
+                        onRemoveRule={(rule) => setFilterRules((current) => current.filter((item) => item !== rule))}
+                    />
+                ) : null}
                 <div className="activity-list">
                     {activities.length === 0 ? <EmptyState text="No activities imported yet."/> : null}
-                    {activities.map((activity) => (
+                    {activities.length > 0 && visibleActivities.length === 0 ? <EmptyState text="No activities match the filter."/> : null}
+                    {visibleActivities.map((activity) => (
                         <button
                             key={activity.id}
                             className={selectedActivityId === activity.id ? "activity-row active" : "activity-row"}
@@ -195,6 +235,95 @@ export function ActivitiesView({
                 ) : null}
             </article>
         </section>
+    );
+}
+
+function ActivityListFilter({availableKpis, nameFilter, rules, onAddRule, onChangeName, onClear, onRemoveRule}) {
+    const [kpiId, setKpiId] = useState(availableKpis[0]?.id ?? "");
+    const [operatorId, setOperatorId] = useState(activityFilterOperators[0].id);
+    const [rawValue, setRawValue] = useState("");
+    const selectedKpi = availableKpis.find((kpi) => kpi.id === kpiId) ?? availableKpis[0];
+    const draftRule = selectedKpi ? buildActivityFilterRule(selectedKpi.id, operatorId, rawValue) : null;
+
+    function addRule(event) {
+        event.preventDefault();
+        if (!draftRule) {
+            return;
+        }
+        onAddRule(draftRule);
+        setRawValue("");
+    }
+
+    return (
+        <form className="activity-filter" onSubmit={addRule}>
+            <div className="activity-filter-row">
+                <input
+                    aria-label="Filter by activity name"
+                    className="activity-filter-field activity-filter-name"
+                    onChange={(event) => onChangeName(event.target.value)}
+                    placeholder="Search name..."
+                    type="search"
+                    value={nameFilter}
+                />
+                <button
+                    className="activity-filter-button"
+                    disabled={!nameFilter && rules.length === 0}
+                    onClick={onClear}
+                    type="button"
+                >
+                    Clear
+                </button>
+            </div>
+            <div className="activity-filter-row activity-filter-rule">
+                <select
+                    aria-label="Filter KPI"
+                    className="activity-filter-field activity-filter-kpi"
+                    onChange={(event) => setKpiId(event.target.value)}
+                    value={selectedKpi?.id ?? ""}
+                >
+                    {availableKpis.map((kpi) => (
+                        <option key={kpi.id} value={kpi.id}>{kpi.label}</option>
+                    ))}
+                </select>
+                <select
+                    aria-label="Filter operator"
+                    className="activity-filter-field activity-filter-operator"
+                    onChange={(event) => setOperatorId(event.target.value)}
+                    value={operatorId}
+                >
+                    {activityFilterOperators.map((operator) => (
+                        <option key={operator.id} value={operator.id}>{operator.label}</option>
+                    ))}
+                </select>
+                <label className="activity-filter-field activity-filter-value">
+                    <input
+                        aria-label="Filter value"
+                        inputMode="decimal"
+                        onChange={(event) => setRawValue(event.target.value)}
+                        placeholder={selectedKpi?.id === "pace" ? "4:30" : "0"}
+                        type="text"
+                        value={rawValue}
+                    />
+                    <span className="activity-filter-unit">{selectedKpi?.unit}</span>
+                </label>
+                <button className="activity-filter-button activity-filter-add" disabled={!draftRule} type="submit" aria-label="Add filter">+</button>
+            </div>
+            {rules.length > 0 ? (
+                <div className="activity-filter-chips">
+                    {rules.map((rule, index) => (
+                        <button
+                            aria-label={`Remove filter ${formatActivityFilterRule(rule)}`}
+                            className="activity-filter-chip"
+                            key={`${rule.kpi}-${rule.operator}-${rule.value}-${index}`}
+                            onClick={() => onRemoveRule(rule)}
+                            type="button"
+                        >
+                            {formatActivityFilterRule(rule)} <span aria-hidden="true">×</span>
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+        </form>
     );
 }
 

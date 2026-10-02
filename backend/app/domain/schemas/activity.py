@@ -17,11 +17,15 @@ class ActivityListRow(BaseModel):
         return value.replace(tzinfo=None).isoformat()
 
     distance_km: Decimal | None = None
+    moving_time_seconds: int | None = None
     moving_time_display: str | None = None
     summary_metric_display: str | None = None
     summary_metric_kind: str | None = None
+    average_pace_seconds_per_km: Decimal | None = None
+    average_speed_kph: Decimal | None = None
     total_elevation_gain_meters: Decimal | None = None
     average_heartrate_bpm: Decimal | None = None
+    aerobic_efficiency_m_per_beat: float | None = None
 
 
 class ActivityListResponse(BaseModel):

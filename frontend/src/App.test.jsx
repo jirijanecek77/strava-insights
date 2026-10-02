@@ -480,8 +480,8 @@ describe("App", () => {
 
         expect(await screen.findByRole("heading", {name: /morning run/i})).toBeInTheDocument();
         expect(screen.getAllByText(/^distance$/i).length).toBeGreaterThan(0);
-        expect(screen.getByText(/^moving time$/i)).toBeInTheDocument();
-        expect(screen.getByText(/^efficiency$/i)).toBeInTheDocument();
+        expect(within(document.querySelector(".activity-detail-panel")).getByText(/^moving time$/i)).toBeInTheDocument();
+        expect(within(document.querySelector(".activity-detail-panel")).getByText(/^efficiency$/i)).toBeInTheDocument();
         expect(screen.getByText("66.7 m/beat")).toBeInTheDocument();
         expect(screen.getAllByText(/^pace$/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/^elevation gain$/i)).toBeInTheDocument();

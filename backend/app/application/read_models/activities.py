@@ -61,11 +61,17 @@ class ActivityReadService:
                     name=item.name,
                     start_date_local=item.start_date_local,
                     distance_km=item.distance_km,
+                    moving_time_seconds=item.moving_time_seconds,
                     moving_time_display=item.moving_time_display,
                     summary_metric_display=_format_summary_metric_value(item),
                     summary_metric_kind=_summary_metric_kind(item),
+                    average_pace_seconds_per_km=item.average_pace_seconds_per_km,
+                    average_speed_kph=item.average_speed_kph,
                     total_elevation_gain_meters=item.total_elevation_gain_meters,
                     average_heartrate_bpm=item.average_heartrate_bpm,
+                    aerobic_efficiency_m_per_beat=_compute_aerobic_efficiency(
+                        item.average_speed_mps, item.average_heartrate_bpm
+                    ),
                 )
                 for item in items
             ]
