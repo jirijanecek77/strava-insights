@@ -110,3 +110,39 @@ def test_existing_activity_with_empty_stream_is_selected_for_backfill() -> None:
     assert service._existing_activity_needs_stream_backfill(
         user_id=1, source_activity_id=123
     )
+
+
+def _upsert_existing_activity(existing):
+    class ActivityRepositoryStub:
+        def get_by_source_activity_id(self, user_id: int, source_activity_id: int):
+            return existing
+
+        def save(self, activity):
+            return activity
+
+    service = cast(Any, BaseImportService.__new__(BaseImportService))
+    service.activities = ActivityRepositoryStub()
+    return service._upsert_activity(
+        user_id=1,
+        payload={
+            "id": 123,
+            "name": "Garmin Name",
+            "type": "Run",
+            "start_date": "2026-09-01T06:00:00Z",
+            "distance": 10000,
+            "moving_time": 2700,
+        },
+    )
+
+
+def test_reimport_keeps_existing_activity_name() -> None:
+    from app.models import Activity
+
+    renamed = Activity(user_id=1, source_activity_id=123, name="My Name")
+    reimported = _upsert_existing_activity(renamed)
+    assert reimported.name == "My Name"
+    assert reimported.moving_time_seconds == 2700
+
+
+def test_first_import_uses_garmin_name() -> None:
+    assert _upsert_existing_activity(None).name == "Garmin Name"

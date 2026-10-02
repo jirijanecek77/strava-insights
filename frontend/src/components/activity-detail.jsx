@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from "react";
-import {Medal} from "lucide-react";
+import {Check, Medal, Pencil, X} from "lucide-react";
 import {
     Area,
     CartesianGrid,
@@ -57,7 +57,7 @@ const CYCLING_ANALYSIS_TOOLTIPS = {
     average_cadence: "Shows the average pedaling cadence recorded for the ride in revolutions per minute.",
 };
 
-export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onSelectSeriesIndex}) {
+export function ActivityDetail({detail, activeSeriesIndex, onRenameActivity, onSelectActivity, onSelectSeriesIndex}) {
     const routePoints = detail.map?.polyline ?? [];
     const isRun = detail.sport_type === "Run";
     const isRide = detail.sport_type === "Ride" || detail.sport_type === "EBikeRide";
@@ -85,9 +85,9 @@ export function ActivityDetail({detail, activeSeriesIndex, onSelectActivity, onS
     return (
         <div className="activity-detail">
             <div className="panel-header">
-                <div>
+                <div className="activity-detail-heading">
                     <p className="eyebrow">{detail.sport_type}</p>
-                    <h2>{detail.name}</h2>
+                    <ActivityTitle key={detail.id} activityId={detail.id} name={detail.name} onRenameActivity={onRenameActivity}/>
                 </div>
                 <p className="sidebar-subtle">{detail.start_date_local ? formatDateTime(detail.start_date_local) : ""}</p>
             </div>
@@ -795,4 +795,95 @@ function labelForValueKind(kind) {
         return "%";
     }
     return "value";
+}
+
+// Inline editing keeps the rename inside the header so nothing has to stack above the Leaflet map.
+export function ActivityTitle({activityId, name, onRenameActivity}) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [draftName, setDraftName] = useState(name ?? "");
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState("");
+    const inputRef = useRef(null);
+    const trimmedName = draftName.trim();
+    const canSave = !isSaving && trimmedName.length > 0 && trimmedName !== (name ?? "").trim();
+
+    useEffect(() => {
+        if (isEditing) {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+        }
+    }, [isEditing]);
+
+    function startEditing() {
+        setDraftName(name ?? "");
+        setError("");
+        setIsEditing(true);
+    }
+
+    function cancelEditing() {
+        if (!isSaving) {
+            setIsEditing(false);
+            setError("");
+        }
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        if (!canSave) {
+            return;
+        }
+        setIsSaving(true);
+        setError("");
+        try {
+            await onRenameActivity(activityId, trimmedName);
+            setIsEditing(false);
+        } catch (cause) {
+            setError(cause?.message ?? "Failed to rename activity.");
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    if (!isEditing) {
+        return (
+            <div className="activity-title">
+                <h2>{name}</h2>
+                {onRenameActivity ? (
+                    <button aria-label="Rename activity" className="activity-title-button" onClick={startEditing} title="Rename activity" type="button">
+                        <Pencil aria-hidden="true" size={15}/>
+                    </button>
+                ) : null}
+            </div>
+        );
+    }
+
+    return (
+        <form className="activity-title-form" onSubmit={handleSubmit}>
+            <div className="activity-title">
+                <input
+                    aria-label="Activity name"
+                    className="activity-title-input"
+                    disabled={isSaving}
+                    maxLength={255}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelEditing();
+                        }
+                    }}
+                    ref={inputRef}
+                    type="text"
+                    value={draftName}
+                />
+                <button aria-label="Save name" className="activity-title-button is-confirm" disabled={!canSave} title="Save" type="submit">
+                    <Check aria-hidden="true" size={16}/>
+                </button>
+                <button aria-label="Cancel rename" className="activity-title-button" disabled={isSaving} onClick={cancelEditing} title="Cancel" type="button">
+                    <X aria-hidden="true" size={16}/>
+                </button>
+            </div>
+            {error ? <p className="activity-title-error" role="alert">{error}</p> : null}
+        </form>
+    );
 }

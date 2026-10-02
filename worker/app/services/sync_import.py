@@ -235,6 +235,8 @@ class BaseImportService:
 
     def _upsert_activity(self, *, user_id: int, payload: dict) -> Activity:
         activity = self.activities.get_by_source_activity_id(user_id, payload["id"])
+        # Imported activities are treated as immutable, so the name is set only on first import; a stream backfill
+        # re-upserts existing activities and must not overwrite a name renamed locally.
         if activity is None:
             activity = Activity(
                 user_id=user_id,
@@ -250,7 +252,6 @@ class BaseImportService:
             )
         activity.description = payload.get("description")
         activity.sport_type = payload["type"]
-        activity.name = payload.get("name") or activity.name
         activity.start_date_utc = self._parse_datetime(self._first_present(payload, "start_date", "start_date_utc", "start_date_local"))  # type: ignore[assignment]
         activity.start_date_local = self._parse_datetime(
             payload.get("start_date_local") or payload.get("start_date")

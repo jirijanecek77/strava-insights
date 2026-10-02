@@ -180,6 +180,16 @@ browser and does not issue extra API requests.
 - `=` compares at the precision shown in the UI; activities missing the filtered KPI are excluded
 - filter state is not persisted and resets when leaving the activities view
 
+### Activity Rename
+
+- the activity detail header shows a pen button next to the name that switches the title into an inline input with
+  save and cancel actions (Enter saves, Escape cancels); no overlay is used, so the Leaflet map is unaffected
+- the name is trimmed, must be non-empty, and at most 255 characters
+- renaming is local only and is not pushed to Garmin Connect
+- imported activities are treated as immutable: Garmin sync sets the name only on first import and never overwrites
+  the name of an existing activity, including when it re-imports an activity to backfill missing streams, so local
+  renames are preserved without a separate flag
+
 ### Dashboard Comparison Windows
 
 - current week versus previous week
@@ -609,6 +619,7 @@ The backend must expose:
 - comparison and trend endpoints
 - activity list endpoint with sport and date filters, returning numeric moving time, pace, speed, and aerobic efficiency fields for client-side KPI filtering
 - activity detail endpoint
+- activity rename endpoint (`PATCH /activities/{id}`) that stores a local custom name
 - best-efforts endpoint
 
 ## Data Availability

@@ -146,6 +146,7 @@ export function ActivitiesView({
     activityDetail,
     detailState,
     selectedActivityId,
+    onRenameActivity,
     onSelectSeriesIndex,
     onSelectActivity,
 }) {
@@ -228,6 +229,7 @@ export function ActivitiesView({
                 {detailState === "ready" && activityDetail ? (
                     <ActivityDetail
                         detail={activityDetail}
+                        onRenameActivity={onRenameActivity}
                         activeSeriesIndex={activeSeriesIndex}
                         onSelectActivity={onSelectActivity}
                         onSelectSeriesIndex={onSelectSeriesIndex}

@@ -1,6 +1,7 @@
+import {fireEvent, render, screen} from "@testing-library/react";
 import {describe, expect, it, vi} from "vitest";
 
-import {createMapyCzMap} from "./activity-detail";
+import {ActivityTitle, createMapyCzMap} from "./activity-detail";
 
 describe("createMapyCzMap", () => {
     it("initializes bounds before attaching segmented route layers", () => {
@@ -54,5 +55,28 @@ describe("createMapyCzMap", () => {
 
         instance.destroy();
         expect(map.remove).toHaveBeenCalledOnce();
+    });
+});
+
+describe("ActivityTitle", () => {
+    it("edits the name inline, keeps editing on save error, and cancels on Escape", async () => {
+        const onRenameActivity = vi.fn().mockRejectedValue(new Error("Activity not found."));
+        render(<ActivityTitle activityId={11} name="Morning Run" onRenameActivity={onRenameActivity}/>);
+
+        fireEvent.click(screen.getByRole("button", {name: /rename activity/i}));
+        const input = screen.getByLabelText(/activity name/i);
+        expect(input).toHaveFocus();
+        fireEvent.change(input, {target: {value: "   "}});
+        expect(screen.getByRole("button", {name: /save name/i})).toBeDisabled();
+
+        fireEvent.change(input, {target: {value: "Evening Run"}});
+        fireEvent.click(screen.getByRole("button", {name: /save name/i}));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Activity not found.");
+        expect(onRenameActivity).toHaveBeenCalledWith(11, "Evening Run");
+        expect(screen.getByLabelText(/activity name/i)).toBeInTheDocument();
+
+        fireEvent.keyDown(screen.getByLabelText(/activity name/i), {key: "Escape"});
+        expect(screen.queryByLabelText(/activity name/i)).not.toBeInTheDocument();
+        expect(screen.getByRole("heading", {name: "Morning Run"})).toBeInTheDocument();
     });
 });

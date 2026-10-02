@@ -849,6 +849,77 @@ button {
     width: min(100%, 42rem);
 }
 
+.activity-title {
+    align-items: center;
+    display: flex;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.activity-title-button {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-subtle);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 1.9rem;
+    justify-content: center;
+    padding: 0;
+    width: 1.9rem;
+}
+
+.activity-title-button:hover:not(:disabled),
+.activity-title-button:focus-visible {
+    background: var(--accent-soft);
+    color: var(--accent);
+    outline: 0;
+}
+
+.activity-title-button.is-confirm:not(:disabled) {
+    color: var(--accent);
+}
+
+.activity-title-button:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.activity-detail-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.activity-title-form {
+    display: grid;
+    gap: 0.3rem;
+    max-width: 44rem;
+}
+
+.activity-title-input {
+    background: var(--surface-muted);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: inherit;
+    font: inherit;
+    flex: 1 1 auto;
+    font-size: 0.95rem;
+    font-weight: 600;
+    height: 2.1rem;
+    min-width: 0;
+    outline: 0;
+    padding: 0 0.6rem;
+    width: 100%;
+}
+
+.activity-title-error {
+    color: #8d3313;
+    font-size: 0.82rem;
+    margin: 0;
+}
+
 .compact-inline-button {
     justify-self: start;
     min-width: 0;

@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class ActivityListRow(BaseModel):
@@ -30,6 +30,20 @@ class ActivityListRow(BaseModel):
 
 class ActivityListResponse(BaseModel):
     items: list[ActivityListRow]
+
+
+class ActivityRenameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ActivityRenameResponse(BaseModel):
+    id: int
+    name: str
 
 
 class ActivityKpis(BaseModel):

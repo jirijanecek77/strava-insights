@@ -450,6 +450,15 @@ export default function App() {
         }
     }
 
+    async function handleRenameActivity(activityId, name) {
+        const renamed = await fetchJson(`/activities/${activityId}`, {
+            method: "PATCH",
+            body: JSON.stringify({name}),
+        });
+        setActivities((current) => current.map((item) => (item.id === renamed.id ? {...item, name: renamed.name} : item)));
+        setActivityDetail((current) => (current?.id === renamed.id ? {...current, name: renamed.name} : current));
+    }
+
     async function handleSaveProfile() {
         if (profileSaveInFlightRef.current) {
             return;
@@ -593,6 +602,7 @@ export default function App() {
                             activityDetail={activityDetail}
                             detailState={activityDetailState}
                             selectedActivityId={selectedActivityId}
+                            onRenameActivity={handleRenameActivity}
                             onSelectSeriesIndex={setActiveSeriesIndex}
                             onSelectActivity={setSelectedActivityId}
                         />

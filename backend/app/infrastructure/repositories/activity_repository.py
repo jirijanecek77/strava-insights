@@ -30,6 +30,11 @@ class ActivityRepository:
             .one_or_none()
         )
 
+    def save(self, activity: Activity) -> Activity:
+        self.session.add(activity)
+        self.session.flush()
+        return activity
+
     def list_for_user(
         self,
         user_id: int,

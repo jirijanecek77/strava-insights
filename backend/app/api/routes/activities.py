@@ -2,9 +2,15 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from app.application.activities.rename import ActivityRenameService
 from app.application.auth.current_user import CurrentUserService
 from app.application.read_models.activities import ActivityReadService
-from app.domain.schemas.activity import ActivityDetailResponse, ActivityListResponse
+from app.domain.schemas.activity import (
+    ActivityDetailResponse,
+    ActivityListResponse,
+    ActivityRenameRequest,
+    ActivityRenameResponse,
+)
 
 router = APIRouter(prefix="/activities")
 
@@ -47,3 +53,20 @@ def get_activity_detail(
             status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found."
         )
     return detail
+
+
+@router.patch("/{activity_id}", response_model=ActivityRenameResponse)
+def rename_activity(
+    activity_id: int,
+    payload: ActivityRenameRequest,
+    request: Request,
+    current_user_service: CurrentUserService = Depends(CurrentUserService),
+    activity_rename_service: ActivityRenameService = Depends(ActivityRenameService),
+) -> ActivityRenameResponse:
+    user = _require_user(request, current_user_service)
+    renamed = activity_rename_service.rename(user.id, activity_id, payload.name)
+    if renamed is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found."
+        )
+    return renamed

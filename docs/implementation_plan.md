@@ -59,6 +59,7 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Implemented landing/login, dashboard, calendar, activity list, activity detail, best efforts, and settings/profile screens.
 - [x] Added shared sport and date filtering.
 - [x] Added an activity list filter by name and KPI rules (`>`, `<`, `=`) with sport-dependent pace or speed.
+- [x] Added local activity rename from the detail header, kept by Garmin sync, which sets names only on first import.
 - [x] Integrated map rendering for activity detail with local route fallback behavior.
 - [x] Restyled the UI toward the intended athlete training visual direction.
 - [x] Added sync-status progress refresh behavior in the frontend.

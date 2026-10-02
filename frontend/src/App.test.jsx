@@ -207,8 +207,11 @@ describe("App", () => {
     });
 
     it("renders dashboard data and activity detail from the backend payloads", async () => {
-        vi.spyOn(global, "fetch").mockImplementation((input) => {
+        vi.spyOn(global, "fetch").mockImplementation((input, init) => {
             const url = String(input);
+            if (init?.method === "PATCH" && url.includes("/activities/11")) {
+                return Promise.resolve(jsonResponse({id: 11, name: JSON.parse(init.body).name}));
+            }
             if (url.includes("/auth/session")) {
                 return Promise.resolve(jsonResponse({
                     id: 1,
@@ -530,6 +533,20 @@ describe("App", () => {
                 expect.objectContaining({credentials: "include"}),
             );
         });
+
+        fireEvent.click(screen.getByRole("button", {name: /rename activity/i}));
+        const saveButton = screen.getByRole("button", {name: /save name/i});
+        expect(saveButton).toBeDisabled();
+        fireEvent.change(screen.getByLabelText("Activity name"), {target: {value: "  River Tempo  "}});
+        fireEvent.click(saveButton);
+
+        expect(await screen.findByRole("heading", {name: "River Tempo"})).toBeInTheDocument();
+        expect(screen.queryByLabelText("Activity name")).not.toBeInTheDocument();
+        expect(within(document.querySelector(".activity-list")).getByText("River Tempo")).toBeInTheDocument();
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining("/activities/11"),
+            expect.objectContaining({method: "PATCH", body: JSON.stringify({name: "River Tempo"})}),
+        );
     });
 
     it("renders the dashboard trend panel as a graph for non-rolling windows", async () => {
