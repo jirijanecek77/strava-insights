@@ -157,3 +157,43 @@ def test_incremental_task_retries_a_transient_import_failure(monkeypatch) -> Non
             "max_retries": 3,
         }
     ]
+
+
+def test_incremental_task_starts_coaching_generation_after_new_activities(monkeypatch) -> None:
+    triggered_users: list[int] = []
+
+    class SessionStub:
+        def close(self) -> None:
+            return None
+
+    class SyncJobRepositoryStub:
+        def __init__(self, _session) -> None:
+            pass
+
+        def claim_for_execution(self, *, sync_job_id: int, user_id: int):
+            return "job"
+
+    class IncrementalSyncServiceStub:
+        def __init__(self, _session) -> None:
+            pass
+
+        def run(self, *, sync_job_id: int, user_id: int) -> int:
+            return 2
+
+    monkeypatch.setattr("app.tasks.sync.SessionLocal", lambda: SessionStub())
+    monkeypatch.setattr("app.tasks.sync.SyncJobRepository", SyncJobRepositoryStub)
+    monkeypatch.setattr("app.tasks.sync._set_task_log_user_name", lambda *_args: "token")
+    monkeypatch.setattr("app.tasks.sync.reset_log_user_name", lambda _token: None)
+    monkeypatch.setattr("app.tasks.sync.IncrementalSyncService", IncrementalSyncServiceStub)
+    monkeypatch.setattr("app.tasks.sync.trigger_coaching_generation", triggered_users.append)
+
+    run_incremental_sync.run(sync_job_id=7, user_id=1)
+
+    assert triggered_users == [1]
+
+
+def test_only_incremental_imports_create_coaching_notes() -> None:
+    from app.services.sync_import import FullImportService, IncrementalSyncService
+
+    assert IncrementalSyncService.creates_coaching_notes is True
+    assert FullImportService.creates_coaching_notes is False

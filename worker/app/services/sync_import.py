@@ -7,6 +7,7 @@ from app.models import Activity, ActivityStream
 from app.repositories import (
     ActivityRepository,
     ActivityStreamRepository,
+    CoachingRepository,
     GarminCredentialRepository,
     SyncCheckpointRepository,
     SyncJobRepository,
@@ -39,6 +40,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseImportService:
+    # Only activities that arrive after the initial history import get AI coaching notes.
+    creates_coaching_notes = False
+
     def __init__(
         self,
         session: Session,
@@ -54,6 +58,7 @@ class BaseImportService:
         self.activities = ActivityRepository(session)
         self.activity_streams = ActivityStreamRepository(session)
         self.checkpoints = SyncCheckpointRepository(session)
+        self.coaching = CoachingRepository(session)
         self.cache_invalidator = UserCacheInvalidator()
         self.read_model_builder = ReadModelBuilder(session)
         self.route_index_builder = RouteIndexBuilder(session)
@@ -119,6 +124,7 @@ class BaseImportService:
         latest_checkpoint_value = self._get_existing_checkpoint_value(user_id)
 
         for index, activity_payload in enumerate(activities_payload, start=1):
+            is_new_activity = activity_payload.get("id") not in existing_source_activity_ids
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             try:
                 stream_payload = self.garmin_client.get_activity_stream(
@@ -136,6 +142,10 @@ class BaseImportService:
             else:
                 self._upsert_stream(activity=activity, payload=stream_payload)
                 self._persist_garmin_credentials(user_id, garmin_session.token_json())
+            if is_new_activity and self.creates_coaching_notes:
+                self.coaching.enqueue_activity_note(
+                    user_id=user_id, activity_id=activity.id
+                )
             imported_count += 1
             latest_checkpoint_value = self._max_checkpoint_value(
                 latest_checkpoint_value,
@@ -432,6 +442,8 @@ class FullImportService(BaseImportService):
 
 
 class IncrementalSyncService(BaseImportService):
+    creates_coaching_notes = True
+
     def run(self, *, sync_job_id: int, user_id: int) -> int:
         checkpoint = self.checkpoints.get_for_user(user_id, ACTIVITY_CHECKPOINT_TYPE)
         if checkpoint is not None:

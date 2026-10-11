@@ -4,6 +4,7 @@ from app.api.routes.activities import router as activities_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.best_efforts import router as best_efforts_router
+from app.api.routes.coaching import router as coaching_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
 from app.api.routes.me import router as me_router
@@ -18,3 +19,4 @@ api_router.include_router(sync_router, tags=["sync"])
 api_router.include_router(dashboard_router, tags=["dashboard"])
 api_router.include_router(activities_router, tags=["activities"])
 api_router.include_router(best_efforts_router, tags=["best-efforts"])
+api_router.include_router(coaching_router, tags=["coaching"])

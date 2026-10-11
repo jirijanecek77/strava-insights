@@ -1,6 +1,10 @@
 from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
+from app.infrastructure.db.models.coaching import (
+    ActivityCoachingNote,
+    PeriodCoachingSummary,
+)
 from app.infrastructure.db.models.garmin_credential import GarminCredential
 from app.infrastructure.db.models.local_route import (
     ActivityRouteMembership,
@@ -16,11 +20,13 @@ from app.infrastructure.db.models.user_threshold_profile import UserThresholdPro
 
 __all__ = [
     "Activity",
+    "ActivityCoachingNote",
     "ActivityStream",
     "BestEffort",
     "GarminCredential",
     "ActivityRouteMembership",
     "ActivityRouteSignature",
+    "PeriodCoachingSummary",
     "PeriodSummary",
     "RouteGroup",
     "SyncCheckpoint",

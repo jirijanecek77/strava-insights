@@ -1,20 +1,24 @@
 from app.models import (
     Activity,
+    ActivityCoachingNote,
     ActivityRouteMembership,
     ActivityRouteSignature,
     ActivityStream,
     BestEffort,
     GarminCredential,
+    PeriodCoachingSummary,
     PeriodSummary,
     RouteGroup,
     SyncCheckpoint,
     SyncDispatchOutbox,
     SyncJob,
     User,
+    UserThresholdProfile,
 )
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from datetime import timedelta
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, exists, or_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 
@@ -418,3 +422,282 @@ class SyncCheckpointRepository:
             checkpoint.checkpoint_value = checkpoint_value
             checkpoint.last_synced_at = last_synced_at
         self.session.flush()
+
+
+CoachingRow = ActivityCoachingNote | PeriodCoachingSummary
+
+
+class CoachingRepository:
+    """Durable AI coaching work items plus the reads needed to build their prompts."""
+
+    _LEASE_DURATION = timedelta(minutes=5)
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def enqueue_activity_note(self, *, user_id: int, activity_id: int) -> None:
+        self.session.execute(
+            pg_insert(ActivityCoachingNote)
+            .values(user_id=user_id, activity_id=activity_id, status="pending", attempt_count=0)
+            .on_conflict_do_nothing(index_elements=["activity_id"])
+        )
+        self.session.flush()
+
+    def list_latest_activity_ids(self, *, user_id: int, count: int) -> list[int]:
+        rows = (
+            self.session.query(Activity.id)
+            .filter(Activity.user_id == user_id)
+            .order_by(Activity.start_date_utc.desc())
+            .limit(count)
+            .all()
+        )
+        return [activity_id for (activity_id,) in rows]
+
+    def claim_next_activity_note(self, *, user_id: int | None = None) -> ActivityCoachingNote | None:
+        # Wait for running syncs so best efforts and route groups already include the new activity.
+        sync_in_progress = exists().where(
+            SyncJob.user_id == ActivityCoachingNote.user_id,
+            SyncJob.status.in_(("queued", "running")),
+        )
+        query = (
+            self.session.query(ActivityCoachingNote)
+            .join(Activity, Activity.id == ActivityCoachingNote.activity_id)
+            .filter(self._claimable(ActivityCoachingNote), ~sync_in_progress)
+        )
+        if user_id is not None:
+            query = query.filter(ActivityCoachingNote.user_id == user_id)
+        # Oldest activity first, so each note can build on the summaries of the activities before it.
+        return self._claim(
+            query.order_by(Activity.start_date_utc.asc(), ActivityCoachingNote.id.asc()),
+            ActivityCoachingNote,
+        )
+
+    def claim_next_period(self, *, user_id: int | None = None) -> PeriodCoachingSummary | None:
+        query = self.session.query(PeriodCoachingSummary).filter(
+            self._claimable(PeriodCoachingSummary)
+        )
+        if user_id is not None:
+            query = query.filter(PeriodCoachingSummary.user_id == user_id)
+        # Weeks first, so a month review can follow the week reviews of the same run.
+        return self._claim(
+            query.order_by(
+                PeriodCoachingSummary.period_type.desc(),
+                PeriodCoachingSummary.period_start.asc(),
+            ),
+            PeriodCoachingSummary,
+        )
+
+    def mark_activity_note_ready(
+        self,
+        note: ActivityCoachingNote,
+        *,
+        description: str,
+        summary: str,
+        recommendation: str,
+        model: str,
+        prompt_version: str,
+    ) -> None:
+        note.description = description
+        note.summary = summary
+        note.recommendation = recommendation
+        self._mark_ready(note, model=model, prompt_version=prompt_version)
+
+    def mark_period_ready(
+        self,
+        period: PeriodCoachingSummary,
+        *,
+        summary: str,
+        recommendation: str,
+        source_hash: str,
+        is_final: bool,
+        model: str,
+        prompt_version: str,
+    ) -> None:
+        period.summary = summary
+        period.recommendation = recommendation
+        period.source_hash = source_hash
+        period.is_final = is_final
+        self._mark_ready(period, model=model, prompt_version=prompt_version)
+
+    def release_for_retry(
+        self, row: CoachingRow, *, error_message: str, delay_seconds: int, attempt_count: int
+    ) -> None:
+        row.status = "pending"
+        row.attempt_count = attempt_count
+        row.next_attempt_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+        row.lease_expires_at = None
+        row.last_error = error_message[:1000]
+        self.session.commit()
+
+    def mark_failed(
+        self,
+        row: CoachingRow,
+        *,
+        error_message: str,
+        attempt_count: int,
+        source_hash: str | None = None,
+    ) -> None:
+        if source_hash is not None and isinstance(row, PeriodCoachingSummary):
+            row.source_hash = source_hash
+        row.status = "failed"
+        row.attempt_count = attempt_count
+        row.next_attempt_at = None
+        row.lease_expires_at = None
+        row.last_error = error_message[:1000]
+        self.session.commit()
+
+    def list_users_with_recent_notes(self, *, since: date, user_id: int | None = None) -> list[int]:
+        query = (
+            self.session.query(ActivityCoachingNote.user_id)
+            .join(Activity, Activity.id == ActivityCoachingNote.activity_id)
+            .filter(ActivityCoachingNote.status == "ready", Activity.start_date_local >= since)
+            .distinct()
+        )
+        if user_id is not None:
+            query = query.filter(ActivityCoachingNote.user_id == user_id)
+        return sorted(row_user_id for (row_user_id,) in query.all())
+
+    def list_recent_note_activity_dates(self, *, user_id: int, since: date) -> list[datetime]:
+        rows = (
+            self.session.query(Activity.start_date_local)
+            .join(ActivityCoachingNote, ActivityCoachingNote.activity_id == Activity.id)
+            .filter(
+                ActivityCoachingNote.user_id == user_id,
+                ActivityCoachingNote.status == "ready",
+                Activity.start_date_local >= since,
+            )
+            .all()
+        )
+        return [start for (start,) in rows if start is not None]
+
+    def get_or_create_period(
+        self, *, user_id: int, period_type: str, period_start: date
+    ) -> PeriodCoachingSummary:
+        self.session.execute(
+            pg_insert(PeriodCoachingSummary)
+            .values(
+                user_id=user_id,
+                period_type=period_type,
+                period_start=period_start,
+                status="pending",
+                attempt_count=0,
+                is_final=False,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["user_id", "period_type", "period_start"]
+            )
+        )
+        return (
+            self.session.query(PeriodCoachingSummary)
+            .filter(
+                PeriodCoachingSummary.user_id == user_id,
+                PeriodCoachingSummary.period_type == period_type,
+                PeriodCoachingSummary.period_start == period_start,
+            )
+            .one()
+        )
+
+    def mark_period_pending(self, period: PeriodCoachingSummary) -> None:
+        period.status = "pending"
+        period.attempt_count = 0
+        period.next_attempt_at = None
+        self.session.commit()
+
+    def commit(self) -> None:
+        self.session.commit()
+
+    def get_activity(self, *, user_id: int, activity_id: int) -> Activity | None:
+        return (
+            self.session.query(Activity)
+            .filter(Activity.id == activity_id, Activity.user_id == user_id)
+            .one_or_none()
+        )
+
+    def get_stream(self, activity_id: int) -> ActivityStream | None:
+        return (
+            self.session.query(ActivityStream)
+            .filter(ActivityStream.activity_id == activity_id)
+            .one_or_none()
+        )
+
+    def get_threshold_profile(self, *, user_id: int, on_date: date) -> UserThresholdProfile | None:
+        return (
+            self.session.query(UserThresholdProfile)
+            .filter(
+                UserThresholdProfile.user_id == user_id,
+                UserThresholdProfile.effective_from <= on_date,
+            )
+            .order_by(UserThresholdProfile.effective_from.desc())
+            .first()
+        )
+
+    def list_best_efforts(self, *, user_id: int, sport_type: str) -> list[BestEffort]:
+        return (
+            self.session.query(BestEffort)
+            .filter(BestEffort.user_id == user_id, BestEffort.sport_type == sport_type)
+            .order_by(BestEffort.effort_code.asc(), BestEffort.best_time_seconds.asc())
+            .all()
+        )
+
+    def list_route_attempts(self, activity_id: int) -> list[Activity]:
+        membership = (
+            self.session.query(ActivityRouteMembership)
+            .filter(ActivityRouteMembership.activity_id == activity_id)
+            .one_or_none()
+        )
+        if membership is None:
+            return []
+        return (
+            self.session.query(Activity)
+            .join(ActivityRouteMembership, ActivityRouteMembership.activity_id == Activity.id)
+            .filter(ActivityRouteMembership.route_group_id == membership.route_group_id)
+            .order_by(Activity.moving_time_seconds.asc(), Activity.start_date_local.asc())
+            .all()
+        )
+
+    def list_activities_with_notes(
+        self, *, user_id: int, start: date | datetime, end: date | datetime
+    ) -> list[tuple[Activity, ActivityCoachingNote | None]]:
+        """Activities with local start in [start, end), oldest first, each with its coaching note if any."""
+        return (
+            self.session.query(Activity, ActivityCoachingNote)
+            .outerjoin(ActivityCoachingNote, ActivityCoachingNote.activity_id == Activity.id)
+            .filter(
+                Activity.user_id == user_id,
+                Activity.start_date_local >= start,
+                Activity.start_date_local < end,
+            )
+            .order_by(Activity.start_date_local.asc())
+            .all()
+        )
+
+    @staticmethod
+    def _claimable(model):
+        now = datetime.now(UTC)
+        return or_(
+            and_(
+                model.status == "pending",
+                or_(model.next_attempt_at.is_(None), model.next_attempt_at <= now),
+            ),
+            and_(model.status == "generating", model.lease_expires_at <= now),
+        )
+
+    def _claim(self, query, model):
+        row = query.with_for_update(of=model, skip_locked=True).first()
+        if row is None:
+            self.session.commit()
+            return None
+        row.status = "generating"
+        row.lease_expires_at = datetime.now(UTC) + self._LEASE_DURATION
+        self.session.commit()
+        return row
+
+    def _mark_ready(self, row: CoachingRow, *, model: str, prompt_version: str) -> None:
+        row.status = "ready"
+        row.model = model
+        row.prompt_version = prompt_version
+        row.generated_at = datetime.now(UTC)
+        row.next_attempt_at = None
+        row.lease_expires_at = None
+        row.last_error = None
+        self.session.commit()

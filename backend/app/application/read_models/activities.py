@@ -1,5 +1,6 @@
 from app.api.dependencies import get_db_session
 from app.application.analytics.service import ActivityDetailAnalyticsService
+from app.application.coaching.read import to_activity_coaching_response
 from app.application.read_models.effort_rankings import rank_best_efforts
 from app.domain.schemas.activity import (
     ActivityDetailResponse,
@@ -19,6 +20,7 @@ from app.infrastructure.repositories.activity_stream_repository import (
     ActivityStreamRepository,
 )
 from app.infrastructure.repositories.best_effort_repository import BestEffortRepository
+from app.infrastructure.repositories.coaching_repository import CoachingRepository
 from app.infrastructure.repositories.user_profile_repository import (
     UserProfileRepository,
 )
@@ -37,6 +39,7 @@ class ActivityReadService:
         self.streams = ActivityStreamRepository(db_session)
         self.best_efforts = BestEffortRepository(db_session)
         self.user_profiles = UserProfileRepository(db_session)
+        self.coaching = CoachingRepository(db_session)
         self.analytics = ActivityDetailAnalyticsService()
 
     def list_activities(
@@ -250,6 +253,9 @@ class ActivityReadService:
             cycling_analysis=analytics["cycling_analysis"],
             best_efforts=activity_efforts,
             route_comparison=route_comparison,
+            coaching=to_activity_coaching_response(
+                self.coaching.get_activity_note(user_id, activity.id)
+            ),
         )
 
     def _build_route_comparison(

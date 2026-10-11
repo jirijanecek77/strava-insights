@@ -33,6 +33,7 @@ import {
     formatTrendAxisLabel,
 } from "../utils/formatters";
 import {ActivityDetail} from "./activity-detail";
+import {PeriodCoachingPanel} from "./coaching";
 import {EmptyState, FilterSelect} from "./common";
 
 export function DashboardView({
@@ -90,7 +91,7 @@ export function DashboardView({
     );
 }
 
-export function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivity}) {
+export function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivity, periodCoaching = []}) {
     const weeks = useMemo(() => buildCalendarWeeks(calendarMonth, activities), [activities, calendarMonth]);
     return (
         <section className="panel">
@@ -136,6 +137,7 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
                     </Fragment>
                 ))}
             </div>
+            <PeriodCoachingPanel calendarMonth={calendarMonth} items={periodCoaching}/>
         </section>
     );
 }

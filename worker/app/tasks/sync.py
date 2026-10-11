@@ -6,6 +6,7 @@ from app.logging import reset_log_user_name, set_log_user_name
 from app.repositories import GarminCredentialRepository, SyncJobRepository, UserRepository
 from app.services.sync_import import FullImportService, IncrementalSyncService
 from app.services.sync_scheduler import DailyIncrementalSyncScheduler
+from app.tasks.coaching import trigger_coaching_generation
 
 logger = logging.getLogger(__name__)
 MAX_SYNC_RETRIES = 3
@@ -95,7 +96,9 @@ def run_incremental_sync(self, *, sync_job_id: int, user_id: int) -> None:
             )
             return
         logger.info("Running incremental sync task.", extra={"sync_job.id": sync_job_id, "user.id": user_id})
-        IncrementalSyncService(session).run(sync_job_id=sync_job_id, user_id=user_id)
+        imported_count = IncrementalSyncService(session).run(sync_job_id=sync_job_id, user_id=user_id)
+        if imported_count > 0:
+            trigger_coaching_generation(user_id)
     except GarminAuthenticationError:
         session.rollback()
         _handle_authentication_required(session, sync_jobs, sync_job_id=sync_job_id, user_id=user_id)

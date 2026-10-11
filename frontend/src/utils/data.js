@@ -99,6 +99,13 @@ export function formatLocalDateKey(value) {
     return `${year}-${month}-${day}`;
 }
 
+export function buildMonthDateRange(calendarMonth) {
+    return {
+        dateFrom: formatLocalDateKey(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1)),
+        dateTo: formatLocalDateKey(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0)),
+    };
+}
+
 export function buildCalendarDays(calendarMonth, activities) {
     const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
     const firstGridDay = new Date(firstDay);
@@ -463,7 +470,7 @@ function roundNumber(value) {
     return Math.round(value * 10) / 10;
 }
 
-function getIsoWeek(value) {
+export function getIsoWeek(value) {
     const date = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
     const day = date.getUTCDay() || 7;
     date.setUTCDate(date.getUTCDate() + 4 - day);

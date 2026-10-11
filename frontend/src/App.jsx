@@ -12,7 +12,7 @@ import {
     SettingsView
 } from "./components/views";
 import {fetchJson, generateRequestId} from "./utils/api";
-import {buildComparisonPeriodOptions, buildQuery, isSyncInFlight, startOfMonth,} from "./utils/data";
+import {buildComparisonPeriodOptions, buildMonthDateRange, buildQuery, isSyncInFlight, startOfMonth,} from "./utils/data";
 import {buildProfileFormFromItem, formatDateInput, parsePaceInput,} from "./utils/formatters";
 import {setFrontendLoggerUser} from "./utils/logger";
 
@@ -35,6 +35,7 @@ export default function App() {
     const [activityDetail, setActivityDetail] = useState(null);
     const [activityDetailState, setActivityDetailState] = useState("idle");
     const [calendarMonth, setCalendarMonth] = useState(startOfMonth(new Date()));
+    const [periodCoaching, setPeriodCoaching] = useState([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [activeSeriesIndex, setActiveSeriesIndex] = useState(null);
@@ -250,6 +251,36 @@ export default function App() {
             setPreviousComparisonStart(nextPrevious);
         }
     }, [currentComparisonStart, previousComparisonStart, selectedWindow, trends]);
+
+    useEffect(() => {
+        if (sessionState !== "authenticated" || selectedView !== "calendar") {
+            return;
+        }
+        let active = true;
+        async function loadPeriodCoaching() {
+            const {dateFrom: coachingFrom, dateTo: coachingTo} = buildMonthDateRange(calendarMonth);
+            try {
+                const payload = await fetchJson(`/coaching/periods${buildQuery({date_from: coachingFrom, date_to: coachingTo})}`);
+                if (active) {
+                    setPeriodCoaching(payload.items ?? []);
+                }
+            } catch (error) {
+                if (!active) {
+                    return;
+                }
+                if (error.status === 401) {
+                    await transitionToAnonymous();
+                    return;
+                }
+                // Coaching reviews are optional; the calendar stays usable without them.
+                setPeriodCoaching([]);
+            }
+        }
+        loadPeriodCoaching();
+        return () => {
+            active = false;
+        };
+    }, [calendarMonth, selectedView, sessionState]);
 
     useEffect(() => {
         if (sessionState !== "authenticated" || selectedActivityId == null) {
@@ -589,6 +620,7 @@ export default function App() {
                             activities={activities}
                             calendarMonth={calendarMonth}
                             onChangeMonth={setCalendarMonth}
+                            periodCoaching={periodCoaching}
                             onSelectActivity={(id) => {
                                 setSelectedActivityId(id);
                                 setSelectedView("activities");

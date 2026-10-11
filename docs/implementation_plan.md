@@ -123,6 +123,21 @@ This document tracks implementation status against [specification.md](specificat
   dedicated dispatcher process that retries Celery publication with backoff.
 - [x] Made sync-task delivery idempotent and added bounded exponential retries for temporary import failures.
 
+### AI Coaching
+
+- [x] Added backward-safe migration `20261011_0021` with `activity_coaching_notes` and `period_coaching_summaries`.
+- [x] Added an OpenAI-compatible LLM client configured for the Gemini API free tier, with rate-limit handling based on
+  the provider's retry delay.
+- [x] Added versioned English coaching prompts with compact, GPS-free activity and period contexts.
+- [x] Queued coaching notes for activities newly imported by incremental syncs, and added a lease-based generator that
+  runs after sync and every 15 minutes from `beat`, then plans and refreshes week and month reviews.
+- [x] Exposed coaching notes in activity detail and added `GET /coaching/periods`; activity detail renders the note
+  below the running or cycling analysis and the calendar renders week and month reviews.
+- [x] Added the `python -m app.coaching_cli` operator commands for test runs on a user's latest activities.
+- [x] Ran the first live generation with `gemini-3.8-flash` for the latest three activities plus the week of
+  2026-10-05 and October 2026; all five items succeeded without rate limiting.
+- [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
+
 ## Remaining Work
 
 ### End-to-End Validation

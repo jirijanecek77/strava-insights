@@ -42,6 +42,7 @@ Required values:
   - `SESSION_SECRET_KEY`
 - `worker/.env.secrets`
   - `SESSION_SECRET_KEY`
+  - `LLM_API_KEY` (optional; Google AI Studio key that enables AI coaching notes and reviews)
 
 ## Garmin Connect Setup
 

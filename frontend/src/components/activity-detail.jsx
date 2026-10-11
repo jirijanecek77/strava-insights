@@ -40,6 +40,7 @@ import {
     formatSummaryMetricDisplay,
     formatTooltipSeriesValue,
 } from "../utils/formatters";
+import {ActivityCoachingCard} from "./coaching";
 import {EmptyState} from "./common";
 
 const RUNNING_ANALYSIS_TOOLTIPS = {
@@ -140,6 +141,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onRenameActivity, onS
                     {isRide && !detail.cycling_analysis ? <EmptyState compact text="Cycling analysis needs ride speed data. Add heart-rate thresholds in Settings to unlock HR-based ride intensity metrics."/> : null}
                 </div>
             </div>
+            <ActivityCoachingCard coaching={detail.coaching}/>
         </div>
     );
 }

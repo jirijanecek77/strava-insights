@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, Numeric, String, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -207,3 +207,73 @@ class SyncCheckpoint(Base):
     sync_type: Mapped[str] = mapped_column(String(50), nullable=False)
     checkpoint_value: Mapped[str | None] = mapped_column(String(255))
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UserThresholdProfile(Base):
+    __tablename__ = "user_threshold_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    effective_from: Mapped[date] = mapped_column(nullable=False)
+    aet_heart_rate_bpm: Mapped[int | None]
+    ant_heart_rate_bpm: Mapped[int | None]
+    aet_pace_min_per_km: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    ant_pace_min_per_km: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+
+
+class ActivityCoachingNote(Base):
+    __tablename__ = "activity_coaching_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    activity_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    description: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[str | None] = mapped_column(Text)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(String(100))
+    prompt_version: Mapped[str | None] = mapped_column(String(20))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class PeriodCoachingSummary(Base):
+    __tablename__ = "period_coaching_summaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    period_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    period_start: Mapped[date] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    summary: Mapped[str | None] = mapped_column(Text)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    source_hash: Mapped[str | None] = mapped_column(String(64))
+    is_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    model: Mapped[str | None] = mapped_column(String(100))
+    prompt_version: Mapped[str | None] = mapped_column(String(20))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

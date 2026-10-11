@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
+from app.domain.schemas.coaching import ActivityCoachingResponse
+
 
 class ActivityListRow(BaseModel):
     id: int
@@ -175,6 +177,7 @@ class ActivityDetailResponse(BaseModel):
     cycling_analysis: CyclingAnalysisResponse | None = None
     best_efforts: list[ActivityEffortRank] = Field(default_factory=list)
     route_comparison: RouteComparisonResponse | None = None
+    coaching: ActivityCoachingResponse | None = None
 
     @field_serializer("start_date_local")
     def serialize_start_date_local(self, value: datetime | None) -> str | None:

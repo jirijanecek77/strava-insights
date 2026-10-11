@@ -13,7 +13,7 @@ celery_app = Celery(
     "garmin_insights_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.sync"],
+    include=["app.tasks.sync", "app.tasks.coaching"],
 )
 celery_app.conf.beat_schedule = {
     "schedule-daily-incremental-syncs": {
@@ -22,7 +22,11 @@ celery_app.conf.beat_schedule = {
             minute=settings.daily_sync_cron_minute_utc,
             hour=settings.daily_sync_cron_hour_utc,
         ),
-    }
+    },
+    "generate-ai-coaching": {
+        "task": "app.tasks.coaching.generate_coaching",
+        "schedule": crontab(minute=f"*/{settings.coaching_poll_interval_minutes}"),
+    },
 }
 celery_app.conf.timezone = "UTC"
 celery_app.conf.worker_hijack_root_logger = False

@@ -29,6 +29,8 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
 - Historical edits and deletions performed later in Garmin Connect are out of scope for v1.
 - Imported streams are sanitized before persistence so impossible speed, distance, GPS, altitude, and heart-rate samples do not contaminate reads or analytics.
 - Activities of the same sport sharing a locally matched GPS route can be compared from local data.
+- Activities imported after the initial history import receive an AI coaching note, and weeks and months containing
+  such activities receive an AI coaching review (see AI Coaching).
 - Desktop is the primary target. Mobile optimization is not required for v1.
 
 ### Required Screens
@@ -94,8 +96,8 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
 
 - `frontend`: React web application
 - `backend`: FastAPI application for auth, read APIs, profile management, and sync orchestration
-- `worker`: Celery worker for full import, incremental sync, and read-model refresh
-- `beat`: Celery beat scheduler for daily sync orchestration
+- `worker`: Celery worker for full import, incremental sync, read-model refresh, and AI coaching generation
+- `beat`: Celery beat scheduler for daily sync orchestration and periodic AI coaching generation
 - `sync-dispatcher`: durable-outbox publisher that retries Celery task publication independently of request handling
 - `postgres`: source of truth for persisted application data
 - `redis`: cache plus Celery broker/backend
@@ -121,6 +123,7 @@ flowchart LR
     D --> R
     D --> W[Celery Worker]
     W --> GARMIN[Garmin Connect]
+    W --> LLM[LLM API]
     W --> DB
     W --> R
 ```
@@ -520,6 +523,58 @@ The UI should omit unavailable widgets rather than showing placeholder errors.
 
 The calendar should feel closer to a training overview than to a traditional enterprise calendar widget.
 
+## AI Coaching
+
+### Scope
+
+- Every activity newly imported by an incremental sync (daily, manual, or reconnect refresh) gets one activity coaching
+  note. The initial full historical import does not create notes.
+- An operator can queue notes for a user's latest activities through the worker CLI; this is how existing data is
+  tried out without a backfill.
+- Every week (Monday-based) and calendar month that contains at least one activity with a ready note gets one coaching
+  review. Reviews cover all activities in the period, including activities without a note.
+
+### Content
+
+- Output language is English, written as a coach addressing the athlete directly, grounded only in the supplied data.
+- An activity note contains a `description` (two short coaching paragraphs), a `summary` (at most about 40 words,
+  derived from the description in the same model answer and reused as input for period reviews), and a
+  `recommendation` for the next training session(s).
+- A period review contains a `summary` of the week or month and a `recommendation` for the next period, or for the rest
+  of the period while it is still in progress.
+- Prompt input is limited to aggregated local data: activity KPIs, per-split pace or speed, heart rate and elevation,
+  heart-rate zone shares and thresholds, aerobic decoupling, best-effort ranks, route comparison, recent training, and
+  previously generated summaries. GPS coordinates and raw streams are never sent.
+- Garmin's own activity description is never overwritten; coaching text is stored separately.
+
+### Generation Model
+
+- The model is reached through an OpenAI-compatible chat completions API. The default provider is the Google Gemini API
+  free tier with a Flash model; base URL, model, and API key are worker configuration. Without an API key, generation
+  is skipped and queued work waits.
+- Coaching rows are durable work items: notes are queued in the same transaction that persists the new activity, and
+  period reviews are queued by a planner that compares a hash of the period inputs with the inputs of the last
+  review.
+- Generation runs in the worker right after a sync that imported activities and periodically from `beat`. Workers claim
+  rows with leases so concurrent runs never generate the same item twice.
+- Notes for a user are generated only after that user's sync job finishes, so best efforts and route groups already
+  include the new activity. A period review waits until no note in that period is still pending.
+- A period review is regenerated when its inputs change and once more after the period ends, so every finished period
+  ends with a final review.
+- Rate-limit responses defer the item until the provider's retry delay without counting an attempt and stop the
+  current run. Other failures retry with exponential backoff and become `failed` after five attempts; a failed
+  review is retried only when its inputs change.
+- Each run is capped by a configurable call budget to stay within free-tier quotas.
+- UI read paths only read stored coaching rows and never call the model. Existing text stays visible while a
+  regeneration is pending.
+
+### Presentation
+
+- Activity detail shows the coaching note below the running or cycling analysis with the summary, description, and next-session advice,
+  or a pending or failed state.
+- The calendar shows the month review and the week reviews overlapping the displayed month below the grid, marking
+  reviews of unfinished periods as in progress.
+
 ## Sync Model
 
 - First login enqueues a full historical import.
@@ -582,6 +637,8 @@ sequenceDiagram
 - `sync_jobs`
 - `sync_dispatch_outbox`
 - `sync_checkpoints`
+- `activity_coaching_notes`
+- `period_coaching_summaries`
 
 ### Persistence Expectations
 
@@ -621,6 +678,9 @@ The backend must expose:
 - activity detail endpoint
 - activity rename endpoint (`PATCH /activities/{id}`) that stores a local custom name
 - best-efforts endpoint
+- activity detail includes the stored AI coaching note (`coaching`)
+- period coaching endpoint (`GET /coaching/periods?date_from=&date_to=`) returning week and month reviews that overlap
+  the requested range
 
 ## Data Availability
 
