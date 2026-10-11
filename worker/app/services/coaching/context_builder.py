@@ -77,6 +77,7 @@ class CoachingContextBuilder:
         time_values = _stream_values(stream, "time_stream")
         distance_values = _stream_values(stream, "distance_stream")
         heart_rate_values = _stream_values(stream, "heartrate_stream")
+        altitude_values = _stream_values(stream, "altitude_stream")
 
         aet = _optional_float(getattr(profile, "aet_heart_rate_bpm", None))
         ant = _optional_float(getattr(profile, "ant_heart_rate_bpm", None))
@@ -97,7 +98,7 @@ class CoachingContextBuilder:
                 distance_meters=distance_values,
                 time_seconds=time_values,
                 heartrate_bpm=heart_rate_values,
-                altitude_meters=_stream_values(stream, "altitude_stream"),
+                altitude_meters=altitude_values,
             ),
             "heart_rate_zones": heart_rate_zone_shares(
                 time_seconds=time_values,

@@ -136,6 +136,8 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Added the `python -m app.coaching_cli` operator commands for test runs on a user's latest activities.
 - [x] Ran the first live generation with `gemini-3.8-flash` for the latest three activities plus the week of
   2026-10-05 and October 2026; all five items succeeded without rate limiting.
+- [x] Switched coaching prompts (`PROMPT_VERSION` 2) from session summaries to analyses of training quality,
+  fatigue, and trends.
 - [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
 
 ## Remaining Work

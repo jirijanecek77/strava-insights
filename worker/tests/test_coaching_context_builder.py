@@ -134,6 +134,7 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
 
     system_prompt, user_prompt = build_activity_prompt(context)
     assert "recommendation" in system_prompt
+    assert "Fatigue" in system_prompt
     assert '"all_time_rank": 2' in user_prompt
 
 

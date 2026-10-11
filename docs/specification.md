@@ -537,14 +537,19 @@ The calendar should feel closer to a training overview than to a traditional ent
 ### Content
 
 - Output language is English, written as a coach addressing the athlete directly, grounded only in the supplied data.
-- An activity note contains a `description` (two short coaching paragraphs), a `summary` (at most about 40 words,
-  derived from the description in the same model answer and reused as input for period reviews), and a
-  `recommendation` for the next training session(s).
-- A period review contains a `summary` of the week or month and a `recommendation` for the next period, or for the rest
-  of the period while it is still in progress.
-- Prompt input is limited to aggregated local data: activity KPIs, per-split pace or speed, heart rate and elevation,
-  heart-rate zone shares and thresholds, aerobic decoupling, best-effort ranks, route comparison, recent training, and
-  previously generated summaries. GPS coordinates and raw streams are never sent.
+- Notes and reviews are analyses, not retellings: they judge training quality (execution of the session's purpose,
+  pacing, heart-rate response, zone distribution), fatigue (heart-rate drift, fading pace, heart rate versus recent
+  similar sessions, load and rest days), and trends against recent training, and derive recommendations from that.
+- An activity note contains a `description` (three short analysis paragraphs: quality, fatigue, trends), a `summary`
+  (at most about 40 words with the analytic verdict, derived from the description in the same model answer and reused
+  as input for period reviews), and a `recommendation` for the next training session(s).
+- A period review contains a `summary` analysing the week or month and a `recommendation` for the next period, or for
+  the rest of the period while it is still in progress.
+- Prompt input is limited to local data: activity KPIs, per-split pace or speed, heart rate and elevation, the
+  activity's heart-rate, pace or speed, and altitude streams downsampled to at most 120 moving-time intervals (at
+  least 30 seconds each, pauses excluded), heart-rate zone shares and thresholds, aerobic decoupling, best-effort
+  ranks, route comparison, recent training, and previously generated summaries. GPS coordinates and full-resolution
+  streams are never sent.
 - Garmin's own activity description is never overwritten; coaching text is stored separately.
 
 ### Generation Model

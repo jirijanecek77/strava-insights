@@ -3,6 +3,9 @@
 from numbers import Real
 
 MIN_DECOUPLING_DURATION_SECONDS = 20 * 60
+MAX_MOVING_GAP_SECONDS = 60
+MAX_STREAM_SAMPLES = 120
+STREAM_SAMPLE_STEP_SECONDS = 30
 
 
 def format_duration(seconds: float | int | None) -> str | None:
