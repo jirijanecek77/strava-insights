@@ -27,8 +27,9 @@ The public site uses one domain. Caddy forwards API and auth routes to `backend`
 Create these files from the templates before deploying:
 
 - `.env.production` from `.env.production.template`
-- `backend/.env.secrets` from `backend/.env.secrets.template`
-- `worker/.env.secrets` from `worker/.env.secrets.template`
+
+Non-secret service configuration is inlined in `docker-compose.prod.yml`; `.env.production` holds every secret and
+deployment-specific value and is passed as `--env-file` by the `*-prod` make targets.
 
 Required values:
 
@@ -38,9 +39,6 @@ Required values:
   - `POSTGRES_PASSWORD`
   - `FRONTEND_VITE_API_BASE_URL`
   - `FRONTEND_VITE_MAPYCZ_API_KEY`
-- `backend/.env.secrets`
-  - `SESSION_SECRET_KEY`
-- `worker/.env.secrets`
   - `SESSION_SECRET_KEY`
   - `LLM_API_KEY` (optional; Google AI Studio key that enables AI coaching notes and reviews)
 

@@ -1,255 +1,92 @@
-# Garmin Insights
+# Athlete Insights
 
-> This project was fully implemented through collaboration with agentic AI coding agents. It is a practical demonstration of shipping a complete product with AI-assisted software delivery.
+> This project was built entirely with agentic AI coding agents.
 
-Garmin Insights is a web application for athletes who want a clearer view of their Garmin-backed training history. It imports Garmin Connect data into a local application database, then serves dashboards, comparisons, and activity analysis from that local dataset so the app stays fast and usable without depending on live external API reads during everyday use.
+Athlete Insights is a self-hosted training dashboard for runners and cyclists. Connect your Garmin Connect account once,
+and the app imports your activity history and keeps it in sync. Everything then runs from your own local copy of the
+data, so it stays fast and private.
 
-## Who It Is For
+## Why Use It
 
-Garmin Insights is designed for runners and cyclists who want to:
+- **See how your training changes.** Compare this week, month, year, or the last 30 days with the previous period.
+- **Browse your training on a calendar.** Spot patterns in volume and sport at a glance.
+- **Dig into each activity.** Route map, pace or speed, heart rate, elevation, and terrain analysis.
+- **Understand effort, not just totals.** Set your own aerobic and anaerobic thresholds to see how hard you really
+  worked.
+- **Track best efforts.** Your standout performances across key distances in one place.
+- **Get AI coaching notes (optional).** Short feedback on new activities plus weekly and monthly reviews.
+- **Stays up to date by itself.** Your full history is imported on first login, then new activities sync daily or on
+  demand.
+- **Your data stays with you.** It runs on your own machine or server, and supports multiple users with separate data.
 
-- understand training progression over time
-- compare current performance with previous weeks, months, and years
-- review individual activities in more detail
-- track best efforts across key distances
-- use their own threshold settings to interpret effort and intensity
+Supported sports: running, cycling, and e-bike rides.
 
-## What Customers Can Do With It
+## Requirements
 
-### Get a training dashboard that explains change
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose
+- A Garmin Connect account
+- A [Mapy.cz API key](https://developer.mapy.com/) for route maps
+- Optional: a [Google AI Studio](https://aistudio.google.com/) API key for AI coaching notes
 
-The dashboard summarizes key metrics such as distance, moving time, activity count, pace, and speed, then compares them across meaningful windows:
+## Installation
 
-- this week vs previous week
-- this month vs previous month
-- this year vs previous year
-- rolling 30 days vs previous rolling 30 days
-
-### Explore Trends Without Waiting On External APIs
-
-Because activity data is imported and stored locally, normal app screens do not need live Garmin Connect API calls. That makes the experience better suited for repeated analysis, historical browsing, and responsive dashboards.
-
-### Browse training on a calendar
-
-The calendar gives a visual training overview by day, using activity volume and dominant sport to make patterns easy to spot.
-
-### Review every activity in detail
-
-Each activity page can show:
-
-- route map based on stored GPS data
-- distance, moving time, elevation, pace, or speed
-- heart-rate and elevation charts when available
-- slope and terrain-derived analysis when available
-- linked charts and route focus for deeper inspection
-
-### Analyze effort, not just totals
-
-For running activities, the app can use configured aerobic and anaerobic thresholds to interpret:
-
-- pace distribution
-- heart-rate distribution
-- agreement or mismatch between pace and heart rate
-- sustained threshold blocks
-
-For cycling activities, it can summarize:
-
-- speed distribution
-- terrain split across climbing, flat, and descending sections
-- cadence and heart-rate patterns when the data exists
-
-### Track best efforts
-
-The app keeps a dedicated best-efforts view for supported sports so athletes can quickly see standout performances across their imported history.
-
-### Stay synced in the background
-
-First login starts a historical import. After that, the system supports incremental syncs, daily refresh behavior, visible sync progress, and manual refresh without forcing a full reimport.
-
-## Why This Product Is Different
-
-- It is built for athlete insight, not generic reporting.
-- It avoids live external API reads on normal dashboard and analysis pages.
-- It keeps imported data available for richer derived metrics and faster repeat usage.
-- It combines dashboard summaries, day-level training views, and deep single-activity analysis in one place.
-
-## Supported Scope
-
-Current v1 scope includes:
-
-- Garmin Connect email/password login with MFA support
-- multi-user data isolation
-- running, ride, and e-bike ride support
-- dashboard, calendar, activity list, activity detail, best efforts, profile/settings, and sync status views
-- locally rendered activity analytics based on imported activity metadata and streams
-
-## Docker Run
-
-Docker is the default local workflow.
-
-### 1. Create env files
-
-Copy the templates into real env files before starting the stack:
+### 1. Get the code
 
 ```bash
-cp frontend/.env.template frontend/.env
-cp backend/.env.template backend/.env
-cp backend/.env.secrets.template backend/.env.secrets
-cp worker/.env.template worker/.env
-cp worker/.env.secrets.template worker/.env.secrets
+git clone https://github.com/jirijanecek77/strava-insights.git
+cd strava-insights
 ```
 
-PowerShell:
+### 2. Add your settings
 
-```powershell
-Copy-Item frontend/.env.template frontend/.env
-Copy-Item backend/.env.template backend/.env
-Copy-Item backend/.env.secrets.template backend/.env.secrets
-Copy-Item worker/.env.template worker/.env
-Copy-Item worker/.env.secrets.template worker/.env.secrets
+Copy the template:
+
+```bash
+cp .env.secrets.template .env.secrets
 ```
 
-Fill in at least:
+Open `.env.secrets` and fill in:
 
-- `frontend/.env`: `VITE_MAPYCZ_API_KEY`
-- `backend/.env.secrets`: `SESSION_SECRET_KEY`
-- `worker/.env.secrets`: `SESSION_SECRET_KEY`
+| Setting               | What to put there                                         |
+|-----------------------|-----------------------------------------------------------|
+| `SESSION_SECRET_KEY`  | Any long random string                                    |
+| `VITE_MAPYCZ_API_KEY` | Your Mapy.cz API key                                      |
+| `LLM_API_KEY`         | Optional Google AI Studio key; leave empty to skip AI tips |
 
-### 2. Build and start
+### 3. Start the app
+
+With `make`:
 
 ```bash
 make build
 make up
 ```
 
-Windows fallback when `make` is not installed:
-
-```powershell
-.\make.ps1 build
-.\make.ps1 up
-```
-
-### 3. Run tests
+Or with Docker Compose directly:
 
 ```bash
-make test
+docker compose --env-file .env.secrets up -d --build
 ```
 
-PowerShell:
+On Windows without `make`, use `.\make.ps1 build` and `.\make.ps1 up`.
 
-```powershell
-.\make.ps1 test
-```
+### 4. Open it
 
-### 4. Stop the stack
+Go to [http://localhost:5173](http://localhost:5173) and sign in with your Garmin Connect email and password. If your
+account uses two-factor authentication, you will be asked for the code. Your first import starts right away.
 
-```bash
-make down
-```
+## Everyday Commands
 
-PowerShell:
+| Task          | With `make`  | With Docker Compose                          |
+|---------------|--------------|----------------------------------------------|
+| Start         | `make up`    | `docker compose --env-file .env.secrets up -d` |
+| Stop          | `make down`  | `docker compose --env-file .env.secrets down`  |
+| View logs     | `make logs`  | `docker compose --env-file .env.secrets logs -f` |
+| Update        | `git pull`, then `make build` and `make up` | `git pull`, then `docker compose --env-file .env.secrets up -d --build` |
 
-```powershell
-.\make.ps1 down
-```
+Your data lives in Docker volumes, so it survives stopping, restarting, and updating the app.
 
-### Docker service URLs
+## Hosting It on a Server
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000`
-- PostgreSQL: `localhost:5433`
-
-## Local Install
-
-You can also run the services locally. The simplest setup is:
-
-- run `postgres` and `redis` via Docker
-- run `frontend`, `backend`, and `worker` on the host machine
-
-### Prerequisites
-
-- Node.js 22+
-- Python 3.13
-- Poetry 2.x
-- Docker Desktop
-
-### 1. Start infrastructure
-
-```bash
-docker compose up -d postgres redis
-```
-
-### 2. Configure env files
-
-Create the same env files as in the Docker workflow.
-
-If `backend` or `worker` run outside Docker, update these values to host-based addresses:
-
-- `DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/strava_insights`
-- `REDIS_URL=redis://localhost:6379/0`
-
-Keep:
-
-- `BACKEND_PUBLIC_URL=http://localhost:8000`
-- `FRONTEND_PUBLIC_URL=http://localhost:5173`
-- `VITE_API_BASE_URL=http://localhost:8000`
-
-### 3. Install frontend
-
-```bash
-cd frontend
-npm install
-```
-
-Run:
-
-```bash
-npm run dev
-```
-
-### 4. Install backend
-
-```bash
-cd backend
-poetry install --with dev
-poetry run alembic upgrade head
-poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 5. Install worker
-
-```bash
-cd worker
-poetry install --with dev
-poetry run celery -A app.celery_app.celery_app worker --loglevel=info
-```
-
-Optional beat process:
-
-```bash
-cd worker
-poetry run celery -A app.celery_app.celery_app beat --loglevel=info
-```
-
-## Test Commands
-
-- Frontend: `docker compose run --rm frontend npm run test -- --run`
-- Backend: `docker compose run --rm backend pytest`
-- Worker: `docker compose run --rm worker pytest`
-
-## Production Deployment
-
-The repository includes a production deployment path for a single-host VPS:
-
-- `docker-compose.prod.yml`
-- `frontend/Dockerfile.prod`
-- `backend/Dockerfile.prod`
-- `worker/Dockerfile.prod`
-- `deploy/Caddyfile`
-
-Recommended host shape for v1:
-
-- one small Hetzner VPS
-- `2 vCPU`, `4 GB RAM`, `40 GB SSD` minimum
-
-See [docs/deployment.md](docs/deployment.md) for the full setup.
+To run Athlete Insights on a public server with your own domain and HTTPS, see
+[docs/deployment.md](docs/deployment.md).

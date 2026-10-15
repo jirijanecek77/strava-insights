@@ -16,17 +16,17 @@ This document describes how to run and validate the local stack. Product behavio
 
 ## Local Setup
 
-- Create real env files from the committed templates before starting the stack.
+- Create the root `.env.secrets` from `.env.secrets.template` before starting the stack.
 - Use Poetry for Python dependency management in `backend` and `worker`.
 - Use Docker Compose as the default local runtime and validation environment.
 
-Expected env templates:
+Environment configuration:
 
-- `frontend/.env.template`
-- `backend/.env.template`
-- `backend/.env.secrets.template`
-- `worker/.env.template`
-- `worker/.env.secrets.template`
+- Non-secret service configuration is inlined in the `environment` blocks of `docker-compose.yml` and
+  `docker-compose.prod.yml`; the worker, beat, and sync-dispatcher services share one `x-worker-environment` block.
+- No compose service uses `env_file`. Secrets (`SESSION_SECRET_KEY`, `LLM_API_KEY`, `VITE_MAPYCZ_API_KEY`) are
+  interpolated from the root `.env.secrets`, which `make`/`make.ps1` pass as `docker compose --env-file .env.secrets`.
+  When calling `docker compose` directly, pass `--env-file .env.secrets` too.
 - Log output is written to the Docker console for `backend`, `worker`, and `beat`.
 - The backend is started through a small Python Uvicorn runner so application logging remains authoritative in Docker.
 - Garmin credentials are not provided through service env files; each athlete enters their Garmin email and password on the landing/login screen and the backend stores only encrypted session tokens after validation.
@@ -60,9 +60,9 @@ Windows fallback when `make` is unavailable:
 
 AI coaching:
 
-- Set `LLM_API_KEY` in `worker/.env.secrets` to a Google AI Studio API key; model and endpoint defaults live in
-  `worker/.env.template`. Without a key, coaching generation is skipped.
-- After changing the key, restart the worker services: `docker compose up -d worker beat`.
+- Set `LLM_API_KEY` in `.env.secrets` to a Google AI Studio API key; model and endpoint settings live in
+  `docker-compose.yml`. Without a key, coaching generation is skipped.
+- After changing the key, recreate the worker services: `docker compose --env-file .env.secrets up -d worker beat`.
 - Queue notes for a user's latest activities: `docker compose exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
 - Generate pending notes and reviews immediately: `docker compose exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
 - Print stored notes and reviews: `docker compose exec worker python -m app.coaching_cli show --user-id <id>`

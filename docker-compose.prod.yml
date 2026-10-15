@@ -1,3 +1,18 @@
+x-worker-environment: &worker-environment
+  APP_ENV: production
+  DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
+  REDIS_URL: redis://redis:6379/0
+  LOG_LEVEL: INFO
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:?set SESSION_SECRET_KEY in .env.production}
+  DAILY_SYNC_CRON_HOUR_UTC: 3
+  DAILY_SYNC_CRON_MINUTE_UTC: 0
+  LLM_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: gemini-3.8-flash
+  LLM_REASONING_EFFORT: low
+  COACHING_BATCH_SIZE: 5
+  COACHING_POLL_INTERVAL_MINUTES: 15
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -33,8 +48,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     command: python -m app.run_server
-    env_file:
-      - ./backend/.env.secrets
     environment:
       APP_ENV: production
       SERVICE_NAME: backend
@@ -44,6 +57,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
       LOG_LEVEL: INFO
       REDIS_URL: redis://redis:6379/0
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:?set SESSION_SECRET_KEY in .env.production}
       SESSION_COOKIE_NAME: strava_insights_session
       SESSION_MAX_AGE_SECONDS: 1209600
       SESSION_HTTPS_ONLY: "true"
@@ -68,16 +82,9 @@ services:
       context: ./worker
       dockerfile: Dockerfile.prod
     command: celery -A app.celery_app.celery_app worker --loglevel=info
-    env_file:
-      - ./worker/.env.secrets
     environment:
-      APP_ENV: production
+      <<: *worker-environment
       SERVICE_NAME: worker
-      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
-      LOG_LEVEL: INFO
-      REDIS_URL: redis://redis:6379/0
-      DAILY_SYNC_CRON_HOUR_UTC: 3
-      DAILY_SYNC_CRON_MINUTE_UTC: 0
     restart: unless-stopped
     depends_on:
       - postgres
@@ -88,16 +95,9 @@ services:
       context: ./worker
       dockerfile: Dockerfile.prod
     command: celery -A app.celery_app.celery_app beat --loglevel=info
-    env_file:
-      - ./worker/.env.secrets
     environment:
-      APP_ENV: production
+      <<: *worker-environment
       SERVICE_NAME: beat
-      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
-      LOG_LEVEL: INFO
-      REDIS_URL: redis://redis:6379/0
-      DAILY_SYNC_CRON_HOUR_UTC: 3
-      DAILY_SYNC_CRON_MINUTE_UTC: 0
     restart: unless-stopped
     depends_on:
       - postgres
@@ -108,14 +108,9 @@ services:
       context: ./worker
       dockerfile: Dockerfile.prod
     command: python -m app.sync_dispatcher_runner
-    env_file:
-      - ./worker/.env.secrets
     environment:
-      APP_ENV: production
+      <<: *worker-environment
       SERVICE_NAME: sync-dispatcher
-      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/strava_insights
-      LOG_LEVEL: INFO
-      REDIS_URL: redis://redis:6379/0
     restart: unless-stopped
     depends_on:
       backend:

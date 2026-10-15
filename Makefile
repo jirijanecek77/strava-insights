@@ -1,4 +1,4 @@
-COMPOSE = docker compose
+COMPOSE = docker compose --env-file .env.secrets
 PROD_COMPOSE = docker compose --env-file .env.production -f docker-compose.prod.yml
 
 .PHONY: build up down test logs build-prod up-prod down-prod logs-prod
