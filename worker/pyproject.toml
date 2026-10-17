@@ -1,27 +1,31 @@
-[tool.poetry]
-name = "intervals-insights-worker"
+[project]
+name = "athlete-insights-worker"
 version = "0.1.0"
-description = "Background worker for Intervals Insights"
-authors = ["Jiří Janeček"]
-package-mode = false
+description = "Background worker for Athlete Insights"
+authors = [{ name = "Jiří Janeček" }]
+requires-python = ">=3.13"
+dependencies = [
+    "celery[redis]==5.5.3",
+    "pydantic-settings==2.10.1",
+    "sqlalchemy==2.0.43",
+    "psycopg[binary]==3.2.9",
+    "cryptography==45.0.7",
+    "httpx==0.28.1",
+    "shapely>=2.1.2,<3",
+    "h3>=4.3.1,<5",
+    "garminconnect==0.3.11",
+]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-celery = {version = "5.5.3", extras = ["redis"]}
-pydantic-settings = "2.10.1"
-sqlalchemy = "2.0.43"
-psycopg = {version = "3.2.9", extras = ["binary"]}
-cryptography = "45.0.7"
-httpx = "0.28.1"
-shapely = "^2.1.2"
-h3 = "^4.3.1"
-garminconnect = "0.3.11"
+[dependency-groups]
+dev = [
+    "pytest==8.4.1",
+    "mypy>=1.20.2,<2",
+    "black>=26.5.1,<27",
+    "isort>=7.0.0,<8",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "8.4.1"
-mypy = "^1.20.2"
-black = "^26.5.1"
-isort = "^7.0.0"
+[tool.uv]
+package = false
 
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
@@ -29,7 +33,3 @@ ignore_missing_imports = true
 
 [tool.isort]
 profile = "black"
-
-[build-system]
-requires = ["poetry-core>=2.0.0"]
-build-backend = "poetry.core.masonry.api"

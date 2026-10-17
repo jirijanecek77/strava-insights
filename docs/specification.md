@@ -65,8 +65,8 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
 ### Target Stack
 
 - Frontend: React, Tailwind CSS, Recharts, Mapy.cz-backed map rendering
-- Backend: Python 3.13, FastAPI, Poetry
-- Worker: Celery, Poetry
+- Backend: Python 3.13, FastAPI, uv
+- Worker: Celery, uv
 - Logging: Docker console output for backend and worker services
 - Database: PostgreSQL
 - Cache and broker: Redis

@@ -17,7 +17,8 @@ This document describes how to run and validate the local stack. Product behavio
 ## Local Setup
 
 - Create the root `.env.secrets` from `.env.secrets.template` before starting the stack.
-- Use Poetry for Python dependency management in `backend` and `worker`.
+- Use uv for Python dependency management in `backend` and `worker`. Images install with `uv sync --locked`, so run
+  `make lock` (or `.\make.ps1 lock`) after editing a `pyproject.toml` and commit the updated `uv.lock`.
 - Use Docker Compose as the default local runtime and validation environment.
 
 Environment configuration:
@@ -35,6 +36,7 @@ Environment configuration:
 
 Primary command surface:
 
+- `make lock`
 - `make build`
 - `make up`
 - `make test`
@@ -49,6 +51,7 @@ Optional production deployment command surface:
 
 Windows fallback when `make` is unavailable:
 
+- `.\make.ps1 lock`
 - `.\make.ps1 build`
 - `.\make.ps1 up`
 - `.\make.ps1 test`

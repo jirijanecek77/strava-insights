@@ -1,30 +1,34 @@
-[tool.poetry]
-name = "intervals-insights-backend"
+[project]
+name = "athlete-insights-backend"
 version = "0.1.0"
-description = "Backend API for Intervals Insights"
-authors = ["Jiří Janeček"]
-package-mode = false
+description = "Backend API for Athlete Insights"
+authors = [{ name = "Jiří Janeček" }]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi==0.116.1",
+    "uvicorn[standard]==0.35.0",
+    "sqlalchemy==2.0.43",
+    "psycopg[binary]==3.2.9",
+    "redis==5.2.1",
+    "pydantic-settings==2.10.1",
+    "alembic==1.16.5",
+    "celery[redis]==5.5.3",
+    "cryptography==45.0.7",
+    "itsdangerous==2.2.0",
+    "httpx==0.28.1",
+    "garminconnect==0.3.11",
+]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-fastapi = "0.116.1"
-uvicorn = {version = "0.35.0", extras = ["standard"]}
-sqlalchemy = "2.0.43"
-psycopg = {version = "3.2.9", extras = ["binary"]}
-redis = "5.2.1"
-pydantic-settings = "2.10.1"
-alembic = "1.16.5"
-celery = {version = "5.5.3", extras = ["redis"]}
-cryptography = "45.0.7"
-itsdangerous = "2.2.0"
-httpx = "0.28.1"
-garminconnect = "0.3.11"
+[dependency-groups]
+dev = [
+    "pytest==8.4.1",
+    "mypy>=1.20.2,<2",
+    "black>=26.5.1,<27",
+    "isort>=7.0.0,<8",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "8.4.1"
-mypy = "^1.20.2"
-black = "^26.5.1"
-isort = "^7.0.0"
+[tool.uv]
+package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
@@ -35,7 +39,3 @@ ignore_missing_imports = true
 
 [tool.isort]
 profile = "black"
-
-[build-system]
-requires = ["poetry-core>=2.0.0"]
-build-backend = "poetry.core.masonry.api"
