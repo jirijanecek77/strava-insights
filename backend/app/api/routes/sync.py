@@ -46,3 +46,22 @@ def trigger_incremental_sync(
 
     logger.info("Triggering incremental sync.", extra={"user.id": user.id})
     return sync_orchestrator.enqueue_incremental_sync(user.id)
+
+
+@router.post(
+    "/recalculate", response_model=CreatedSyncJob, status_code=status.HTTP_202_ACCEPTED
+)
+def trigger_full_recompute(
+    request: Request,
+    current_user_service: CurrentUserService = Depends(CurrentUserService),
+    sync_orchestrator: SyncOrchestrator = Depends(SyncOrchestrator),
+) -> CreatedSyncJob:
+    user = current_user_service.get_current_user(request)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+
+    logger.info("Triggering derived data recalculation.", extra={"user.id": user.id})
+    return sync_orchestrator.enqueue_full_recompute(user.id)

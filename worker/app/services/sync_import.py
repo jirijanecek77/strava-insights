@@ -25,7 +25,7 @@ from app.services.activity_summary import (
 from app.services.cache_invalidator import UserCacheInvalidator
 from app.services.local_route_matcher import ROUTE_MODEL_VERSION
 from app.services.read_model_builder import ReadModelBuilder
-from app.services.route_index_builder import RouteIndexBuilder, RouteIndexStats
+from app.services.route_index_builder import RouteIndexBuilder
 from app.services.stream_sanitizer import sanitize_stream_payload
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -36,6 +36,9 @@ ACTIVITY_CHECKPOINT_TYPE = "activities"
 ANALYTICS_CHECKPOINT_TYPE = "analytics_model"
 ANALYTICS_MODEL_VERSION = "2"
 ROUTE_CHECKPOINT_TYPE = "route_model"
+# Highest activity id already reflected in derived data (summaries, best efforts, route groups).
+DERIVED_ACTIVITIES_CHECKPOINT_TYPE = "derived_activities"
+FULL_RECOMPUTE_SOURCE = "full_recompute"
 logger = logging.getLogger(__name__)
 
 
@@ -122,10 +125,13 @@ class BaseImportService:
 
         imported_count = 0
         latest_checkpoint_value = self._get_existing_checkpoint_value(user_id)
+        backfilled_activity_ids: list[int] = []
 
         for index, activity_payload in enumerate(activities_payload, start=1):
             is_new_activity = activity_payload.get("id") not in existing_source_activity_ids
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
+            if not is_new_activity:
+                backfilled_activity_ids.append(activity.id)
             try:
                 stream_payload = self.garmin_client.get_activity_stream(
                     garmin_session, activity.source_activity_id
@@ -172,38 +178,12 @@ class BaseImportService:
             checkpoint_value=latest_checkpoint_value,
             last_synced_at=datetime.now(UTC),
         )
-        rebuild_required = (
-            imported_count > 0
-            or self._analytics_rebuild_required(user_id)
-            or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
+        derived_changed, routes_updated = self._update_derived_data(
+            sync_job=sync_job,
+            user_id=user_id,
+            backfilled_activity_ids=backfilled_activity_ids,
         )
-        route_rebuild_required = (
-            imported_count > 0
-            or self._route_rebuild_required(user_id)
-            or (sync_job.metadata_json or {}).get("source") == "manual_refresh"
-        )
-        if rebuild_required:
-            source_run_efforts = self._load_source_run_efforts()
-            self.read_model_builder.rebuild_for_user(
-                user_id, source_run_efforts=source_run_efforts
-            )
-            self.checkpoints.upsert(
-                user_id=user_id,
-                sync_type=ANALYTICS_CHECKPOINT_TYPE,
-                checkpoint_value=ANALYTICS_MODEL_VERSION,
-                last_synced_at=datetime.now(UTC),
-            )
-        else:
-            logger.info(
-                "Skipping unchanged read-model rebuild.",
-                extra={"sync_job.id": sync_job_id, "user.id": user_id},
-            )
-        route_stats = (
-            self._rebuild_local_routes(user_id)
-            if route_rebuild_required
-            else None
-        )
-        if imported_count > 0 or rebuild_required or route_stats is not None:
+        if imported_count > 0 or derived_changed:
             self.cache_invalidator.invalidate_user(user_id)
         self.sync_jobs.complete(sync_job, imported_activities=imported_count)
         self.session.commit()
@@ -214,14 +194,89 @@ class BaseImportService:
                 "user.id": user_id,
                 "imported_count": imported_count,
                 "checkpoint": latest_checkpoint_value,
-                "route_group_count": (
-                    None if route_stats is None else route_stats.route_group_count
-                ),
-                "read_models_rebuilt": rebuild_required,
-                "routes_rebuilt": route_stats is not None,
+                "derived_data_changed": derived_changed,
+                "routes_updated": routes_updated,
             },
         )
         return imported_count
+
+    def _update_derived_data(
+        self, *, sync_job, user_id: int, backfilled_activity_ids: list[int]
+    ) -> tuple[bool, bool]:
+        """Updates summaries, best efforts, and route groups; returns (anything changed, routes up to date)."""
+        watermark = self._derived_activities_watermark(user_id)
+        full_recompute = (
+            sync_job.sync_type == "full_import"
+            or (sync_job.metadata_json or {}).get("source") == FULL_RECOMPUTE_SOURCE
+            or watermark is None
+        )
+        analytics_full = full_recompute or self._analytics_rebuild_required(user_id)
+        routes_full = full_recompute or self._route_rebuild_required(user_id)
+        pending_activities = (
+            []
+            if analytics_full and routes_full
+            else self.activities.list_by_ids_or_after_id(
+                user_id, activity_ids=backfilled_activity_ids, after_id=watermark or 0
+            )
+        )
+        if not analytics_full and not routes_full and not pending_activities:
+            logger.info(
+                "Skipping derived data update without new activities.",
+                extra={"sync_job.id": sync_job.id, "user.id": user_id},
+            )
+            return False, True
+
+        source_run_efforts = self._load_source_run_efforts()
+        if analytics_full:
+            self.read_model_builder.rebuild_for_user(
+                user_id, source_run_efforts=source_run_efforts
+            )
+            self.checkpoints.upsert(
+                user_id=user_id,
+                sync_type=ANALYTICS_CHECKPOINT_TYPE,
+                checkpoint_value=ANALYTICS_MODEL_VERSION,
+                last_synced_at=datetime.now(UTC),
+            )
+        elif pending_activities:
+            self.read_model_builder.update_for_activities(
+                user_id, pending_activities, source_run_efforts=source_run_efforts
+            )
+
+        routes_updated = (
+            self._rebuild_local_routes(user_id)
+            if routes_full
+            else self._update_local_routes(user_id, pending_activities)
+        )
+        if routes_updated:
+            self.checkpoints.upsert(
+                user_id=user_id,
+                sync_type=DERIVED_ACTIVITIES_CHECKPOINT_TYPE,
+                checkpoint_value=str(self.activities.get_max_id_for_user(user_id) or 0),
+                last_synced_at=datetime.now(UTC),
+            )
+        logger.info(
+            "Updated derived data.",
+            extra={
+                "sync_job.id": sync_job.id,
+                "user.id": user_id,
+                "derived.analytics_full": analytics_full,
+                "derived.routes_full": routes_full,
+                "derived.pending_activity_count": len(pending_activities),
+                "derived.routes_updated": routes_updated,
+            },
+        )
+        return True, routes_updated
+
+    def _derived_activities_watermark(self, user_id: int) -> int | None:
+        checkpoint = self.checkpoints.get_for_user(
+            user_id, DERIVED_ACTIVITIES_CHECKPOINT_TYPE
+        )
+        if checkpoint is None or checkpoint.checkpoint_value is None:
+            return None
+        try:
+            return int(checkpoint.checkpoint_value)
+        except ValueError:
+            return None
 
     def _get_garmin_credentials(self, user_id: int) -> str:
         credential = self.garmin_credentials.get_for_user(user_id)
@@ -372,23 +427,37 @@ class BaseImportService:
         checkpoint = self.checkpoints.get_for_user(user_id, ROUTE_CHECKPOINT_TYPE)
         return checkpoint is None or checkpoint.checkpoint_value != ROUTE_MODEL_VERSION
 
-    def _rebuild_local_routes(self, user_id: int) -> RouteIndexStats | None:
+    def _rebuild_local_routes(self, user_id: int) -> bool:
         try:
             with self.session.begin_nested():
-                stats = self.route_index_builder.rebuild_for_user(user_id)
+                self.route_index_builder.rebuild_for_user(user_id)
                 self.checkpoints.upsert(
                     user_id=user_id,
                     sync_type=ROUTE_CHECKPOINT_TYPE,
                     checkpoint_value=ROUTE_MODEL_VERSION,
                     last_synced_at=datetime.now(UTC),
                 )
-                return stats
+                return True
         except Exception:
             logger.exception(
                 "Local route index rebuild failed; preserving the previous route index.",
                 extra={"user.id": user_id},
             )
-            return None
+            return False
+
+    def _update_local_routes(self, user_id: int, activities: list[Activity]) -> bool:
+        if not activities:
+            return True
+        try:
+            with self.session.begin_nested():
+                self.route_index_builder.update_for_activities(user_id, activities)
+                return True
+        except Exception:
+            logger.exception(
+                "Local route index update failed; preserving the previous route index.",
+                extra={"user.id": user_id},
+            )
+            return False
 
     @staticmethod
     def _parse_datetime(value: str | None) -> datetime | None:

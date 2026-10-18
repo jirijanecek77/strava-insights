@@ -11,9 +11,12 @@ from app.repositories import (
     LocalRouteRepository,
 )
 from app.services.local_route_matcher import (
+    MAX_DISTANCE_DIFFERENCE_RATIO,
     ROUTE_MODEL_VERSION,
+    ExistingRouteGroup,
     LocalRouteMatcher,
     RouteInput,
+    RouteSignature,
 )
 
 SUPPORTED_ROUTE_SPORTS = {"Run", "Ride", "EBikeRide"}
@@ -28,6 +31,15 @@ class RouteIndexStats:
     matched_activity_count: int
     compared_pair_count: int
     matched_pair_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class RouteUpdateStats:
+    processed_activity_count: int
+    excluded_activity_count: int
+    joined_group_count: int
+    created_group_count: int
+    compared_pair_count: int
 
 
 class RouteIndexBuilder:
@@ -70,19 +82,7 @@ class RouteIndexBuilder:
             signature.activity_id: signature for signature in result.signatures
         }
         signatures = [
-            ActivityRouteSignature(
-                activity_id=signature.activity_id,
-                user_id=user_id,
-                sport_type=signature.sport_type,
-                algorithm_version=ROUTE_MODEL_VERSION,
-                source_point_count=signature.source_point_count,
-                valid_point_count=signature.valid_point_count,
-                distance_meters=Decimal(str(signature.distance_meters)),
-                is_loop=signature.is_loop,
-                sampled_points=[list(point) for point in signature.sampled_points],
-                spatial_cells=sorted(signature.spatial_cells),
-            )
-            for signature in result.signatures
+            _signature_row(user_id, signature) for signature in result.signatures
         ]
         groups: list[tuple[RouteGroup, list[ActivityRouteMembership]]] = []
         for matched_group in result.groups:
@@ -132,3 +132,138 @@ class RouteIndexBuilder:
             },
         )
         return stats
+
+    def update_for_activities(self, user_id: int, activities: list) -> RouteUpdateStats:
+        """Adds new activities to existing route groups without regrouping the history."""
+        pending = sorted(
+            (
+                activity
+                for activity in activities
+                if activity.sport_type in SUPPORTED_ROUTE_SPORTS
+            ),
+            key=lambda activity: activity.id,
+        )
+        already_indexed = self.local_routes.list_signature_activity_ids(
+            [activity.id for activity in pending]
+        )
+        pending = [activity for activity in pending if activity.id not in already_indexed]
+        streams = {
+            stream.activity_id: stream
+            for stream in self.activity_streams.get_by_activity_ids(
+                [activity.id for activity in pending]
+            )
+        }
+        excluded_count = joined_count = created_count = compared_count = 0
+        for activity in pending:
+            stream = streams.get(activity.id)
+            signature = self.matcher.build_signature(
+                RouteInput(
+                    activity_id=activity.id,
+                    sport_type=activity.sport_type,
+                    distance_meters=float(activity.distance_meters),
+                    coordinates=(
+                        (stream.latlng_stream or {}).get("data", [])
+                        if stream is not None
+                        else []
+                    ),
+                )
+            )
+            if signature is None:
+                excluded_count += 1
+                continue
+            candidates = [
+                _signature_from_row(row)
+                for row in self.local_routes.list_candidate_signatures(
+                    user_id=user_id,
+                    sport_type=signature.sport_type,
+                    min_distance_meters=signature.distance_meters
+                    * (1 - MAX_DISTANCE_DIFFERENCE_RATIO),
+                    max_distance_meters=signature.distance_meters
+                    / (1 - MAX_DISTANCE_DIFFERENCE_RATIO),
+                    spatial_cells=sorted(self.matcher.candidate_cells(signature)),
+                )
+            ]
+            existing_groups = [
+                ExistingRouteGroup(
+                    group_id=route_group.id,
+                    representative_activity_id=route_group.representative_activity_id,
+                    member_activity_ids=frozenset(member_ids),
+                )
+                for route_group, member_ids in self.local_routes.list_groups_with_members(
+                    [candidate.activity_id for candidate in candidates]
+                )
+            ]
+            assignment = self.matcher.assign(signature, candidates, existing_groups)
+            compared_count += assignment.compared_count
+            self.local_routes.add_signature(_signature_row(user_id, signature))
+            route_group_id = assignment.group_id
+            if route_group_id is None:
+                route_group_id = self.local_routes.add_group(
+                    RouteGroup(
+                        user_id=user_id,
+                        sport_type=signature.sport_type,
+                        representative_activity_id=signature.activity_id,
+                        algorithm_version=ROUTE_MODEL_VERSION,
+                        nominal_distance_meters=Decimal(str(signature.distance_meters)),
+                    )
+                ).id
+                created_count += 1
+            else:
+                joined_count += 1
+            self.local_routes.add_membership(
+                ActivityRouteMembership(
+                    activity_id=signature.activity_id,
+                    route_group_id=route_group_id,
+                    similarity_score=Decimal(str(assignment.similarity_score)),
+                )
+            )
+
+        stats = RouteUpdateStats(
+            processed_activity_count=len(pending),
+            excluded_activity_count=excluded_count,
+            joined_group_count=joined_count,
+            created_group_count=created_count,
+            compared_pair_count=compared_count,
+        )
+        logger.info(
+            "Updated local route index for new activities.",
+            extra={
+                "user.id": user_id,
+                "route.processed_activity_count": stats.processed_activity_count,
+                "route.excluded_activity_count": stats.excluded_activity_count,
+                "route.joined_group_count": stats.joined_group_count,
+                "route.created_group_count": stats.created_group_count,
+                "route.compared_pair_count": stats.compared_pair_count,
+            },
+        )
+        return stats
+
+
+def _signature_row(user_id: int, signature: RouteSignature) -> ActivityRouteSignature:
+    return ActivityRouteSignature(
+        activity_id=signature.activity_id,
+        user_id=user_id,
+        sport_type=signature.sport_type,
+        algorithm_version=ROUTE_MODEL_VERSION,
+        source_point_count=signature.source_point_count,
+        valid_point_count=signature.valid_point_count,
+        distance_meters=Decimal(str(signature.distance_meters)),
+        is_loop=signature.is_loop,
+        sampled_points=[list(point) for point in signature.sampled_points],
+        spatial_cells=sorted(signature.spatial_cells),
+    )
+
+
+def _signature_from_row(row: ActivityRouteSignature) -> RouteSignature:
+    return RouteSignature(
+        activity_id=row.activity_id,
+        sport_type=row.sport_type,
+        distance_meters=float(row.distance_meters),
+        source_point_count=row.source_point_count,
+        valid_point_count=row.valid_point_count,
+        sampled_points=tuple(
+            (float(latitude), float(longitude)) for latitude, longitude in row.sampled_points
+        ),
+        spatial_cells=frozenset(row.spatial_cells),
+        is_loop=row.is_loop,
+    )

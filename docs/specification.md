@@ -52,7 +52,9 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
 - Activity detail must be renderable from locally stored activity and stream data.
 - Duplicate activities must be upserted by `(source_provider, source_activity_id)`. Garmin numeric activity IDs are
   retained as their source activity IDs.
-- A manual sync always refreshes analytics. A scheduled sync with no imported or analytically stale data skips the read-model rebuild.
+- Daily and manual syncs update derived data (period summaries, best efforts, route groups) incrementally for newly
+  imported activities only. Recomputing the whole history is reserved for the explicit "Recalculate All" action, a full
+  import, and derived-model version changes.
 - Token expiry during sync must reuse and persist the refreshed Garmin session. A final Garmin authentication rejection
   must mark the connection as requiring reauthentication, stop scheduled syncs, and preserve imported data until the
   user reconnects and manually starts a sync.
@@ -595,12 +597,9 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Daily refresh imports only newly available activities.
 - Manual refresh is incremental only and must not trigger a full reimport.
 - New data invalidates affected cache entries and recomputes summaries as needed.
-- Manual refresh recomputes summaries, sanitizes existing streams, and refreshes top-five efforts even when no new activity is imported.
 - Manual refresh backfills missing or empty streams for already-imported activities without reimporting populated
   streams.
-- Scheduled no-change refreshes skip analytics work once the current analytics model version has been built.
-- Local route signatures and groups are rebuilt after activity import, after a manual refresh, or when the versioned `route_model` checkpoint is stale.
-- Existing activities receive local route comparisons after the first successful route-index rebuild; no source reimport or destructive data migration is required.
+- Settings offers a "Recalculate All" action that queues an incremental sync with source `full_recompute`.
 - Deletions and later historical edits in Garmin Connect remain out of scope for v1.
 - If a sync checkpoint is missing, incremental sync should fall back to the latest locally stored activity timestamp rather than reimporting full history.
 - If Garmin activity streams return `404`, import the activity and continue without streams.
@@ -624,6 +623,43 @@ sequenceDiagram
     Worker->>Garmin: Fetch activities and streams
     Worker->>DB: Store activities, streams, summaries
 ```
+
+### Derived Data Updates
+
+Activities are only ever added by sync. Derived data is therefore maintained incrementally, and the full recomputation
+is the single source of correction.
+
+Full recomputation runs when any of these holds:
+
+- the sync job is a `full_import`, or its source is `full_recompute`
+- the versioned `analytics_model` checkpoint (period summaries, stream sanitization, best efforts) or the `route_model`
+  checkpoint is missing or stale; each part rebuilds independently
+- the `derived_activities` watermark checkpoint is missing
+
+A full recomputation re-sanitizes persisted streams, rebuilds period summaries and the top-five best efforts from all
+activities, rebuilds every route signature and group, and replaces the stored rows.
+
+Every other sync processes only pending activities: activities whose id is above the `derived_activities` watermark
+(the highest activity id already processed) plus activities whose streams were backfilled in this sync.
+
+- Streams are sanitized once when they are imported; the incremental path does not re-sanitize history.
+- Period summaries are rebuilt from activity rows only, without loading streams.
+- Best efforts are computed for pending activities only and merged into the stored top five per sport and distance.
+  Because activities are never removed, the result equals a full recomputation.
+- Route matching builds a signature for each pending activity and loads candidate signatures from
+  `activity_route_signatures`: same user and sport, comparable distance, and spatial cells overlapping the H3
+  neighbourhood of the new signature. Streams of existing activities are not loaded.
+- A pending activity joins the existing route group whose every member matches it (complete linkage, the same rule as
+  the full grouping). When several groups qualify, the highest average similarity wins, then the lowest group id.
+  Otherwise the activity starts a new group of one. Existing representatives and memberships are not changed.
+- Pending activities are processed in id order within one transaction, so later ones see earlier ones.
+- Processing is idempotent: activities that already have a route signature are skipped, and best-effort rows of
+  pending activities are replaced rather than duplicated.
+- The watermark advances to the user's highest activity id only after both best efforts and routes were updated. A route
+  update failure keeps the previous route index and the watermark, so the next sync retries the same activities.
+- Incremental route grouping never merges two existing groups or changes a representative, so it can drift slightly
+  from a full recomputation. "Recalculate All" removes the drift.
+- Data removed manually from the database is reconciled only by "Recalculate All".
 
 ## Data Model
 
@@ -677,6 +713,8 @@ The backend must expose:
 - auth endpoints for Garmin credential-state lookup plus credential login
 - current-user profile endpoint
 - sync-status endpoint
+- sync endpoints for an incremental refresh (`POST /sync/refresh`) and a full derived-data recalculation
+  (`POST /sync/recalculate`)
 - dashboard endpoint
 - comparison and trend endpoints
 - activity list endpoint with sport and date filters, returning numeric moving time, pace, speed, and aerobic efficiency fields for client-side KPI filtering
@@ -690,9 +728,9 @@ The backend must expose:
 ## Data Availability
 
 - Elevation tooltip data is available immediately for activities that already have altitude streams.
-- Stream cleanup and rebuilt aggregate values appear after the first manual sync following this release; later manual syncs recalculate them on demand.
-- Top-five efforts appear after that manual analytics refresh and are derived from sanitized local streams.
-- Route comparisons appear after local route-index rebuilds; route identity is derived from persisted sanitized GPS data
-  rather than a provider route assignment.
+- Stream cleanup, rebuilt aggregates, top-five efforts, and route groups are built by the first sync after a
+  derived-model version change, and later updated incrementally for new activities.
+- "Recalculate All" rebuilds all derived data on demand from the stored activities and streams.
+- Route identity is derived from persisted sanitized GPS data rather than a provider route assignment.
 
 The backend should remain extensible for future user-scoped insight features by keeping analytics and read models accessible through stable backend service boundaries.

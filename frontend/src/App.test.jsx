@@ -1756,6 +1756,7 @@ describe("App", () => {
         expect(screen.getByRole("button", {name: /create new period/i})).toBeInTheDocument();
         expect(screen.getByRole("heading", {name: /edit thresholds/i})).toBeInTheDocument();
         expect(screen.getByRole("button", {name: /refresh sync/i})).toBeInTheDocument();
+        expect(screen.getByRole("button", {name: /recalculate all/i})).toBeInTheDocument();
         expect(screen.queryByText(/latest sync/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText("Aerobic Threshold HR (bpm)")).toHaveValue(145);
         expect(screen.getByLabelText("Aerobic Threshold Pace (min/km)")).toHaveValue("5:24");

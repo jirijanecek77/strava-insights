@@ -465,9 +465,17 @@ export default function App() {
     }
 
     async function handleRefreshSync() {
+        await triggerSync("/sync/refresh");
+    }
+
+    async function handleRecalculateAll() {
+        await triggerSync("/sync/recalculate");
+    }
+
+    async function triggerSync(path) {
         try {
             setSyncBusy(true);
-            await fetchJson("/sync/refresh", {method: "POST"});
+            await fetchJson(path, {method: "POST"});
             setSyncStatus(await fetchJson("/sync/status"));
             setErrorMessage("");
         } catch (error) {
@@ -668,6 +676,7 @@ export default function App() {
                             onLogout={handleLogout}
                             onReconnectGarmin={handleLogout}
                             onRefreshSync={handleRefreshSync}
+                            onRecalculateAll={handleRecalculateAll}
                             onSaveProfile={handleSaveProfile}
                             onStartNewThresholdProfile={() => {
                                 setProfileForm((current) => ({...current, effectiveFrom: ""}));

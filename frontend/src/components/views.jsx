@@ -445,6 +445,7 @@ export function SettingsView({
     onStartNewThresholdProfile,
     onLogout,
                                  onReconnectGarmin,
+    onRecalculateAll,
     onRefreshSync,
     onSaveProfile,
 }) {
@@ -553,6 +554,11 @@ export function SettingsView({
                         Garmin</button> : null}
                 <button className="ghost-button" disabled={syncBusy} onClick={onRefreshSync} type="button">
                     {syncBusy ? "Refreshing..." : "Refresh Sync"}
+                </button>
+                <p className="copy">Recalculate All rebuilds summaries, best efforts, and route groups from every stored
+                    activity. Regular syncs only add new activities.</p>
+                <button className="ghost-button" disabled={syncBusy} onClick={onRecalculateAll} type="button">
+                    Recalculate All
                 </button>
             </article>
         </section>

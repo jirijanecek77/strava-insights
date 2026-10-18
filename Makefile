@@ -1,7 +1,7 @@
 COMPOSE = docker compose --env-file .env.secrets
 PROD_COMPOSE = docker compose --env-file .env.production -f docker-compose.prod.yml
 
-.PHONY: build up down test logs build-prod up-prod down-prod logs-prod
+.PHONY: build up down deploy test logs build-prod up-prod down-prod logs-prod
 
 build:
 	$(COMPOSE) build
@@ -11,6 +11,8 @@ up:
 
 down:
 	$(COMPOSE) down --remove-orphans
+
+deploy: build up
 
 test:
 	$(COMPOSE) run --rm backend pytest

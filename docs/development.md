@@ -39,6 +39,7 @@ Primary command surface:
 - `make lock`
 - `make build`
 - `make up`
+- `make deploy` (build, then up)
 - `make test`
 - `make down`
 
@@ -66,15 +67,15 @@ AI coaching:
 - Set `LLM_API_KEY` in `.env.secrets` to a Google AI Studio API key; model and endpoint settings live in
   `docker-compose.yml`. Without a key, coaching generation is skipped.
 - After changing the key, recreate the worker services: `docker compose --env-file .env.secrets up -d worker beat`.
-- Queue notes for a user's latest activities: `docker compose exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
-- Generate pending notes and reviews immediately: `docker compose exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
-- Print stored notes and reviews: `docker compose exec worker python -m app.coaching_cli show --user-id <id>`
+- Queue notes for a user's latest activities: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
+- Generate pending notes and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
+- Print stored notes and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`
 
 Useful log inspection commands:
 
-- `docker compose logs backend --tail 200`
-- `docker compose logs worker --tail 200`
-- `docker compose logs beat --tail 200`
+- `docker compose --env-file .env.secrets logs backend --tail 200`
+- `docker compose --env-file .env.secrets logs worker --tail 200`
+- `docker compose --env-file .env.secrets logs beat --tail 200`
 
 ## Validation Expectations
 

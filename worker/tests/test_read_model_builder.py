@@ -1,3 +1,4 @@
+from app.models import BestEffort
 from app.services.read_model_builder import ReadModelBuilder
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -75,8 +76,11 @@ class PeriodSummaryRepositoryStub:
 
 
 class BestEffortRepositoryStub:
-    def __init__(self) -> None:
-        self.efforts: list[Any] = []
+    def __init__(self, efforts: list[Any] | None = None) -> None:
+        self.efforts: list[Any] = efforts or []
+
+    def list_for_user(self, _user_id: int):
+        return self.efforts
 
     def replace_for_user(self, *, user_id: int, efforts):
         self.user_id = user_id
@@ -169,3 +173,47 @@ def test_best_time_for_distance_uses_linear_sliding_window() -> None:
     times = list(range(20_001))
 
     assert ReadModelBuilder._best_time_for_distance(distances, times, 10_000) == 10_000
+
+
+def _stored_run_effort(activity_id: int, best_time_seconds: int) -> BestEffort:
+    return BestEffort(
+        user_id=7,
+        sport_type="Run",
+        effort_code="1km",
+        best_time_seconds=best_time_seconds,
+        distance_meters=Decimal("1000.0"),
+        activity_id=activity_id,
+        achieved_at=datetime(2026, 1, activity_id, tzinfo=UTC),
+    )
+
+
+def test_update_for_activities_merges_new_efforts_into_stored_top_five() -> None:
+    new_activity = ActivityStub(
+        activity_id=20,
+        sport_type="Run",
+        start_date_utc=datetime(2026, 3, 9, tzinfo=UTC),
+        start_date_local=datetime(2026, 3, 9, 7, 0, tzinfo=UTC),
+        distance_meters="1000",
+        moving_time_seconds=250,
+        total_elevation_gain_meters=None,
+    )
+    builder = ReadModelBuilder(session=None)
+    builder.activities = ActivityRepositoryStub([new_activity])
+    builder.activity_streams = ActivityStreamRepositoryStub(
+        [ActivityStreamStub(activity_id=20, distance_data=[0, 1000], time_data=[0, 250])]
+    )
+    period_summaries = PeriodSummaryRepositoryStub()
+    best_efforts = BestEffortRepositoryStub(
+        [_stored_run_effort(activity_id, 240 + (activity_id * 5)) for activity_id in range(1, 6)]
+    )
+    builder.period_summaries = period_summaries
+    builder.best_efforts = best_efforts
+
+    builder.update_for_activities(7, [new_activity])
+    # A retried update must not duplicate the new activity's effort.
+    builder.update_for_activities(7, [new_activity])
+
+    assert [
+        (effort.activity_id, effort.best_time_seconds) for effort in best_efforts.efforts
+    ] == [(1, 245), (2, 250), (20, 250), (3, 255), (4, 260)]
+    assert {summary.period_type for summary in period_summaries.summaries} == {"week", "month", "year"}

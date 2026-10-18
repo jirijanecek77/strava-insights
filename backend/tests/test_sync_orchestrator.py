@@ -101,3 +101,36 @@ def test_manual_sync_requires_a_connected_garmin_credential() -> None:
         service.enqueue_incremental_sync(1)
 
     assert error.value.status_code == 409
+
+
+def test_full_recompute_queues_incremental_sync_marked_for_recalculation() -> None:
+    dispatch_store = SyncDispatchStoreStub()
+    repository = SyncJobRepositoryStub()
+    service = SyncOrchestrator(db_session=cast(Session, SessionStub()))
+    service.sync_job_repository = cast(SyncJobRepository, repository)
+    service.dispatch_store = cast(SyncDispatchOutboxRepository, dispatch_store)
+    service.sync_job_repository.get_active_for_user = lambda _user_id: None
+    service.garmin_credentials = type(
+        "CredentialRepositoryStub",
+        (),
+        {
+            "get_for_user": lambda _self, _user_id: GarminCredential(
+                user_id=1,
+                email_encrypted="encrypted-email",
+                token_json_encrypted="encrypted-token",
+                external_user_id="athlete",
+                connection_status="connected",
+            )
+        },
+    )()
+
+    created_job = service.enqueue_full_recompute(1)
+
+    assert created_job.sync_type == "incremental_sync"
+    assert repository.saved is not None
+    assert repository.saved.metadata_json == {"source": "full_recompute"}
+    assert dispatch_store.recorded == {
+        "sync_job_id": 10,
+        "user_id": 1,
+        "sync_type": "incremental_sync",
+    }

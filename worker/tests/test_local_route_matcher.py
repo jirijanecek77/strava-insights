@@ -1,4 +1,8 @@
-from app.services.local_route_matcher import LocalRouteMatcher, RouteInput
+from app.services.local_route_matcher import (
+    ExistingRouteGroup,
+    LocalRouteMatcher,
+    RouteInput,
+)
 from collections.abc import Sequence
 from math import cos, pi, sin
 
@@ -128,3 +132,103 @@ def test_excludes_route_with_insufficient_valid_gps() -> None:
 
     assert result.groups == []
     assert result.excluded_activity_ids == [1]
+
+
+def _detour_route() -> list[list[float]]:
+    detour = [point[:] for point in _open_route()]
+    for index in range(48, 73):
+        progress = (index - 48) / 24
+        detour[index][0] += 0.006 * sin(pi * progress)
+    return detour
+
+
+def _signature(activity_id: int, points, **kwargs):
+    signature = LocalRouteMatcher().build_signature(
+        _route_input(activity_id, points, **kwargs)
+    )
+    assert signature is not None
+    return signature
+
+
+def test_assign_joins_group_when_every_member_matches() -> None:
+    matcher = LocalRouteMatcher()
+    original = _open_route()
+    jittered = [[latitude + 0.00002, longitude] for latitude, longitude in original]
+    candidates = [_signature(1, original), _signature(2, jittered)]
+
+    assignment = matcher.assign(
+        _signature(3, original),
+        candidates,
+        [ExistingRouteGroup(group_id=10, representative_activity_id=1, member_activity_ids=frozenset({1, 2}))],
+    )
+
+    assert assignment.group_id == 10
+    assert assignment.similarity_score > 0.9
+    assert assignment.compared_count == 2
+
+
+def test_assign_creates_new_group_when_only_some_members_match() -> None:
+    matcher = LocalRouteMatcher()
+    original = _open_route()
+    candidates = [_signature(1, original), _signature(2, _detour_route())]
+
+    assignment = matcher.assign(
+        _signature(3, original),
+        candidates,
+        [ExistingRouteGroup(group_id=10, representative_activity_id=1, member_activity_ids=frozenset({1, 2}))],
+    )
+
+    assert assignment.group_id is None
+    assert assignment.similarity_score == 1.0
+
+
+def test_assign_prefers_group_with_highest_average_similarity() -> None:
+    matcher = LocalRouteMatcher()
+    original = _open_route()
+    shifted = [[latitude + 0.0003, longitude] for latitude, longitude in original]
+    candidates = [_signature(1, shifted), _signature(2, original)]
+
+    assignment = matcher.assign(
+        _signature(3, original),
+        candidates,
+        [
+            ExistingRouteGroup(group_id=10, representative_activity_id=1, member_activity_ids=frozenset({1})),
+            ExistingRouteGroup(group_id=11, representative_activity_id=2, member_activity_ids=frozenset({2})),
+        ],
+    )
+
+    assert assignment.group_id == 11
+
+
+def test_assign_matches_full_grouping_for_routes_added_one_by_one() -> None:
+    matcher = LocalRouteMatcher()
+    original = _open_route()
+    routes = [
+        _route_input(1, original),
+        _route_input(2, list(reversed(original))),
+        _route_input(3, [[latitude + 0.00002, longitude] for latitude, longitude in original]),
+        _route_input(4, _detour_route()),
+        _route_input(5, original),
+    ]
+    full_groups = _group_member_ids(matcher.group(routes))
+
+    signatures = []
+    groups: dict[int, set[int]] = {}
+    representatives: dict[int, int] = {}
+    for route in routes:
+        signature = matcher.build_signature(route)
+        assert signature is not None
+        assignment = matcher.assign(
+            signature,
+            signatures,
+            [
+                ExistingRouteGroup(group_id, representatives[group_id], frozenset(members))
+                for group_id, members in groups.items()
+            ],
+        )
+        group_id = assignment.group_id or (max(groups, default=0) + 1)
+        groups.setdefault(group_id, set()).add(signature.activity_id)
+        representatives.setdefault(group_id, signature.activity_id)
+        signatures.append(signature)
+
+    assert {frozenset(members) for members in groups.values()} == full_groups

@@ -39,6 +39,13 @@ class SyncOrchestrator:
         )
 
     def enqueue_incremental_sync(self, user_id: int) -> CreatedSyncJob:
+        return self._enqueue_user_sync(user_id, source="manual_refresh")
+
+    def enqueue_full_recompute(self, user_id: int) -> CreatedSyncJob:
+        # Fetches new activities like a refresh, then rebuilds all derived data from the stored activities.
+        return self._enqueue_user_sync(user_id, source="full_recompute")
+
+    def _enqueue_user_sync(self, user_id: int, *, source: str) -> CreatedSyncJob:
         credential = self.garmin_credentials.get_for_user(user_id)
         if credential is None or credential.connection_status != "connected":
             raise HTTPException(status_code=409, detail="Reconnect Garmin before starting a sync.")
@@ -62,7 +69,7 @@ class SyncOrchestrator:
         return self._enqueue_job(
             user_id=user_id,
             sync_type="incremental_sync",
-            metadata={"source": "manual_refresh"},
+            metadata={"source": source},
         )
 
     def _enqueue_job(

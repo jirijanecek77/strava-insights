@@ -300,6 +300,29 @@ class ActivityRepository:
             return None
         return row[0]
 
+    def get_max_id_for_user(self, user_id: int) -> int | None:
+        row = (
+            self.session.query(Activity.id)
+            .filter(Activity.user_id == user_id)
+            .order_by(Activity.id.desc())
+            .first()
+        )
+        return None if row is None else row[0]
+
+    def list_by_ids_or_after_id(
+        self, user_id: int, *, activity_ids: list[int], after_id: int
+    ) -> list[Activity]:
+        id_filter = Activity.id > after_id
+        if activity_ids:
+            id_filter = or_(id_filter, Activity.id.in_(activity_ids))
+        return (
+            self.session.query(Activity)
+            .filter(Activity.user_id == user_id, id_filter)
+            .order_by(Activity.id.asc())
+            .all()
+        )
+
+
 class ActivityStreamRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -363,6 +386,81 @@ class LocalRouteRepository:
             self.session.add_all(memberships)
         self.session.flush()
 
+    def list_signature_activity_ids(self, activity_ids: list[int]) -> set[int]:
+        if not activity_ids:
+            return set()
+        rows = (
+            self.session.query(ActivityRouteSignature.activity_id)
+            .filter(ActivityRouteSignature.activity_id.in_(activity_ids))
+            .all()
+        )
+        return {activity_id for (activity_id,) in rows}
+
+    def list_candidate_signatures(
+        self,
+        *,
+        user_id: int,
+        sport_type: str,
+        min_distance_meters: float,
+        max_distance_meters: float,
+        spatial_cells: list[str],
+    ) -> list[ActivityRouteSignature]:
+        if not spatial_cells:
+            return []
+        return (
+            self.session.query(ActivityRouteSignature)
+            .filter(
+                ActivityRouteSignature.user_id == user_id,
+                ActivityRouteSignature.sport_type == sport_type,
+                ActivityRouteSignature.distance_meters >= min_distance_meters,
+                ActivityRouteSignature.distance_meters <= max_distance_meters,
+                ActivityRouteSignature.spatial_cells.overlap(spatial_cells),
+            )
+            .all()
+        )
+
+    def list_groups_with_members(
+        self, activity_ids: list[int]
+    ) -> list[tuple[RouteGroup, list[int]]]:
+        if not activity_ids:
+            return []
+        groups = (
+            self.session.query(RouteGroup)
+            .join(
+                ActivityRouteMembership,
+                ActivityRouteMembership.route_group_id == RouteGroup.id,
+            )
+            .filter(ActivityRouteMembership.activity_id.in_(activity_ids))
+            .distinct()
+            .all()
+        )
+        if not groups:
+            return []
+        members_by_group: dict[int, list[int]] = {group.id: [] for group in groups}
+        for activity_id, route_group_id in (
+            self.session.query(
+                ActivityRouteMembership.activity_id,
+                ActivityRouteMembership.route_group_id,
+            )
+            .filter(ActivityRouteMembership.route_group_id.in_(members_by_group))
+            .all()
+        ):
+            members_by_group[route_group_id].append(activity_id)
+        return [(group, members_by_group[group.id]) for group in groups]
+
+    def add_signature(self, signature: ActivityRouteSignature) -> None:
+        self.session.add(signature)
+        self.session.flush()
+
+    def add_group(self, route_group: RouteGroup) -> RouteGroup:
+        self.session.add(route_group)
+        self.session.flush()
+        return route_group
+
+    def add_membership(self, membership: ActivityRouteMembership) -> None:
+        self.session.add(membership)
+        self.session.flush()
+
 
 class PeriodSummaryRepository:
     def __init__(self, session: Session) -> None:
@@ -380,6 +478,9 @@ class PeriodSummaryRepository:
 class BestEffortRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def list_for_user(self, user_id: int) -> list[BestEffort]:
+        return self.session.query(BestEffort).filter(BestEffort.user_id == user_id).all()
 
     def replace_for_user(self, *, user_id: int, efforts: list[BestEffort]) -> None:
         self.session.query(BestEffort).filter(BestEffort.user_id == user_id).delete()

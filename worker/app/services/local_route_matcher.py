@@ -73,6 +73,20 @@ class RouteMatchResult:
     matched_pair_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class ExistingRouteGroup:
+    group_id: int
+    representative_activity_id: int
+    member_activity_ids: frozenset[int]
+
+
+@dataclass(frozen=True, slots=True)
+class RouteAssignment:
+    group_id: int | None
+    similarity_score: float
+    compared_count: int
+
+
 class LocalRouteMatcher:
     def group(self, routes: list[RouteInput]) -> RouteMatchResult:
         signatures: list[RouteSignature] = []
@@ -92,6 +106,60 @@ class LocalRouteMatcher:
             excluded_activity_ids=excluded_activity_ids,
             compared_pair_count=compared_pair_count,
             matched_pair_count=len(pair_scores),
+        )
+
+    def build_signature(self, route: RouteInput) -> RouteSignature | None:
+        return self._build_signature(route)
+
+    def candidate_cells(self, signature: RouteSignature) -> frozenset[str]:
+        # Same neighbourhood as the full grouping uses to find comparison candidates.
+        return frozenset(
+            nearby_cell
+            for cell in signature.spatial_cells
+            for nearby_cell in h3.grid_disk(cell, 1)
+        )
+
+    def assign(
+        self,
+        signature: RouteSignature,
+        candidates: Sequence[RouteSignature],
+        groups: Sequence[ExistingRouteGroup],
+    ) -> RouteAssignment:
+        scores: dict[int, float] = {}
+        compared_count = 0
+        for candidate in sorted(candidates, key=lambda item: item.activity_id):
+            if candidate.activity_id == signature.activity_id or not _distance_is_comparable(
+                candidate.distance_meters, signature.distance_meters
+            ):
+                continue
+            compared_count += 1
+            score = _similarity_score(candidate, signature)
+            if score is not None:
+                scores[candidate.activity_id] = score
+
+        # Complete linkage: the new route may only join a group whose every member matches it.
+        best_group: ExistingRouteGroup | None = None
+        best_average = 0.0
+        for group in sorted(groups, key=lambda item: item.group_id):
+            if not group.member_activity_ids or not all(
+                member_id in scores for member_id in group.member_activity_ids
+            ):
+                continue
+            average = sum(
+                scores[member_id] for member_id in group.member_activity_ids
+            ) / len(group.member_activity_ids)
+            if best_group is None or average > best_average:
+                best_group = group
+                best_average = average
+
+        if best_group is None:
+            return RouteAssignment(
+                group_id=None, similarity_score=1.0, compared_count=compared_count
+            )
+        return RouteAssignment(
+            group_id=best_group.group_id,
+            similarity_score=scores[best_group.representative_activity_id],
+            compared_count=compared_count,
         )
 
     def _build_signature(self, route: RouteInput) -> RouteSignature | None:

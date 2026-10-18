@@ -123,6 +123,17 @@ This document tracks implementation status against [specification.md](specificat
   dedicated dispatcher process that retries Celery publication with backoff.
 - [x] Made sync-task delivery idempotent and added bounded exponential retries for temporary import failures.
 
+### Incremental Derived Data
+
+- [x] Replaced the per-sync full recomputation with incremental updates for activities above the `derived_activities`
+  watermark plus stream backfills: period summaries from activity rows, best efforts merged into the stored top five,
+  and route assignment by complete linkage against candidate signatures loaded from `activity_route_signatures`.
+- [x] Kept full recomputation for full imports, derived-model version changes, a missing watermark, and the new
+  Settings "Recalculate All" action (`POST /sync/recalculate`, sync source `full_recompute`).
+- [x] Added unit tests for route assignment, best-effort merging, and the full-versus-incremental decision.
+- [ ] Validate the incremental route and best-effort updates in the running stack after the next daily sync, and compare
+  the result with a "Recalculate All" run.
+
 ### AI Coaching
 
 - [x] Added backward-safe migration `20261011_0021` with `activity_coaching_notes` and `period_coaching_summaries`.

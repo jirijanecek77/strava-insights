@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 class ActivityStore(Protocol):
     def list_for_user(self, user_id: int) -> list[Any]: ...
 
+    def list_by_ids_or_after_id(
+        self, user_id: int, *, activity_ids: list[int], after_id: int
+    ) -> list[Any]: ...
+
     def save(self, activity: Any) -> Any: ...
 
 
@@ -47,6 +51,8 @@ class PeriodSummaryStore(Protocol):
 
 
 class BestEffortStore(Protocol):
+    def list_for_user(self, user_id: int) -> list[BestEffort]: ...
+
     def replace_for_user(self, *, user_id: int, efforts: list[BestEffort]) -> None: ...
 
 
@@ -109,6 +115,63 @@ class ReadModelBuilder:
                 "activity_count": len(activities),
                 "best_effort_count": len(best_efforts),
                 "sanitized_stream_count": sanitized_stream_count,
+            },
+        )
+
+    def update_for_activities(
+        self,
+        user_id: int,
+        activities: list,
+        *,
+        source_run_efforts: dict[int, dict[str, int]] | None = None,
+    ) -> None:
+        """Applies newly added activities without touching the history of other activities.
+
+        Streams of new activities are already sanitized on import, period summaries only need activity rows, and the
+        stored top five per distance can be merged with the new candidates because activities are never removed.
+        """
+        self.period_summaries.replace_for_user(
+            user_id=user_id,
+            summaries=self._build_period_summaries(
+                user_id, self.activities.list_for_user(user_id)
+            ),
+        )
+        supported_activities = [
+            activity
+            for activity in activities
+            if activity.sport_type == RUN_SPORT or activity.sport_type in RIDE_SPORTS
+        ]
+        streams = {
+            stream.activity_id: stream
+            for stream in self.activity_streams.get_by_activity_ids(
+                [activity.id for activity in supported_activities]
+            )
+        }
+        new_candidates = self._effort_candidates(
+            user_id,
+            supported_activities,
+            streams,
+            source_run_efforts=source_run_efforts or {},
+        )
+        updated_activity_ids = {activity.id for activity in activities}
+        candidates_by_code: dict[tuple[str, str], list[BestEffort]] = {}
+        for stored in self.best_efforts.list_for_user(user_id):
+            # Replacing rows of updated activities keeps a retried update from duplicating them.
+            if stored.activity_id in updated_activity_ids:
+                continue
+            candidates_by_code.setdefault(
+                (stored.sport_type, stored.effort_code), []
+            ).append(_copy_effort(stored))
+        for key, candidates in new_candidates.items():
+            candidates_by_code.setdefault(key, []).extend(candidates)
+        best_efforts = _top_efforts(candidates_by_code)
+        self.best_efforts.replace_for_user(user_id=user_id, efforts=best_efforts)
+        logger.info(
+            "Updated read models for new activities.",
+            extra={
+                "user.id": user_id,
+                "activity_count": len(activities),
+                "best_effort_count": len(best_efforts),
             },
         )
 
@@ -212,6 +275,20 @@ class ReadModelBuilder:
         *,
         source_run_efforts: dict[int, dict[str, int]],
     ) -> list[BestEffort]:
+        return _top_efforts(
+            self._effort_candidates(
+                user_id, activities, streams, source_run_efforts=source_run_efforts
+            )
+        )
+
+    def _effort_candidates(
+        self,
+        user_id: int,
+        activities: list,
+        streams: dict[int, ActivityStream],
+        *,
+        source_run_efforts: dict[int, dict[str, int]],
+    ) -> dict[tuple[str, str], list[BestEffort]]:
         candidates_by_code: dict[tuple[str, str], list[BestEffort]] = {}
 
         for activity in activities:
@@ -258,22 +335,7 @@ class ReadModelBuilder:
                     target_distance=target_distance,
                     best_time=local_best_time,
                 )
-
-        top_efforts: list[BestEffort] = []
-        for candidates in candidates_by_code.values():
-            candidates.sort(
-                key=lambda effort: (
-                    effort.best_time_seconds,
-                    (
-                        effort.achieved_at.isoformat()
-                        if effort.achieved_at is not None
-                        else ""
-                    ),
-                    effort.activity_id or 0,
-                )
-            )
-            top_efforts.extend(candidates[:TOP_EFFORTS_PER_DISTANCE])
-        return top_efforts
+        return candidates_by_code
 
     @staticmethod
     def _add_effort_candidate(
@@ -332,3 +394,35 @@ class ReadModelBuilder:
             if best_time is None or elapsed < best_time:
                 best_time = elapsed
         return best_time
+
+
+def _top_efforts(
+    candidates_by_code: dict[tuple[str, str], list[BestEffort]],
+) -> list[BestEffort]:
+    top_efforts: list[BestEffort] = []
+    for candidates in candidates_by_code.values():
+        candidates.sort(
+            key=lambda effort: (
+                effort.best_time_seconds,
+                (
+                    effort.achieved_at.isoformat()
+                    if effort.achieved_at is not None
+                    else ""
+                ),
+                effort.activity_id or 0,
+            )
+        )
+        top_efforts.extend(candidates[:TOP_EFFORTS_PER_DISTANCE])
+    return top_efforts
+
+
+def _copy_effort(effort: BestEffort) -> BestEffort:
+    return BestEffort(
+        user_id=effort.user_id,
+        sport_type=effort.sport_type,
+        effort_code=effort.effort_code,
+        best_time_seconds=effort.best_time_seconds,
+        distance_meters=effort.distance_meters,
+        activity_id=effort.activity_id,
+        achieved_at=effort.achieved_at,
+    )
