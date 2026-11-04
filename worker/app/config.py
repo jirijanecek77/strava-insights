@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     llm_api_key: str
     llm_model: str = "gemini-3.8-flash"
     llm_reasoning_effort: str = "low"
-    llm_timeout_seconds: float = 90.0
+    llm_timeout_seconds: float = 120.0
     coaching_batch_size: int = 5
     coaching_poll_interval_minutes: int = 15
 
