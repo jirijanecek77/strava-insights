@@ -556,9 +556,10 @@ The calendar should feel closer to a training overview than to a traditional ent
 
 ### Generation Model
 
-- The model is reached through an OpenAI-compatible chat completions API. The default provider is the Google Gemini API
-  free tier with a Flash model; base URL, model, and API key are worker configuration. Without an API key, generation
-  is skipped and queued work waits.
+- The model is reached through Groq's official synchronous Python SDK using JSON-object chat completions. The default
+  model is `openai/gpt-oss-120b`; model, API key (`LLM_API_KEY`), and timeout are worker configuration. Without an
+  API key, generation is skipped and queued work waits. SDK retries are disabled so durable work items own retries,
+  and each response is capped at 2,048 completion tokens. Provider error bodies are not stored or logged.
 - Coaching rows are durable work items: notes are queued in the same transaction that persists the new activity, and
   period reviews are queued by a planner that compares a hash of the period inputs with the inputs of the last
   review.
@@ -571,7 +572,7 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Rate-limit responses defer the item until the provider's retry delay without counting an attempt and stop the
   current run. Other failures retry with exponential backoff and become `failed` after five attempts; a failed
   review is retried only when its inputs change.
-- Each run is capped by a configurable call budget to stay within free-tier quotas.
+- Each run is capped by a configurable call budget to stay within provider request and token quotas.
 - UI read paths only read stored coaching rows and never call the model. Existing text stays visible while a
   regeneration is pending.
 

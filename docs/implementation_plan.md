@@ -137,8 +137,8 @@ This document tracks implementation status against [specification.md](specificat
 ### AI Coaching
 
 - [x] Added backward-safe migration `20261011_0021` with `activity_coaching_notes` and `period_coaching_summaries`.
-- [x] Added an OpenAI-compatible LLM client configured for the Gemini API free tier, with rate-limit handling based on
-  the provider's retry delay.
+- [x] Initially added an OpenAI-compatible LLM client for the Gemini API free tier (superseded by the Groq migration below),
+  with rate-limit handling based on the provider's retry delay.
 - [x] Added versioned English coaching prompts with compact, GPS-free activity and period contexts.
 - [x] Queued coaching notes for activities newly imported by incremental syncs, and added a lease-based generator that
   runs after sync and every 15 minutes from `beat`, then plans and refreshes week and month reviews.
@@ -150,6 +150,33 @@ This document tracks implementation status against [specification.md](specificat
 - [x] Switched coaching prompts (`PROMPT_VERSION` 2) from session summaries to analyses of training quality,
   fatigue, and trends.
 - [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
+
+### Groq Python SDK Migration
+
+Completed and validated locally on 2026-11-10. Existing Gemini-generated notes remain stored.
+
+- [x] Selected `openai/gpt-oss-120b` after the originally proposed Llama model returned HTTP 404 from the live API.
+  Verified model availability and JSON output with the configured Groq credential; pinned the official Python SDK
+  (`groq==1.7.0`) in the worker project and lockfile.
+- [x] Replaced the raw HTTP adapter with synchronous `GroqLlmClient`, preserving the application protocol, JSON parser,
+  prompt validation, and completion metadata. Responses use JSON-object mode with a 2,048-token output cap.
+- [x] Disabled SDK retries so durable coaching retries and the per-run call budget remain authoritative. Preserved
+  429 deferral without counting attempts or continuing the run, including fractional and HTTP-date `Retry-After`.
+- [x] Added lazy SDK creation for missing-key startup, explicit cleanup on successful/failed runs, sanitized errors,
+  and tests using the real SDK with a mocked HTTP transport.
+- [x] Retained the existing `LLM_API_KEY` name, made it optional in worker settings, removed Gemini endpoint/reasoning
+  settings, and made `LLM_MODEL` overridable in both Compose files. Production still loads `.env.production` separately.
+- [x] Updated the specification, development/deployment workflow, and secret templates. No schema changes or data reset
+  are required; existing ready notes are not regenerated merely because the provider changed.
+- [x] Passed targeted coaching tests, `make build`, and `make test` (32 backend, 101 worker, 55 frontend tests).
+  Reran all 101 worker tests and rebuilt after correcting the default model. Local Compose configuration and production
+  template configuration pass validation; production was not deployed.
+- [x] Recreated worker, beat, and sync-dispatcher. Generated the existing pending note for activity `1457` after bringing
+  its retry time forward without resetting attempts, plus the week of `2026-11-09` and November 2026 reviews.
+  All three succeeded without failures or rate limiting and were verified through authenticated local read APIs.
+
+Recovery: clear the configured key and recreate the worker services to pause generation while keeping queued work
+and existing text. A code rollback also needs the matching lockfile, provider configuration, and provider credential.
 
 ## Remaining Work
 

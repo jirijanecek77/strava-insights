@@ -40,7 +40,11 @@ Required values:
   - `FRONTEND_VITE_API_BASE_URL`
   - `FRONTEND_VITE_MAPYCZ_API_KEY`
   - `SESSION_SECRET_KEY`
-  - `LLM_API_KEY` (optional; Google AI Studio key that enables AI coaching notes and reviews)
+  - `LLM_API_KEY` (optional; Groq key that enables AI coaching notes and reviews)
+  - `LLM_MODEL` (optional; defaults to `openai/gpt-oss-120b`)
+
+Coaching uses Groq's official Python SDK. Production reads `.env.production`; a key in the local `.env.secrets`
+file alone does not configure production. Rebuild and recreate worker, beat, and sync-dispatcher after the SDK migration.
 
 ## Garmin Connect Setup
 

@@ -1,25 +1,28 @@
 import logging
+from contextlib import closing
 
 from app.celery_app import celery_app
 from app.config import settings
 from app.db import SessionLocal
 from app.repositories import CoachingRepository
 from app.services.coaching.generator import CoachingGenerator, CoachingRunStats
-from app.services.coaching.llm_client import OpenAICompatibleLlmClient
+from app.services.coaching.llm_client import GroqLlmClient
 
 logger = logging.getLogger(__name__)
 
 
-def run_coaching_generation(*, user_id: int | None = None, batch_size: int | None = None) -> CoachingRunStats:
+def run_coaching_generation(
+    *, user_id: int | None = None, batch_size: int | None = None
+) -> CoachingRunStats:
     session = SessionLocal()
     try:
-        llm_client = OpenAICompatibleLlmClient()
-        return CoachingGenerator(
-            repository=CoachingRepository(session),
-            llm_client=llm_client,
-            is_configured=llm_client.is_configured,
-            batch_size=batch_size or settings.coaching_batch_size,
-        ).run(user_id=user_id)
+        with closing(GroqLlmClient()) as llm_client:
+            return CoachingGenerator(
+                repository=CoachingRepository(session),
+                llm_client=llm_client,
+                is_configured=llm_client.is_configured,
+                batch_size=batch_size or settings.coaching_batch_size,
+            ).run(user_id=user_id)
     finally:
         session.close()
 

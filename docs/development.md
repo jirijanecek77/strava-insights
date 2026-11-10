@@ -18,7 +18,7 @@ This document describes how to run and validate the local stack. Product behavio
 
 - Create the root `.env.secrets` from `.env.secrets.template` before starting the stack.
 - Use uv for Python dependency management in `backend` and `worker`. Images install with `uv sync --locked`, so run
-  `make lock` (or `.\make.ps1 lock`) after editing a `pyproject.toml` and commit the updated `uv.lock`.
+  `uv lock` from the affected service directory after editing its `pyproject.toml` and commit the updated `uv.lock`.
 - Use Docker Compose as the default local runtime and validation environment.
 
 Environment configuration:
@@ -36,7 +36,6 @@ Environment configuration:
 
 Primary command surface:
 
-- `make lock`
 - `make build`
 - `make up`
 - `make deploy` (build, then up)
@@ -52,7 +51,6 @@ Optional production deployment command surface:
 
 Windows fallback when `make` is unavailable:
 
-- `.\make.ps1 lock`
 - `.\make.ps1 build`
 - `.\make.ps1 up`
 - `.\make.ps1 test`
@@ -64,9 +62,15 @@ Windows fallback when `make` is unavailable:
 
 AI coaching:
 
-- Set `LLM_API_KEY` in `.env.secrets` to a Google AI Studio API key; model and endpoint settings live in
-  `docker-compose.yml`. Without a key, coaching generation is skipped.
-- After changing the key, recreate the worker services: `docker compose --env-file .env.secrets up -d worker beat`.
+- Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses the official `groq` Python SDK with
+  `openai/gpt-oss-120b` by default; override it with `LLM_MODEL` in `.env.secrets` or the shell.
+  Timeout and coaching batch/poll settings live in `docker-compose.yml`. Without a key, generation is skipped.
+- SDK retries are disabled; the durable coaching queue handles failures and rate limits. Each response is capped at
+  2,048 completion tokens. Existing ready notes are preserved when changing provider.
+- After dependency changes, run `make build`. After changing the image, key, or model, recreate the worker services:
+  `docker compose --env-file .env.secrets up -d worker beat sync-dispatcher`.
+- Production uses `.env.production` separately; configure its `LLM_API_KEY` with a Groq key as well.
+- To pause generation, clear the key and recreate those services; queued items and existing text remain stored.
 - Queue notes for a user's latest activities: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
 - Generate pending notes and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
 - Print stored notes and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`
