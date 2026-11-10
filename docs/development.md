@@ -65,18 +65,40 @@ AI coaching:
 - Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses the official `groq` Python SDK with
   `openai/gpt-oss-120b` by default; override it with `LLM_MODEL` in `.env.secrets` or the shell.
   Timeout and coaching batch/poll settings live in `docker-compose.yml`. Without a key, generation is skipped.
-- SDK retries are disabled; the durable coaching queue handles failures and rate limits. Each response is capped at
-  2,048 completion tokens. Existing ready notes are preserved when changing provider.
+- SDK retries are disabled; the durable queue handles failures and rate limits. Notes/reviews are capped at 2,048
+  completion tokens and seven-day running plans at 4,096. Existing ready notes/plans remain stored when changing provider.
 - After dependency changes, run `make build`. After changing the image, key, or model, recreate the worker services:
   `docker compose --env-file .env.secrets up -d worker beat sync-dispatcher`.
 - Production uses `.env.production` separately; configure its `LLM_API_KEY` with a Groq key as well.
 - To pause generation, clear the key and recreate those services; queued items and existing text remain stored.
 - `make ai-notes-enqueue`: queue a note for user `1`'s latest activity (`--count 1`); existing notes are kept.
-- `make ai-notes-run`: process at most one pending activity note or period review for user `1` (`--batch-size 1`).
-  Both shortcuts require a running worker container. Use the CLI commands below for other users or larger batches.
+- `make ai-notes-run`: process at most one pending AI call for user `1` (`--batch-size 1`). Pending running plans get
+  the first call; activity notes and period reviews use the remaining budget in larger runs.
+- `make ai-plan-replan`: explicitly request and attempt a fresh seven-day running plan for user `1`, even without a
+  newly imported activity. Use `make ai-plan-replan AI_USER_ID=2` for another user, or
+  `.\make.ps1 ai-plan-replan -AiUserId 2` on Windows. The athlete must exist and be active.
+  These shortcuts require a running worker container. Use the CLI commands below for other users or larger batches.
 - Queue notes for a user's latest activities: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
-- Generate pending notes and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
-- Print stored notes and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`
+- Generate pending plans, notes, and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
+- Request and attempt a new running plan: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli replan --user-id <id>`
+- Print stored plans, notes, and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`
+- Automatic running plans are requested once per successful import batch containing new running/cycling/e-bike
+  activities, including the initial import. Durable intent is recorded alongside the first newly inserted activity;
+  a successful retry/later sync releases pending work after partial import failure. No-change syncs, backfills,
+  threshold changes, calendar visits, and date rollover do not request plans. Future coverage shrinks during inactivity.
+- Planning uses recent local training, thresholds, and prior plans to develop endurance, AeT/AnT, and speed with
+  bounded load and recovery. Insufficient running/HR evidence yields `insufficient_data`, not invented targets.
+  The application chooses a build/maintain/recover objective before the model assigns workouts. CLI `replan` and
+  `show` explain its weekly volume range, running frequency, reason, and review date; the read API includes the
+  same objective metadata. Replanning continues the current training block, while new substantial recovery
+  evidence can lower its load. Prompt version 2 replaces the earlier broad cutback allowance with objective-specific
+  volume/long-run bounds. Existing ready plans remain stored until a new activity or explicit manual replan.
+  Each automatic/manual request is durable. Active syncs, missing API configuration, and retry delays may postpone
+  the CLI's immediate attempt; its printed status distinguishes queued work from a ready plan. Invalid responses
+  retry with validation feedback and stop after five attempts. A manual replan supersedes older pending requests.
+- `PLANNING_TIMEZONE` defaults to `Europe/Prague` in both Compose stacks and can be overridden in their environment
+  file. The timezone is captured on each request; changing it applies to the next activity-triggered/manual request.
+  Normal calendar reads only retrieve stored rows and never call Garmin or the model.
 
 Useful log inspection commands:
 

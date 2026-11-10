@@ -178,6 +178,48 @@ Completed and validated locally on 2026-11-10. Existing Gemini-generated notes r
 Recovery: clear the configured key and recreate the worker services to pause generation while keeping queued work
 and existing text. A code rollback also needs the matching lockfile, provider configuration, and provider credential.
 
+### AI Running Plans
+
+Implemented and validated locally on 2026-11-10. Product behavior and training policy are defined in
+[Calendar Requirements](specification.md#ai-running-plans).
+
+- [x] Added additive migration `20261110_0022` for durable plan requests and daily run/rest targets, separate from
+  imported activities and historical analytics.
+- [x] Persisted one planning intent per import job alongside newly inserted activities, including running, cycling,
+  and e-bike imports. Claims wait for successful sync completion; a later successful sync can release intent from
+  a partially failed import. Existing-activity backfills, no-change syncs, threshold/configuration edits, date
+  rollover, and calendar reads do not request new plans. Coverage shrinks during inactivity.
+- [x] Added compact local training context, previous-plan continuity, and a versioned prompt targeting endurance,
+  AeT/AnT, and speed. Added deterministic volume/frequency/intensity, aerobic pace/HR, and recovery-spacing bounds,
+  including protection against unexplained volume collapse and easy-only return after inactivity.
+- [x] Integrated generation into the existing coaching worker with one reserved planning call per run, a shared call
+  budget, leases/tokens, stale-result rejection, atomic publication, rate-limit deferral, and bounded retries with
+  validation feedback. Notes/reviews retain their 2,048-token cap; seven-day plans use 4,096 tokens.
+- [x] Added authenticated user-scoped `GET /training-plans`, full visible-calendar range loading, daily target/rest
+  cards with rationales always visible above targets, sport filtering, and pending/failure/previous-target states.
+- [x] Added CLI `replan --user-id <id>`, plan output in `show`, `make ai-plan-replan` with optional `AI_USER_ID`, and
+  Windows `.\make.ps1 ai-plan-replan -AiUserId <id>`. Manual replanning explicitly permits generation without new activity.
+- [x] Added history-based `build`/`maintain`/`recover` objectives before daily workout generation, with explicit
+  volume, usual frequency, and long-run ranges. Comparable aerobic pace/HR evidence distinguishes isolated
+  fatigue from repeated strain; cycling load contributes to recovery decisions. Activity-triggered forecasts
+  retain the block objective and review date, with new recovery evidence allowed to lower load mid-block.
+  Versioned request context preserves legacy plans and exposes the objective/explanation through the API and CLI.
+- [x] Passed `make build`, `make test` (33 backend, 154 worker, 58 frontend), and frontend production compilation.
+  Coverage includes import/backfill trigger behavior, manual CLI, leases/stale results, partial failure recovery,
+  volume/recovery rules, objective selection/continuity, terrain-aware comparisons, legacy context upgrades,
+  inactivity, missing HR/history, retry feedback, user isolation, and DST/month/year boundaries.
+- [x] Applied the migration to the existing local database and verified live Groq generation through
+  `make ai-plan-replan`. Authenticated local API reads returned seven stored days for 2026-11-11 through 2026-11-17;
+  repeat reads created no generation request. After restarting affected services, objective version 2 generated
+  57 km across five runs, including an 18 km long run, two spaced threshold sessions, and two rest days. The
+  `maintain` objective consolidates a recent volume increase within its 54.27–59.99 km range. Authenticated API
+  checks confirmed objective metadata and volume/frequency/long-run bounds. Existing activity count, distance,
+  and moving-time totals remained unchanged (1,065 activities).
+
+Operational workflow and configuration are documented in [development.md](development.md). Continue reviewing
+training-plan quality during real use alongside the existing coaching-quality review; generated targets are training
+recommendations and do not update measured threshold settings.
+
 ## Remaining Work
 
 ### End-to-End Validation

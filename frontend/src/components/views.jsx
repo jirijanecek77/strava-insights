@@ -13,6 +13,7 @@ import {
     aggregateTrendItems,
     buildCalendarWeeks,
     buildComparisonPeriodOptions,
+    formatLocalDateKey,
     groupBestEffortsBySport,
     shiftMonth,
     sortComparisons
@@ -34,6 +35,7 @@ import {
 } from "../utils/formatters";
 import {ActivityDetail} from "./activity-detail";
 import {PeriodCoachingPanel} from "./coaching";
+import {PlannedWorkout, TrainingPlanStatus, useTrainingPlans} from "./training-plan";
 import {EmptyState, FilterSelect} from "./common";
 
 export function DashboardView({
@@ -91,8 +93,11 @@ export function DashboardView({
     );
 }
 
-export function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivity, periodCoaching = []}) {
+export function CalendarView({activities, calendarMonth, onChangeMonth, onSelectActivity, periodCoaching = [], selectedSport = ""}) {
     const weeks = useMemo(() => buildCalendarWeeks(calendarMonth, activities), [activities, calendarMonth]);
+    const showPlans = !selectedSport || selectedSport === "Run";
+    const planning = useTrainingPlans(calendarMonth, showPlans);
+    const plansByDate = new Map((planning.payload?.items ?? []).map((plan) => [plan.planned_date, plan]));
     return (
         <section className="panel">
             <div className="panel-header">
@@ -105,6 +110,7 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
                     <button className="ghost-button" onClick={() => onChangeMonth(shiftMonth(calendarMonth, 1))} type="button">Next</button>
                 </div>
             </div>
+            {showPlans ? <TrainingPlanStatus {...planning}/> : null}
             <div className="calendar-grid">
                 <div className="calendar-corner" aria-hidden="true"/>
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
@@ -128,10 +134,9 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
                                             <span className="calendar-bubble-distance">{formatNumber(day.summary.distanceKm)}</span>
                                             <span className="calendar-bubble-unit">km</span>
                                         </button>
-                                    ) : (
-                                        <div className="calendar-bubble calendar-bubble-empty"/>
-                                    )}
+                                    ) : null}
                                 </div>
+                                {showPlans ? <PlannedWorkout plan={plansByDate.get(formatLocalDateKey(day.date))}/> : null}
                             </div>
                         ))}
                     </Fragment>

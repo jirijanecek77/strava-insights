@@ -1219,7 +1219,8 @@ describe("App", () => {
             )
             .mockResolvedValueOnce(jsonResponse({items: []}))
             .mockResolvedValueOnce(jsonResponse([]))
-            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValue(jsonResponse({status: "not_requested", items: []}));
 
         render(<App/>);
 
@@ -1266,7 +1267,8 @@ describe("App", () => {
             )
             .mockResolvedValueOnce(jsonResponse({items: []}))
             .mockResolvedValueOnce(jsonResponse([]))
-            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValue(jsonResponse({status: "not_requested", items: []}));
 
         render(<App/>);
 
@@ -1328,7 +1330,8 @@ describe("App", () => {
             )
             .mockResolvedValueOnce(jsonResponse({items: []}))
             .mockResolvedValueOnce(jsonResponse([]))
-            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValue(jsonResponse({status: "not_requested", items: []}));
 
         render(<App/>);
 
@@ -1387,7 +1390,8 @@ describe("App", () => {
             )
             .mockResolvedValueOnce(jsonResponse({items: []}))
             .mockResolvedValueOnce(jsonResponse([]))
-            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValue(jsonResponse({status: "not_requested", items: []}));
 
         render(<App/>);
 
@@ -1558,7 +1562,8 @@ describe("App", () => {
             )
             .mockResolvedValueOnce(jsonResponse({items: []}))
             .mockResolvedValueOnce(jsonResponse([]))
-            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}));
+            .mockResolvedValueOnce(jsonResponse({period_type: "month", items: []}))
+            .mockResolvedValue(jsonResponse({status: "not_requested", items: []}));
 
         render(<App/>);
 

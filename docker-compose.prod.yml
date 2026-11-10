@@ -11,6 +11,7 @@ x-worker-environment: &worker-environment
   LLM_TIMEOUT_SECONDS: 120
   COACHING_BATCH_SIZE: 5
   COACHING_POLL_INTERVAL_MINUTES: 15
+  PLANNING_TIMEZONE: ${PLANNING_TIMEZONE:-Europe/Prague}
 
 services:
   caddy:

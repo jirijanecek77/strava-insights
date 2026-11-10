@@ -40,7 +40,7 @@ Required values:
   - `FRONTEND_VITE_API_BASE_URL`
   - `FRONTEND_VITE_MAPYCZ_API_KEY`
   - `SESSION_SECRET_KEY`
-  - `LLM_API_KEY` (optional; Groq key that enables AI coaching notes and reviews)
+  - `LLM_API_KEY` (optional; Groq key that enables AI coaching notes, reviews, and running plans)
   - `LLM_MODEL` (optional; defaults to `openai/gpt-oss-120b`)
 
 Coaching uses Groq's official Python SDK. Production reads `.env.production`; a key in the local `.env.secrets`

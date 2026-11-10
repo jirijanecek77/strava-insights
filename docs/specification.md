@@ -515,7 +515,7 @@ The UI should omit unavailable widgets rather than showing placeholder errors.
 - use one circular marker as the primary daily encoding
 - marker diameter scales with total daily distance in kilometers
 - days with greater total distance must render larger circles
-- days with no activities should have no marker or a minimal empty state
+- days with no completed activities show no activity marker, including days with a planned workout or rest day
 
 ### Daily Color Rules
 
@@ -524,6 +524,88 @@ The UI should omit unavailable widgets rather than showing placeholder errors.
 - mixed-sport days use the color of the sport contributing the greater distance share
 
 The calendar should feel closer to a training overview than to a traditional enterprise calendar widget.
+
+### AI Running Plans
+
+- The planning objective is sustained improvement in running performance: aerobic threshold (AeT), anaerobic
+  threshold (AnT), endurance, and speed. Threshold improvement means being able to sustain a faster pace at the
+  relevant physiological intensity; raising the target heart rate is not itself evidence of improvement.
+- Each seven-day plan is the next part of an ongoing progression informed by multiple weeks of completed training
+  and previous plans. Balance easy aerobic running, longer endurance runs, appropriately dosed threshold/speed
+  work, and recovery according to the athlete's current capacity and response.
+- Increase training load or intensity only when recent training and recovery evidence supports it. Holding or
+  reducing load, including recovery weeks, is part of progression; do not make every successive plan harder.
+- Before assigning daily workouts, choose and persist a `build`, `maintain`, or `recover` objective with a reason,
+  supporting evidence, a target weekly distance band, usual running frequency, a long-run range, and a review date.
+  Use completed training as the capacity baseline; an earlier undersized AI plan must not lower it.
+- With stable comparable aerobic performance and at least three prior active weeks, `build` targets a modest
+  2–6% increase over the larger of the latest week's volume and the mean of latest/typical volume. Otherwise,
+  `maintain` normally targets 95–105% of that mean, consolidating a recent volume increase before adding more load.
+  Typical volume is the median active-week distance from the latest four seven-day blocks.
+- An isolated adverse aerobic pace/HR comparison calls for local recovery and moving/reducing quality work while
+  preserving the weekly objective. At least two adverse recent dates, a material all-sport load spike or hard-session
+  concentration, or a return after inactivity can select `recover`. Compare only aerobic runs of similar distance
+  and available terrain, with at least two historical reference sessions: HR at least 5 bpm higher at similar pace,
+  or pace at least 5% slower at similar HR, is a possible fatigue indicator rather than a diagnosis. Missing
+  comparative evidence favors maintaining volume rather than assuming improvement or fatigue.
+- Recovery normally targets 60–80% of the latest/typical volume mean with easy running and rest. A return after a
+  week without running allows a smaller easy plan. All target ranges must fit the athlete's volume, run-distance,
+  and frequency ceilings, including feasibility when a recovery objective reduces the number of running days.
+- Activity-triggered rolling forecasts retain the current block's objective and review date until review is due;
+  new recovery evidence may lower the objective mid-block without restarting its review clock. Preserve the
+  normal running frequency and long-run stimulus instead of spreading reduced mileage over more short runs.
+- Give each planned run a short purpose explaining its contribution to endurance, AeT, AnT, speed, or recovery.
+  Account for cycling fatigue when choosing running intensity and recovery spacing, and preserve continuity of
+  the training progression when regenerating future workouts after an activity.
+- Assess progress from comparable local evidence, such as pace at similar HR/intensity, sustained running
+  distance/duration, and speed over comparable efforts. Distinguish observed trends from intended adaptations;
+  do not promise improvement every week or automatically change configured thresholds based on generated targets.
+- Generate AI running plans for the next seven days after new activities are imported. Existing coverage shrinks
+  between imports; maintaining seven future planned days on inactive days is not required.
+- Allow at most one planned running workout per user per date.
+- Each planned run has one distance target in kilometers, one pace target displayed as `min/km`, and one
+  heart-rate target in bpm; targets are single values rather than ranges or zones.
+- Workout creation is AI-only; manual entry and manual editing are outside this feature's scope.
+- Persist plans separately from imported activities. Planned values must not contribute to completed-activity
+  totals, best efforts, or other historical analytics.
+- Generate plans in background jobs using local training history and configured thresholds. Calendar reads must
+  use stored plans without calling Garmin or the model.
+- Generate the first plan after the initial historical import, provided recent training supports usable targets.
+  Subsequently, request one recalculation after a successful sync imports new supported activities, regardless of
+  how many activities were imported. Running, cycling, and e-bike activities all trigger recalculation because they
+  affect fatigue and recovery; the generated workouts remain running-only.
+- Calendar visits, date rollover, syncs without new activities, reimports of existing activities, threshold edits,
+  and prompt/model configuration changes do not independently trigger recalculation. Use current thresholds and
+  planning configuration on the next activity-triggered request.
+- Rest days preserve existing targets. As dates pass, future coverage shrinks and eventually becomes empty if the
+  athlete does not train. Background polling may recover or retry an existing request but must not create a new
+  plan solely because the date or other inputs changed.
+- An explicit operator CLI `replan` command may request a new plan without a new activity. Provide a corresponding
+  `make ai-plan-replan` shortcut. This uses the same durable generation, validation, and retry path as automatic plans.
+- Plans cover tomorrow through seven days from the generation context date, using configurable `PLANNING_TIMEZONE`
+  (default `Europe/Prague`). Persist one run/rest row per date and publish validated future targets atomically;
+  past targets and existing targets during a pending/failed regeneration remain readable.
+- Require at least three running activities in the last 42 days, one within 14 days, and running HR observations or
+  an AeT HR threshold. Otherwise expose an insufficient-data state. Without both HR thresholds, allow easy running
+  only and use available running HR observations to bound targets.
+- Bound planned volume to 110% of the largest completed seven-day running volume in the latest four seven-day
+  blocks, and any run to 110% of the longest run in the last 28 days. Allow at most six running days, at most one more
+  running day than the athlete's highest recent weekly frequency, and at most two quality days. At least 70% of
+  planned distance must be easy. Leave an intervening recovery day between quality sessions and between planned
+  quality work and recent/planned long runs; include hard cycling/e-bike activities in recovery checks. These are
+  ceilings, not progression targets. The selected objective supplies narrower volume and long-run ranges and the
+  usual running-day count; reject responses outside them and require quality work in a build block when thresholds
+  and established frequency support it. All-sport time rising more than 30% above the median prior active-week load,
+  or at least three hard days in the last week, supports recovery. Allow easy running only after a week without
+  running. Easy pace must respect the configured AeT pace or the observed recent median
+  running pace when no AeT pace is configured, and easy HR must remain at or below its baseline.
+- Expose plans through an authenticated local read API. Calendar cells show planned distance, pace, and HR or rest,
+  with the purpose always visible above the targets, without expand/collapse controls. Running plans follow the running/all-sports filter and remain separate from actual
+  activity markers. Show pending, failed, insufficient-data, and previous-target states without blocking the calendar.
+  A ready plan shows no informational text bar above the calendar.
+- Include the objective and explanation in plan API metadata and CLI `replan`/`show` output. This does not add a
+  ready-state information bar to the calendar. Store objective metadata in the existing request JSON so older
+  requests remain readable without a schema migration; upgrade pending legacy contexts within their requested dates.
 
 ## AI Coaching
 
@@ -559,7 +641,8 @@ The calendar should feel closer to a training overview than to a traditional ent
 - The model is reached through Groq's official synchronous Python SDK using JSON-object chat completions. The default
   model is `openai/gpt-oss-120b`; model, API key (`LLM_API_KEY`), and timeout are worker configuration. Without an
   API key, generation is skipped and queued work waits. SDK retries are disabled so durable work items own retries,
-  and each response is capped at 2,048 completion tokens. Provider error bodies are not stored or logged.
+  and notes/reviews are capped at 2,048 completion tokens; seven-day plans use 4,096. Provider error bodies are not
+  stored or logged.
 - Coaching rows are durable work items: notes are queued in the same transaction that persists the new activity, and
   period reviews are queued by a planner that compares a hash of the period inputs with the inputs of the last
   review.

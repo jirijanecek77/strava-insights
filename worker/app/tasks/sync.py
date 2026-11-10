@@ -45,6 +45,7 @@ def run_full_import(self, *, sync_job_id: int, user_id: int) -> None:
             return
         logger.info("Running full import task.", extra={"sync_job.id": sync_job_id, "user.id": user_id})
         FullImportService(session).run(sync_job_id=sync_job_id, user_id=user_id)
+        trigger_coaching_generation(user_id)
     except GarminAuthenticationError:
         session.rollback()
         _handle_authentication_required(session, sync_jobs, sync_job_id=sync_job_id, user_id=user_id)

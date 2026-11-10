@@ -42,7 +42,7 @@ class LlmClient(Protocol):
     def model(self) -> str: ...
 
     def complete_json(
-        self, *, system_prompt: str, user_prompt: str
+        self, *, system_prompt: str, user_prompt: str, max_completion_tokens: int = 2048
     ) -> LlmCompletion: ...
 
 
@@ -80,7 +80,7 @@ class GroqLlmClient:
             self._sdk_client.close()
             self._sdk_client = None
 
-    def complete_json(self, *, system_prompt: str, user_prompt: str) -> LlmCompletion:
+    def complete_json(self, *, system_prompt: str, user_prompt: str, max_completion_tokens: int = 2048) -> LlmCompletion:
         if not self.is_configured:
             raise LlmError("Groq API key is not configured.")
         if self._sdk_client is None:
@@ -97,7 +97,7 @@ class GroqLlmClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 response_format={"type": "json_object"},
-                max_completion_tokens=2048,
+                max_completion_tokens=max_completion_tokens,
             )
         except groq.RateLimitError as exc:
             raise LlmRateLimitedError(

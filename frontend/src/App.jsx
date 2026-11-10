@@ -629,6 +629,7 @@ export default function App() {
                             calendarMonth={calendarMonth}
                             onChangeMonth={setCalendarMonth}
                             periodCoaching={periodCoaching}
+                            selectedSport={selectedSport}
                             onSelectActivity={(id) => {
                                 setSelectedActivityId(id);
                                 setSelectedView("activities");

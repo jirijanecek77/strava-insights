@@ -273,3 +273,16 @@ def test_parse_json_object():
         with pytest.raises(LlmResponseFormatError):
             parse_json_object(value)
     assert DEFAULT_RATE_LIMIT_RETRY_SECONDS == 900
+
+
+def test_planning_can_request_larger_completion_budget_without_changing_note_default(make_client):
+    captured = []
+
+    def handler(request):
+        captured.append(json.loads(request.content)["max_completion_tokens"])
+        return httpx.Response(200, json=_response())
+
+    client = make_client(handler)
+    client.complete_json(system_prompt="plan JSON", user_prompt="data", max_completion_tokens=4096)
+    client.complete_json(system_prompt="note JSON", user_prompt="data")
+    assert captured == [4096, 2048]

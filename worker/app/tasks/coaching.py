@@ -7,6 +7,8 @@ from app.db import SessionLocal
 from app.repositories import CoachingRepository
 from app.services.coaching.generator import CoachingGenerator, CoachingRunStats
 from app.services.coaching.llm_client import GroqLlmClient
+from app.services.planning.generator import PlanningGenerator
+from app.services.planning.repository import PlanningRepository
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,9 @@ def run_coaching_generation(
                 llm_client=llm_client,
                 is_configured=llm_client.is_configured,
                 batch_size=batch_size or settings.coaching_batch_size,
+                planning_generator=PlanningGenerator(
+                    repository=PlanningRepository(session), llm_client=llm_client
+                ),
             ).run(user_id=user_id)
     finally:
         session.close()
@@ -35,8 +40,17 @@ def generate_coaching(*, user_id: int | None = None) -> dict:
         "period_summaries_generated": stats.period_summaries_generated,
         "failures": stats.failures,
         "rate_limited": stats.rate_limited,
+        "training_plans_generated": stats.training_plans_generated,
         "skipped_reason": stats.skipped_reason,
     }
+
+
+def run_planning_generation(*, user_id: int):
+    """Run only planning work, used by the explicit manual replan command."""
+    with SessionLocal() as session, closing(GroqLlmClient()) as client:
+        return PlanningGenerator(
+            repository=PlanningRepository(session), llm_client=client
+        ).run(user_id=user_id, budget=1)
 
 
 def trigger_coaching_generation(user_id: int) -> None:

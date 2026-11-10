@@ -15,6 +15,7 @@ from app.infrastructure.db.models.period_summary import PeriodSummary
 from app.infrastructure.db.models.sync_checkpoint import SyncCheckpoint
 from app.infrastructure.db.models.sync_dispatch_outbox import SyncDispatchOutbox
 from app.infrastructure.db.models.sync_job import SyncJob
+from app.infrastructure.db.models.training_plan import TrainingPlanDay, TrainingPlanRequest
 from app.infrastructure.db.models.user import User
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 
@@ -32,6 +33,8 @@ __all__ = [
     "SyncCheckpoint",
     "SyncDispatchOutbox",
     "SyncJob",
+    "TrainingPlanDay",
+    "TrainingPlanRequest",
     "User",
     "UserThresholdProfile",
 ]

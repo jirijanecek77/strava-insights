@@ -27,6 +27,8 @@ from app.services.local_route_matcher import ROUTE_MODEL_VERSION
 from app.services.read_model_builder import ReadModelBuilder
 from app.services.route_index_builder import RouteIndexBuilder
 from app.services.stream_sanitizer import sanitize_stream_payload
+from app.config import settings
+from app.services.planning.repository import PlanningRepository
 from datetime import UTC, datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -130,6 +132,11 @@ class BaseImportService:
         for index, activity_payload in enumerate(activities_payload, start=1):
             is_new_activity = activity_payload.get("id") not in existing_source_activity_ids
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
+            if is_new_activity:
+                # Queue before any token persistence can commit the new activity.
+                PlanningRepository(self.session).enqueue(
+                    user_id=user_id, sync_job_id=sync_job_id, timezone=settings.planning_timezone
+                )
             if not is_new_activity:
                 backfilled_activity_ids.append(activity.id)
             try:

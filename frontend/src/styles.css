@@ -1300,15 +1300,6 @@ button {
     color: #ffffff;
 }
 
-.calendar-bubble-empty {
-    background: #efede5;
-    border-radius: 999px;
-    height: 9px;
-    min-height: 9px;
-    min-width: 9px;
-    width: 9px;
-}
-
 .calendar-bubble-distance {
     font-size: clamp(0.62rem, 0.92vw, 0.8rem);
     font-weight: 700;
@@ -1982,3 +1973,36 @@ button {
     }
 
 }
+
+.training-plan-status {
+    margin: 0 0 16px;
+    color: var(--text-muted, #6b7280);
+    font-size: 13px;
+}
+
+.training-plan {
+    margin-top: 10px;
+    border: 1px dashed #b6a535;
+    border-radius: 8px;
+    padding: 8px;
+    background: #fffdf0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.training-plan-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.training-plan-label {
+    color: #71620c;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.training-plan p { margin: 6px 0 8px; line-height: 1.5; }
+.training-plan-stale { border-color: #b6b6b6; background: #fafafa; }

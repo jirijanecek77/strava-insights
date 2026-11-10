@@ -275,3 +275,32 @@ def test_missing_activity_marks_note_failed() -> None:
 
     assert (note.status, note.last_error) == ("failed", "Activity no longer exists.")
 
+
+
+def test_planning_and_notes_share_call_budget():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    repository = _repository(Row(user_id=1, activity_id=10))
+    llm = ScriptedLlm()
+    generator, _ = _generator(repository, llm, batch_size=1)
+    planner = Mock()
+    planner.run.return_value = SimpleNamespace(calls=1, generated=1, failures=0, rate_limited=False)
+    generator.planning_generator = planner
+    stats = generator.run(user_id=1)
+    assert stats.training_plans_generated == 1
+    assert stats.activity_notes_generated == 0
+    assert llm.prompts == []
+    planner.run.assert_called_once_with(user_id=1, budget=1)
+
+
+def test_planning_rate_limit_stops_notes_too():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    generator, _ = _generator(_repository(Row(user_id=1, activity_id=10)), ScriptedLlm())
+    generator.planning_generator = Mock()
+    generator.planning_generator.run.return_value = SimpleNamespace(calls=1, generated=0, failures=0, rate_limited=True)
+    stats = generator.run(user_id=1)
+    assert stats.rate_limited
+    assert stats.activity_notes_generated == 0

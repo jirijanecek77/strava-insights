@@ -32,6 +32,7 @@ class CoachingRunStats:
     rate_limited: bool = False
     skipped_reason: str | None = None
     periods_planned: list[tuple[int, str, date]] = field(default_factory=list)
+    training_plans_generated: int = 0
 
 
 class _StopRun(Exception):
@@ -50,6 +51,7 @@ class CoachingGenerator:
         is_configured: bool = True,
         batch_size: int = 5,
         today: Callable[[], date] | None = None,
+        planning_generator=None,
     ) -> None:
         self.repository = repository
         self.llm_client = llm_client
@@ -57,6 +59,7 @@ class CoachingGenerator:
         self.is_configured = is_configured
         self.batch_size = batch_size
         self.today = today or (lambda: datetime.now(UTC).date())
+        self.planning_generator = planning_generator
 
     def run(self, *, user_id: int | None = None) -> CoachingRunStats:
         stats = CoachingRunStats()
@@ -66,6 +69,15 @@ class CoachingGenerator:
             return stats
 
         budget = self.batch_size
+        if self.planning_generator is not None and budget > 0:
+            # Reserve at most one call for plans; notes/reviews use the remaining shared budget.
+            planning = self.planning_generator.run(user_id=user_id, budget=1)
+            budget -= planning.calls
+            stats.training_plans_generated = planning.generated
+            stats.failures += planning.failures
+            if planning.rate_limited:
+                stats.rate_limited = True
+                return stats
         try:
             while budget > 0:
                 note = self.repository.claim_next_activity_note(user_id=user_id)

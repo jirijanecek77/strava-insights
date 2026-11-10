@@ -1,11 +1,12 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("build", "up", "down", "test", "logs", "build-prod", "up-prod", "down-prod", "logs-prod")]
-    [string]$Target
+    [ValidateSet("build", "up", "down", "test", "logs", "build-prod", "up-prod", "down-prod", "logs-prod", "ai-plan-replan")]
+    [string]$Target,
+    [int]$AiUserId = 1
 )
 
 if (-not $Target) {
-    Write-Error "Usage: ./make.ps1 <build|up|down|test|logs|build-prod|up-prod|down-prod|logs-prod>"
+    Write-Error "Usage: ./make.ps1 <build|up|down|test|logs|build-prod|up-prod|down-prod|logs-prod|ai-plan-replan> [-AiUserId 1]"
     exit 1
 }
 
@@ -18,6 +19,7 @@ $composeArgs = @(switch ($Target) {
     "up-prod" { @("--env-file", ".env.production", "-f", "docker-compose.prod.yml", "up", "-d") }
     "down-prod" { @("--env-file", ".env.production", "-f", "docker-compose.prod.yml", "down", "--remove-orphans") }
     "logs-prod" { @("--env-file", ".env.production", "-f", "docker-compose.prod.yml", "logs", "-f") }
+    "ai-plan-replan" { @("--env-file", ".env.secrets", "exec", "worker", "python", "-m", "app.coaching_cli", "replan", "--user-id", "$AiUserId") }
     "test" { $null }
 })
 

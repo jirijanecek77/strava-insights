@@ -1,4 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from zoneinfo import ZoneInfo
 
 
 class Settings(BaseSettings):
@@ -18,6 +20,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 120.0
     coaching_batch_size: int = 5
     coaching_poll_interval_minutes: int = 15
+    planning_timezone: str = "Europe/Prague"
+
+    @field_validator("planning_timezone")
+    @classmethod
+    def validate_planning_timezone(cls, value: str) -> str:
+        ZoneInfo(value)
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",
