@@ -71,6 +71,9 @@ AI coaching:
   `docker compose --env-file .env.secrets up -d worker beat sync-dispatcher`.
 - Production uses `.env.production` separately; configure its `LLM_API_KEY` with a Groq key as well.
 - To pause generation, clear the key and recreate those services; queued items and existing text remain stored.
+- `make ai-notes-enqueue`: queue a note for user `1`'s latest activity (`--count 1`); existing notes are kept.
+- `make ai-notes-run`: process at most one pending activity note or period review for user `1` (`--batch-size 1`).
+  Both shortcuts require a running worker container. Use the CLI commands below for other users or larger batches.
 - Queue notes for a user's latest activities: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
 - Generate pending notes and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
 - Print stored notes and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`

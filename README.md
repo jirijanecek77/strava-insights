@@ -4,7 +4,7 @@
 
 Athlete Insights is a self-hosted training dashboard for runners and cyclists. Connect your Garmin Connect account once,
 and the app imports your activity history and keeps it in sync. Everything then runs from your own local copy of the
-data, so it stays fast and private.
+data, so dashboards stay fast without live Garmin reads.
 
 ## Why Use It
 
@@ -26,7 +26,7 @@ Supported sports: running, cycling, and e-bike rides.
 - [Docker](https://docs.docker.com/get-docker/) with Docker Compose
 - A Garmin Connect account
 - A [Mapy.cz API key](https://developer.mapy.com/) for route maps
-- Optional: a [Google AI Studio](https://aistudio.google.com/) API key for AI coaching notes
+- Optional: a [Groq API key](https://console.groq.com/keys) for AI coaching notes
 
 ## Installation
 
@@ -47,11 +47,11 @@ cp .env.secrets.template .env.secrets
 
 Open `.env.secrets` and fill in:
 
-| Setting               | What to put there                                         |
-|-----------------------|-----------------------------------------------------------|
-| `SESSION_SECRET_KEY`  | Any long random string                                    |
-| `VITE_MAPYCZ_API_KEY` | Your Mapy.cz API key                                      |
-| `LLM_API_KEY`         | Optional Google AI Studio key; leave empty to skip AI tips |
+| Setting              | What to put there                                  |
+|----------------------|----------------------------------------------------|
+| `SESSION_SECRET_KEY`  | Any long random string                             |
+| `VITE_MAPYCZ_API_KEY` | Your Mapy.cz API key                                |
+| `LLM_API_KEY`         | Optional Groq key; leave empty to skip AI coaching  |
 
 ### 3. Start the app
 
@@ -74,6 +74,18 @@ On Windows without `make`, use `.\make.ps1 build` and `.\make.ps1 up`.
 
 Go to [http://localhost:5173](http://localhost:5173) and sign in with your Garmin Connect email and password. If your
 account uses two-factor authentication, you will be asked for the code. Your first import starts right away.
+
+## Optional AI Coaching
+
+With a Groq key configured, newly synced activities receive coaching notes in Activity Detail, and the calendar shows
+weekly and monthly reviews. The initial historical import does not generate notes.
+
+The default model is `openai/gpt-oss-120b`, hosted by Groq. To choose another supported model, set `LLM_MODEL` in
+`.env.secrets`. Coaching sends compact activity metrics and training summaries to Groq; GPS coordinates and
+full-resolution streams are excluded. Results are stored locally, so opening a page does not call the model.
+
+Generation runs after sync and every 15 minutes; rate limits defer work for a later retry. For commands to queue notes,
+run pending work, and inspect results, see [the development workflow](docs/development.md#commands).
 
 ## Everyday Commands
 
