@@ -521,6 +521,9 @@ describe("App", () => {
         expect(screen.getByLabelText("min/km chart")).toBeInTheDocument();
         expect(screen.getByLabelText("bpm chart")).toBeInTheDocument();
         expect(screen.getByLabelText("% chart")).toBeInTheDocument();
+        expect(screen.getByRole("region", {name: "Activity splits"}).compareDocumentPosition(
+            screen.getByLabelText("% chart"),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(within(screen.getByLabelText("min/km chart")).getByText("Distance: 0 km")).toBeInTheDocument();
         expect(within(screen.getByLabelText("min/km chart")).getByText("Pace: 5:12 /km")).toBeInTheDocument();
         expect(within(screen.getByLabelText("min/km chart")).getByText("Elevation: 220 m")).toBeInTheDocument();

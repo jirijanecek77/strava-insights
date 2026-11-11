@@ -152,6 +152,7 @@ def test_import_records_one_request_with_activity_and_backfills_never_replan(
     session.commit()
     garmin = Mock()
     garmin.connect.return_value.token_json.return_value = "{}"
+    garmin.get_activity_splits.return_value = []
     garmin.get_activities.return_value = [
         {
             "id": i,

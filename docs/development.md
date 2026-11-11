@@ -106,6 +106,24 @@ Useful log inspection commands:
 - `docker compose --env-file .env.secrets logs worker --tail 200`
 - `docker compose --env-file .env.secrets logs beat --tail 200`
 
+## Recorded Activity Splits
+
+- Recorded Garmin laps are fetched once as part of importing each new activity, using the existing Garmin session,
+  before coaching is queued. Full-history imports also fetch laps for newly inserted activities.
+- There is no separate split task, polling schedule, historical backfill, or retry queue. Refresh and Recalculate All
+  fetch splits only for new activities, never for existing activities or stream-only backfills.
+- Empty responses and non-authentication failures are stored as `unavailable` without blocking activity import.
+  Authentication failures use the normal sync reconnect flow before the new activity is inserted.
+- Migration `20261111_0024` preserves existing laps, finalizes old pending rows, and removes `version`,
+  `attempt_count`, `next_attempt_at`, and `fetched_at`. The table retains `activity_id`, `status`, and `laps`.
+  Stop worker, beat, and sync-dispatcher before deploying this cleanup; start/recreate the backend to apply the
+  migration, then recreate the workers and scheduler. Do not run old worker code against the reduced table.
+- Legacy source IDs are never used to fetch Garmin laps. Activity-detail reads use stored data only and show
+  an unavailable state when splits are absent.
+- New activity coaching uses recorded lap distance/duration, average pace or speed, and average HR, without stream
+  excerpts or an elevation profile. Missing splits produce an explicit limitation. Existing notes and plans remain
+  stored; elevation remains in the chart.
+
 ## Validation Expectations
 
 - Run `make build` for every meaningful code change.

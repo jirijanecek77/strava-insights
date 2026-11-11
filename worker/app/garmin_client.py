@@ -69,6 +69,16 @@ class GarminApiClient:
             samples = details.get("metrics", []) if isinstance(details, dict) else []
         return self.normalize_stream(samples)
 
+    def get_activity_splits(self, session: GarminSession, activity_id: int) -> list[dict]:
+        from app.services.recorded_splits import normalize_recorded_splits
+
+        try:
+            payload = session.client.get_activity_splits(str(activity_id))
+        except Exception as exc:
+            self._raise_authentication_error(exc)
+            raise
+        return normalize_recorded_splits(payload)
+
     @staticmethod
     def _raise_authentication_error(exc: Exception) -> None:
         current: BaseException | None = exc

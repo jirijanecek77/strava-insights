@@ -42,6 +42,7 @@ import {
 } from "../utils/formatters";
 import {ActivityCoachingCard} from "./coaching";
 import {EmptyState} from "./common";
+import {ActivitySplitsChart} from "./activity-splits";
 
 const RUNNING_ANALYSIS_TOOLTIPS = {
     pace_bands: "Shows how your running pace was distributed across Below AeT, AeT to AnT, and Above AnT bands during the activity.",
@@ -124,6 +125,7 @@ export function ActivityDetail({detail, activeSeriesIndex, onRenameActivity, onS
                                                                    referenceValue={heartRateReferenceValue}
                                                                    thresholds={detail.thresholds} valueKind="heart_rate"
                                                                    values={detail.series.heartrate_bpm}/> : null}
+                <ActivitySplitsChart splits={detail.splits} series={detail.series} isRun={isRun} activeIndex={resolvedActiveIndex} onSelectIndex={onSelectSeriesIndex}/>
                 <DetailChart accent="green" activeIndex={resolvedActiveIndex} altitudeValues={detail.series.altitude_meters} distanceValues={detail.series.distance_km} label="Slope" onSelectIndex={onSelectSeriesIndex} referenceValue={slopeReferenceValue} valueKind="slope" values={detail.series.slope_percent}/>
             </div>
             {detail.route_comparison ? (

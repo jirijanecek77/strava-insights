@@ -10,6 +10,7 @@ from app.services.coaching.context_builder import (
 from app.services.coaching.llm_client import LlmClient, LlmRateLimitedError
 from app.services.coaching.prompts import (
     PROMPT_VERSION,
+    ACTIVITY_PROMPT_VERSION,
     build_activity_prompt,
     build_period_prompt,
     parse_activity_narrative,
@@ -133,7 +134,7 @@ class CoachingGenerator:
             summary=narrative.summary,
             recommendation=narrative.recommendation,
             model=completion.model,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=ACTIVITY_PROMPT_VERSION,
         )
         stats.activity_notes_generated += 1
         logger.info(

@@ -1218,6 +1218,12 @@ button {
     line-height: 1.2;
 }
 
+.splits-chart {
+    position: relative;
+}
+
+.splits-tooltip { width: min(12rem, calc(100% - 1rem)); max-width: none; }
+
 .calendar-grid {
     display: grid;
     gap: 0.22rem;

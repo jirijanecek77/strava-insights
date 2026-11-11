@@ -11,11 +11,13 @@ from app.domain.schemas.activity import (
     ActivityListRow,
     ActivityMap,
     ActivitySeries,
+    ActivitySplitsResponse,
     RouteComparisonAttempt,
     RouteComparisonResponse,
 )
 from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.repositories.activity_repository import ActivityRepository
+from app.infrastructure.repositories.activity_splits_repository import ActivitySplitsRepository
 from app.infrastructure.repositories.activity_stream_repository import (
     ActivityStreamRepository,
 )
@@ -37,6 +39,7 @@ class ActivityReadService:
     def __init__(self, db_session: Session = Depends(get_db_session)) -> None:
         self.activities = ActivityRepository(db_session)
         self.streams = ActivityStreamRepository(db_session)
+        self.splits = ActivitySplitsRepository(db_session)
         self.best_efforts = BestEffortRepository(db_session)
         self.user_profiles = UserProfileRepository(db_session)
         self.coaching = CoachingRepository(db_session)
@@ -88,6 +91,7 @@ class ActivityReadService:
             return None
 
         stream = self.streams.get_for_activity(activity.id)
+        splits = self.splits.get_for_activity(activity.id) if activity.source_provider == "garmin" else None
         activity_local_date = (
             None
             if activity.start_date_local is None
@@ -211,6 +215,7 @@ class ActivityReadService:
             id=activity.id,
             sport_type=activity.sport_type,
             name=activity.name,
+            splits=ActivitySplitsResponse(status=splits.status, laps=splits.laps) if splits else ActivitySplitsResponse(),
             description=activity.description,
             start_date_local=activity.start_date_local,
             kpis=ActivityKpis(

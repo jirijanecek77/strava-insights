@@ -3,7 +3,7 @@ from app.garmin_client import (
     GarminActivityStreamNotFoundError,
     GarminApiClient,
 )
-from app.models import Activity, ActivityStream
+from app.models import Activity, ActivitySplits, ActivityStream
 from app.repositories import (
     ActivityRepository,
     ActivityStreamRepository,
@@ -29,6 +29,7 @@ from app.services.route_index_builder import RouteIndexBuilder
 from app.services.stream_sanitizer import sanitize_stream_payload
 from app.config import settings
 from app.services.planning.repository import PlanningRepository
+from app.services.split_import import fetch_recorded_splits
 from datetime import UTC, datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -131,8 +132,16 @@ class BaseImportService:
 
         for index, activity_payload in enumerate(activities_payload, start=1):
             is_new_activity = activity_payload.get("id") not in existing_source_activity_ids
+            # Fetch before inserting so reconnect cannot leave an activity that
+            # would be skipped as already imported on the next attempt.
+            laps = fetch_recorded_splits(
+                self.garmin_client, garmin_session, activity_payload["id"]
+            ) if is_new_activity else None
             activity = self._upsert_activity(user_id=user_id, payload=activity_payload)
             if is_new_activity:
+                self.session.add(ActivitySplits(
+                    activity_id=activity.id, status="ready" if laps else "unavailable", laps=laps
+                ))
                 # Queue before any token persistence can commit the new activity.
                 PlanningRepository(self.session).enqueue(
                     user_id=user_id, sync_job_id=sync_job_id, timezone=settings.planning_timezone

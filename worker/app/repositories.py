@@ -1,5 +1,6 @@
 from app.models import (
     Activity,
+    ActivitySplits,
     ActivityCoachingNote,
     ActivityRouteMembership,
     ActivityRouteSignature,
@@ -720,6 +721,9 @@ class CoachingRepository:
             .filter(ActivityStream.activity_id == activity_id)
             .one_or_none()
         )
+
+    def get_splits(self, activity_id: int) -> ActivitySplits | None:
+        return self.session.get(ActivitySplits, activity_id)
 
     def get_threshold_profile(self, *, user_id: int, on_date: date) -> UserThresholdProfile | None:
         return (

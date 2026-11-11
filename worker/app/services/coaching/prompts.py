@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from app.services.coaching.llm_client import LlmResponseFormatError
 
 PROMPT_VERSION = "2"
+ACTIVITY_PROMPT_VERSION = "3"
 
 _COACH_PERSONA = (
     "You are an experienced endurance coach for running and cycling who analyses training data. You write in "
@@ -18,17 +19,20 @@ _COACH_PERSONA = (
 
 ACTIVITY_SYSTEM_PROMPT = f"""{_COACH_PERSONA}
 
-You receive one training activity as JSON, together with the athlete's recent training. "streams" holds the activity
-downsampled into fixed moving-time intervals: each row lists the moving time and distance at the end of the
-interval, the pace or speed and average heart rate within it, and the altitude at its end. "splits" holds the same
-data per fixed distance.
+You receive one training activity as JSON, together with the athlete's recent training. "splits" contains the
+chronological recorded Garmin laps, preserving auto-laps and workout/manual intervals, including short final laps.
+Each row gives lap distance and timer duration, average running pace or cycling speed, average heart rate when
+available, and a recorded lap type when available. Timed recoveries remain included; timer stops are excluded.
+These are lap averages, not stream samples. No stream excerpts or elevation profile are supplied. Do not infer
+within-lap surges, HR response timing, or terrain effects from averages. A lap type alone does not establish a
+workout's purpose. If split_data_limitation is present, state the limitation and use only available evidence.
 
 Analyse the session rather than retelling it:
 
-1. Session quality: identify the session type and judge how well it was executed for that purpose. Use the streams
-   to assess pacing (even, negative or positive split, surges, fade), heart-rate response to the pace, the effect of
-   climbs and descents, and how much time was spent in each heart-rate zone versus what the session type calls for.
-2. Fatigue: look for signs of fatigue or freshness, such as heart-rate drift at a steady pace (aerobic decoupling),
+1. Session quality: identify the session type when supported and judge how well it was executed for that purpose.
+   Compare lap pace or speed and average HR to assess even pacing, progression, repeated work/recovery intervals,
+   or fade. Account for unequal lap distances/durations. Use supplied aggregate heart-rate zone shares when present.
+2. Fatigue: look for signs of fatigue or freshness, such as supplied aerobic decoupling at a steady pace,
    a fading pace in the second half, a heart rate that is high or low for the pace compared with recent similar
    sessions, and the load and rest days of recent training.
 3. Trends: compare the session with the recent activities, best efforts, and route comparison to say whether fitness

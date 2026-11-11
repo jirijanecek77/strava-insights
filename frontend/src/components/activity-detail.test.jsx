@@ -1,7 +1,22 @@
-import {fireEvent, render, screen} from "@testing-library/react";
+import {fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi} from "vitest";
 
 import {ActivityTitle, createMapyCzMap} from "./activity-detail";
+import {ActivitySplitsChart} from "./activity-splits";
+
+it("renders filled pace steps with gray elevation on the right and HR only in the tooltip", async () => {
+    const {container} = render(<ActivitySplitsChart isRun activeIndex={0} series={{distance_km: [0, 0.5, 1], altitude_meters: [200, 210, 205]}}
+        splits={{status: "ready", laps: [{number: 1, start_distance_meters: 0, end_distance_meters: 1000, distance_meters: 1000,
+            average_pace_seconds_per_km: 300, average_heartrate_bpm: 145}]}}/>);
+    await waitFor(() => {
+        const labels = container.querySelectorAll('.recharts-yAxis-tick-labels text[orientation="left"]');
+        expect(labels.length).toBeGreaterThan(0);
+        labels.forEach((label) => expect(Number(label.getAttribute("x"))).toBeGreaterThanOrEqual(0));
+        expect(container.querySelector('.recharts-yAxis-tick-labels text[orientation="right"]')).toHaveTextContent(/m$/);
+        expect(container.querySelectorAll('.recharts-area-area')).toHaveLength(2);
+        expect(container.querySelector('.recharts-line-curve')).toBeNull();
+    });
+});
 
 describe("createMapyCzMap", () => {
     it("initializes bounds before attaching segmented route layers", () => {

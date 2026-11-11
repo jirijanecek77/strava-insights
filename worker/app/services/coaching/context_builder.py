@@ -8,7 +8,6 @@ from typing import Any, Protocol
 
 from app.services.coaching.metrics import (
     aerobic_decoupling_percent,
-    compute_splits,
     format_duration,
     format_pace,
     heart_rate_zone_shares,
@@ -23,6 +22,8 @@ class CoachingReadRepository(Protocol):
     def get_activity(self, *, user_id: int, activity_id: int) -> Any | None: ...
 
     def get_stream(self, activity_id: int) -> Any | None: ...
+
+    def get_splits(self, activity_id: int) -> Any | None: ...
 
     def get_threshold_profile(self, *, user_id: int, on_date: date) -> Any | None: ...
 
@@ -77,7 +78,21 @@ class CoachingContextBuilder:
         time_values = _stream_values(stream, "time_stream")
         distance_values = _stream_values(stream, "distance_stream")
         heart_rate_values = _stream_values(stream, "heartrate_stream")
-        altitude_values = _stream_values(stream, "altitude_stream")
+        recorded = self.repository.get_splits(activity.id) if activity.source_provider == "garmin" else None
+        splits = []
+        for lap in recorded.laps if recorded is not None and recorded.status == "ready" else []:
+            row = {
+                "split": lap["number"],
+                "type": lap.get("lap_type"),
+                "distance_km": round(lap["distance_meters"] / 1000, 3),
+                "duration_seconds": lap.get("duration_seconds"),
+                "avg_hr_bpm": lap.get("average_heartrate_bpm"),
+            }
+            if activity.sport_type == "Run":
+                row["pace"] = format_pace(lap.get("average_pace_seconds_per_km"))
+            else:
+                row["speed_kph"] = lap.get("average_speed_kph")
+            splits.append(_drop_empty(row))
 
         aet = _optional_float(getattr(profile, "aet_heart_rate_bpm", None))
         ant = _optional_float(getattr(profile, "ant_heart_rate_bpm", None))
@@ -93,13 +108,8 @@ class CoachingContextBuilder:
                 }
             ),
             "athlete_thresholds": _thresholds(profile, activity.sport_type),
-            "splits": compute_splits(
-                sport_type=activity.sport_type,
-                distance_meters=distance_values,
-                time_seconds=time_values,
-                heartrate_bpm=heart_rate_values,
-                altitude_meters=altitude_values,
-            ),
+            "splits": splits,
+            "split_data_limitation": None if splits else "Recorded Garmin laps are unavailable; within-activity pacing and HR changes cannot be assessed.",
             "heart_rate_zones": heart_rate_zone_shares(
                 time_seconds=time_values,
                 heartrate_bpm=heart_rate_values,

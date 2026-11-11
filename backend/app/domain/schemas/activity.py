@@ -163,6 +163,26 @@ class ActivityDetailThresholds(BaseModel):
     ant_pace_min_per_km: float | None = None
 
 
+class ActivitySplit(BaseModel):
+    number: int
+    lap_type: str | None = None
+    start_distance_meters: float
+    end_distance_meters: float
+    distance_meters: float
+    start_timer_seconds: float | None = None
+    duration_seconds: float | None = None
+    moving_duration_seconds: float | None = None
+    elapsed_duration_seconds: float | None = None
+    average_speed_kph: float | None = None
+    average_pace_seconds_per_km: float | None = None
+    average_heartrate_bpm: float | None = None
+
+
+class ActivitySplitsResponse(BaseModel):
+    status: str = "unavailable"
+    laps: list[ActivitySplit] = Field(default_factory=list)
+
+
 class ActivityDetailResponse(BaseModel):
     id: int
     sport_type: str
@@ -172,6 +192,7 @@ class ActivityDetailResponse(BaseModel):
     kpis: ActivityKpis
     map: ActivityMap | None = None
     series: ActivitySeries
+    splits: ActivitySplitsResponse = Field(default_factory=ActivitySplitsResponse)
     thresholds: ActivityDetailThresholds | None = None
     running_analysis: RunningAnalysisResponse | None = None
     cycling_analysis: CyclingAnalysisResponse | None = None

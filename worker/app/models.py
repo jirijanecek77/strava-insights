@@ -126,6 +126,14 @@ class Activity(Base):
     summary_metric_display: Mapped[str | None] = mapped_column(String(32))
 
 
+class ActivitySplits(Base):
+    __tablename__ = "activity_splits"
+
+    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="unavailable", server_default="unavailable")
+    laps: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
+
+
 class ActivityStream(Base):
     __tablename__ = "activity_streams"
 

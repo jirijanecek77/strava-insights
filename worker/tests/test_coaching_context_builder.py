@@ -26,6 +26,7 @@ def _activity(activity_id: int, start: datetime, *, moving_time: int = 3000, dis
         name=f"Run {activity_id}",
         description=None,
         sport_type="Run",
+        source_provider="garmin",
         start_date_utc=start,
         start_date_local=start,
         distance_meters=Decimal(distance),
@@ -62,6 +63,16 @@ class RepositoryStub:
             heartrate_stream={"data": [130 if seconds < 1500 else 160 for seconds in times]},
             altitude_stream={"data": [200 for _ in times]},
         )
+
+    def get_splits(self, activity_id):
+        return SimpleNamespace(status="ready", laps=[
+            {"number": 1, "lap_type": "WARMUP", "distance_meters": 1890.58, "duration_seconds": 600,
+             "average_pace_seconds_per_km": 317.36, "average_speed_kph": 11.344, "average_heartrate_bpm": 144},
+            {"number": 2, "lap_type": "INTERVAL", "distance_meters": 400, "duration_seconds": 100,
+             "average_pace_seconds_per_km": 250, "average_speed_kph": 14.4, "average_heartrate_bpm": 166},
+            {"number": 3, "lap_type": "RECOVERY", "distance_meters": 125, "duration_seconds": 60,
+             "average_pace_seconds_per_km": 480, "average_speed_kph": 7.5, "average_heartrate_bpm": None},
+        ])
 
     def get_threshold_profile(self, *, user_id, on_date):
         return SimpleNamespace(
@@ -112,7 +123,13 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
         "aet_pace": "5:30 /km",
         "ant_pace": "4:30 /km",
     }
-    assert len(context["splits"]) == 10
+    assert len(context["splits"]) == 3
+    assert context["splits"][0] == {"split": 1, "type": "WARMUP", "distance_km": 1.891,
+                                     "duration_seconds": 600, "pace": "5:17 /km", "avg_hr_bpm": 144}
+    assert context["splits"][1]["pace"] == "4:10 /km"
+    assert "avg_hr_bpm" not in context["splits"][2]
+    assert "streams" not in context
+    assert "split_data_limitation" not in context
     assert context["heart_rate_zones"]["below_aet_percent"] == pytest.approx(51.7, abs=0.5)
     assert context["aerobic_decoupling_percent"] > 0
     assert context["best_efforts"] == [
@@ -136,6 +153,22 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
     assert "recommendation" in system_prompt
     assert "Fatigue" in system_prompt
     assert '"all_time_rank": 2' in user_prompt
+    assert '"altitude"' not in user_prompt
+    assert '"elevation_change_m"' not in user_prompt
+    assert "recorded Garmin laps" in system_prompt
+
+
+def test_ride_context_uses_recorded_speed_and_missing_splits_have_no_stream_fallback():
+    repository = RepositoryStub()
+    repository.current.sport_type = "Ride"
+    context = CoachingContextBuilder(repository).build_activity_context(user_id=1, activity_id=10)
+    assert context["splits"][1]["speed_kph"] == 14.4
+    assert "pace" not in context["splits"][1]
+    repository.get_splits = lambda _id: SimpleNamespace(status="unavailable", laps=[])
+    context = CoachingContextBuilder(repository).build_activity_context(user_id=1, activity_id=10)
+    assert "splits" not in context
+    assert "split_data_limitation" in context
+    assert "streams" not in context
 
 
 def test_period_context_flags_pending_notes_and_hashes_its_inputs() -> None:

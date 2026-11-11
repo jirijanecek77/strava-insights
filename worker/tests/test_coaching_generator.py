@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 from app.services.coaching.context_builder import PeriodContext
+from app.services.coaching.context_builder import CoachingContextBuilder
 from app.services.coaching.generator import MAX_ATTEMPTS, CoachingGenerator
 from app.services.coaching.llm_client import LlmCompletion, LlmError, LlmRateLimitedError
 
@@ -143,6 +144,33 @@ def _repository(*notes: Row) -> InMemoryCoachingRepository:
     return InMemoryCoachingRepository(
         list(notes), {note.activity_id: datetime(2026, 10, 7, 7, tzinfo=UTC) for note in notes}
     )
+
+
+def test_model_request_uses_recorded_laps_without_stream_excerpts():
+    import json
+    from test_coaching_context_builder import RepositoryStub
+
+    captured = {}
+
+    class CapturingLlm:
+        def complete_json(self, *, system_prompt, user_prompt):
+            captured["system"] = system_prompt
+            captured["context"] = json.loads(user_prompt.split("\n", 1)[1])
+            return LlmCompletion(payload={"description": "Controlled intervals.", "summary": "Good session.",
+                                          "recommendation": "Recover."}, model="test")
+
+    repository = _repository(Row(user_id=1, activity_id=10))
+    stats = CoachingGenerator(repository=repository, llm_client=CapturingLlm(),
+                              context_builder=CoachingContextBuilder(RepositoryStub()), batch_size=1,
+                              today=lambda: TODAY).run(user_id=1)
+    assert stats.activity_notes_generated == 1
+    assert captured["context"]["splits"][1] == {
+        "split": 2, "type": "INTERVAL", "distance_km": 0.4, "duration_seconds": 100,
+        "pace": "4:10 /km", "avg_hr_bpm": 166,
+    }
+    assert "streams" not in captured["context"]
+    assert all("elevation_change_m" not in lap for lap in captured["context"]["splits"])
+    assert "No stream excerpts or elevation profile" in captured["system"]
 
 
 def test_generates_activity_note_then_week_and_month_reviews() -> None:

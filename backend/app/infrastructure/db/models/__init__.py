@@ -1,4 +1,5 @@
 from app.infrastructure.db.models.activity import Activity
+from app.infrastructure.db.models.activity_splits import ActivitySplits
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
 from app.infrastructure.db.models.coaching import (
@@ -21,6 +22,7 @@ from app.infrastructure.db.models.user_threshold_profile import UserThresholdPro
 
 __all__ = [
     "Activity",
+    "ActivitySplits",
     "ActivityCoachingNote",
     "ActivityStream",
     "BestEffort",
