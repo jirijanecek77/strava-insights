@@ -181,7 +181,34 @@ For rest use focus rest and null for all three targets. Return no additional tex
 
 
 def build_prompt(context: dict) -> tuple[str, str]:
-    return SYSTEM_PROMPT, json.dumps(context, ensure_ascii=False, sort_keys=True)
+    # Project only the provider payload: persisted context and validation retain full precision.
+    # Applying this here also trims contexts already saved for pending/retried requests.
+    precision = {
+        "distance_km": 2,
+        "moving_minutes": 1,
+        "elevation_gain_meters": 0,
+        "pace_seconds_per_km": 0,
+        "hr_bpm": 0,
+    }
+    prompt_context = {
+        **context,
+        "activities": [
+            {
+                key: round(value, precision[key])
+                if key in precision and isinstance(value, (int, float))
+                else value
+                for key, value in activity.items()
+            }
+            for activity in context.get("activities", [])
+        ],
+        "previous_plans": [
+            {key: value for key, value in day.items() if key != "rationale"}
+            for day in context.get("previous_plans", [])
+        ],
+    }
+    return SYSTEM_PROMPT, json.dumps(
+        prompt_context, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
 
 
 def validate_plan(payload: dict, context: dict) -> list[dict]:

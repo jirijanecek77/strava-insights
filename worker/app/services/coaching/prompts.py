@@ -113,7 +113,7 @@ def parse_period_review(payload: dict) -> PeriodReview:
 
 
 def _data_prompt(label: str, context: dict) -> str:
-    return f"{label} (JSON):\n{json.dumps(context, ensure_ascii=False, default=str)}"
+    return f"{label} (JSON):\n{json.dumps(context, ensure_ascii=False, default=str, separators=(",", ":"))}"
 
 
 def _required_text(payload: dict, field: str) -> str:

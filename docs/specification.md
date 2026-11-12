@@ -642,7 +642,9 @@ The calendar should feel closer to a training overview than to a traditional ent
   or at least three hard days in the last week, supports recovery. Allow easy running only after a week without
   running. Easy pace must respect the configured AeT pace or the observed recent median
   running pace when no AeT pace is configured, and easy HR must remain at or below its baseline.
-- Expose plans through an authenticated local read API. Calendar cells show planned distance, pace, and HR or rest,
+- Expose plans through an authenticated local read API. Calendar cells show planned sessions only from today onward,
+  using the browser's local date; past run and rest targets remain stored but are hidden in the calendar.
+  Calendar cells show planned distance, pace, and HR or rest,
   with the purpose always visible above the targets, without expand/collapse controls. Running plans follow the running/all-sports filter and remain separate from actual
   activity markers. Show pending, failed, insufficient-data, and previous-target states without blocking the calendar.
   A ready plan shows no informational text bar above the calendar.
@@ -678,6 +680,11 @@ The calendar should feel closer to a training overview than to a traditional ent
   pace or speed, and average HR; the activity prompt describes the limits of these lap averages.
   GPS coordinates, elevation profiles, and raw or downsampled stream excerpts are not sent. Local streams may still
   be used to calculate existing aggregate metrics without including their samples in the model request.
+- Provider payloads use compact JSON. Activity contexts omit weekday, local start time, maximum speed, and
+  elapsed time when it equals moving time. Distances, lap durations/speeds, and cadence use bounded precision.
+  Planning sends rounded historical activity metrics and omits prior plan rationales while retaining session
+  dates, types, and targets. Stored planning context and validation bounds retain their original precision.
+  These reductions apply to subsequent calls, including queued planning retries, without regenerating ready text.
 - Garmin's own activity description is never overwritten; coaching text is stored separately.
 
 ### Generation Model

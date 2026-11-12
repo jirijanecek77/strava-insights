@@ -151,6 +151,13 @@ This document tracks implementation status against [specification.md](specificat
   fatigue, and trends.
 - [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
 
+### Coaching Payload Token Reduction
+
+- [x] Compact coaching/planning JSON, omit redundant activity fields and equal elapsed/moving time, and round
+  activity metrics to useful precision while retaining lap evidence, thresholds, athlete notes, and training history.
+- [x] Omit prior plan rationales only from provider payloads, including saved contexts on retry; preserve prior
+  session targets, stored planning context, exact validation bounds, and existing ready notes/plans.
+
 ### Groq Python SDK Migration
 
 Completed and validated locally on 2026-11-10. Existing Gemini-generated notes remain stored.
@@ -197,6 +204,8 @@ Implemented and validated locally on 2026-11-10. Product behavior and training p
   validation feedback. Notes/reviews retain their 2,048-token cap; seven-day plans use 4,096 tokens.
 - [x] Added authenticated user-scoped `GET /training-plans`, full visible-calendar range loading, daily target/rest
   cards with rationales always visible above targets, sport filtering, and pending/failure/previous-target states.
+- [x] Hide planned run/rest sessions before today in the calendar using the browser's local date, preserving
+  stored targets and completed activity markers.
 - [x] Added CLI `replan --user-id <id>`, plan output in `show`, `make ai-plan-replan` with optional `AI_USER_ID`, and
   Windows `.\make.ps1 ai-plan-replan -AiUserId <id>`. Manual replanning explicitly permits generation without new activity.
 - [x] Added history-based `build`/`maintain`/`recover` objectives before daily workout generation, with explicit

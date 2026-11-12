@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -113,7 +114,10 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
 
     assert context is not None
     assert context["activity"]["date"] == "2026-10-07"
-    assert context["activity"]["weekday"] == "Wednesday"
+    assert "weekday" not in context["activity"]
+    assert "start_time_local" not in context["activity"]
+    assert "max_speed_kph" not in context["activity"]
+    assert context["activity"]["elapsed_time"] == "49:20"
     assert context["activity"]["avg_pace"] == "4:50 /km"
     assert context["activity"]["moving_time"] == "48:20"
     assert "athlete_notes" not in context["activity"]
@@ -152,7 +156,9 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
     system_prompt, user_prompt = build_activity_prompt(context)
     assert "recommendation" in system_prompt
     assert "Fatigue" in system_prompt
-    assert '"all_time_rank": 2' in user_prompt
+    sent = json.loads(user_prompt.split("\n", 1)[1])
+    assert sent["best_efforts"][0]["all_time_rank"] == 2
+    assert user_prompt.split("\n", 1)[1] == json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     assert '"altitude"' not in user_prompt
     assert '"elevation_change_m"' not in user_prompt
     assert "recorded Garmin laps" in system_prompt
@@ -229,3 +235,12 @@ def test_parsers_require_every_text_field() -> None:
         parse_activity_narrative({"description": "x", "summary": "", "recommendation": "y"})
     with pytest.raises(LlmResponseFormatError):
         parse_period_review({"summary": "Week."})
+
+
+def test_equal_elapsed_and_moving_time_is_omitted_but_athlete_notes_remain():
+    repository = RepositoryStub()
+    repository.current.elapsed_time_seconds = repository.current.moving_time_seconds
+    repository.current.description = "Easy run after poor sleep."
+    context = CoachingContextBuilder(repository).build_activity_context(user_id=1, activity_id=10)
+    assert "elapsed_time" not in context["activity"]
+    assert context["activity"]["athlete_notes"] == "Easy run after poor sleep."

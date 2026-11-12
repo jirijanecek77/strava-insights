@@ -1,5 +1,5 @@
 import {render, screen} from "@testing-library/react";
-import {afterEach, describe, expect, it, vi} from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import {CalendarView} from "./views";
 
@@ -9,9 +9,30 @@ function renderCalendar(selectedSport = "") {
     return render(<CalendarView calendarMonth={new Date(2026, 10, 1)} activities={[{id: 5, sport_type: "Run", start_date_local: "2026-12-01T10:00:00", distance_km: 8}]} onChangeMonth={() => {}} onSelectActivity={() => {}} selectedSport={selectedSport}/>);
 }
 
-afterEach(() => {vi.restoreAllMocks();});
+beforeEach(() => {
+    vi.useFakeTimers({toFake: ["Date"]});
+    vi.setSystemTime(new Date(2026, 11, 1, 23, 30));
+});
+
+afterEach(() => {vi.useRealTimers(); vi.restoreAllMocks();});
 
 describe("calendar running plans", () => {
+    it("hides past run and rest targets while keeping today, future targets, and completed activities", async () => {
+        vi.setSystemTime(new Date(2026, 11, 2, 0, 30));
+        vi.spyOn(global, "fetch").mockResolvedValue({ok: true, status: 200, json: async () => ({status: "ready", items: [
+            {...plan, rationale: "Past run."},
+            {...plan, planned_date: "2026-11-30", kind: "rest", rationale: "Past rest."},
+            {...plan, planned_date: "2026-12-02", rationale: "Today run."},
+            {...plan, planned_date: "2026-12-03", kind: "rest", rationale: "Future rest."},
+        ]})});
+        renderCalendar();
+        expect(await screen.findByText("Today run.")).toBeVisible();
+        expect(screen.getByText("Future rest.")).toBeVisible();
+        expect(screen.queryByText("Past run.")).not.toBeInTheDocument();
+        expect(screen.queryByText("Past rest.")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "8 km, 1 activity"})).toBeInTheDocument();
+    });
+
     it("loads the entire visible grid and shows targets alongside completed runs", async () => {
         const fetch = vi.spyOn(global, "fetch").mockResolvedValue({ok: true, status: 200, json: async () => ({status: "pending", items: [plan, {...plan, planned_date: "2026-12-02", kind: "rest", rationale: "Recover."}]})});
         renderCalendar();

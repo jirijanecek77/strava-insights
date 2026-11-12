@@ -97,7 +97,10 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
     const weeks = useMemo(() => buildCalendarWeeks(calendarMonth, activities), [activities, calendarMonth]);
     const showPlans = !selectedSport || selectedSport === "Run";
     const planning = useTrainingPlans(calendarMonth, showPlans);
-    const plansByDate = new Map((planning.payload?.items ?? []).map((plan) => [plan.planned_date, plan]));
+    const today = formatLocalDateKey(new Date());
+    const plansByDate = new Map((planning.payload?.items ?? [])
+        .filter((plan) => plan.planned_date >= today)
+        .map((plan) => [plan.planned_date, plan]));
     return (
         <section className="panel">
             <div className="panel-header">

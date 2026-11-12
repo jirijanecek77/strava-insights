@@ -85,13 +85,13 @@ class CoachingContextBuilder:
                 "split": lap["number"],
                 "type": lap.get("lap_type"),
                 "distance_km": round(lap["distance_meters"] / 1000, 3),
-                "duration_seconds": lap.get("duration_seconds"),
+                "duration_seconds": _optional_precision(lap.get("duration_seconds"), 1),
                 "avg_hr_bpm": lap.get("average_heartrate_bpm"),
             }
             if activity.sport_type == "Run":
                 row["pace"] = format_pace(lap.get("average_pace_seconds_per_km"))
             else:
-                row["speed_kph"] = lap.get("average_speed_kph")
+                row["speed_kph"] = _optional_precision(lap.get("average_speed_kph"), 1)
             splits.append(_drop_empty(row))
 
         aet = _optional_float(getattr(profile, "aet_heart_rate_bpm", None))
@@ -100,10 +100,12 @@ class CoachingContextBuilder:
             "activity": _drop_empty(
                 {
                     **_activity_metrics(activity),
-                    "start_time_local": local_start.strftime("%H:%M"),
-                    "elapsed_time": format_duration(activity.elapsed_time_seconds),
-                    "max_speed_kph": _speed_kph(activity.max_speed_mps),
-                    "average_cadence": _optional_float(activity.average_cadence),
+                    "elapsed_time": (
+                        format_duration(activity.elapsed_time_seconds)
+                        if activity.elapsed_time_seconds != activity.moving_time_seconds
+                        else None
+                    ),
+                    "average_cadence": _optional_precision(activity.average_cadence, 1),
                     "athlete_notes": activity.description or None,
                 }
             ),
@@ -259,10 +261,9 @@ def _activity_metrics(activity) -> dict:
     local_day = _local_date(activity)
     metrics: dict = {
         "date": local_day.isoformat(),
-        "weekday": local_day.strftime("%A"),
         "sport": activity.sport_type,
         "name": activity.name,
-        "distance_km": _optional_float(activity.distance_km)
+        "distance_km": _optional_precision(activity.distance_km, 2)
         or round(float(activity.distance_meters or 0) / 1000, 2),
         "moving_time": format_duration(activity.moving_time_seconds),
         "elevation_gain_m": _optional_round(activity.total_elevation_gain_meters),
@@ -333,6 +334,10 @@ def _pace_from_minutes(value) -> str | None:
 def _speed_kph(speed_mps) -> float | None:
     value = _optional_float(speed_mps)
     return None if value is None else round(value * 3.6, 1)
+
+
+def _optional_precision(value, digits: int) -> float | None:
+    return None if value is None else round(float(value), digits)
 
 
 def _optional_float(value) -> float | None:

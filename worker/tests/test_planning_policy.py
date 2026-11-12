@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from datetime import date, timedelta
 
@@ -5,6 +6,7 @@ import pytest
 
 from app.services.planning.policy import (
     InsufficientTrainingData,
+    build_prompt,
     training_bounds,
     validate_plan,
 )
@@ -185,3 +187,36 @@ def test_easy_pace_cannot_contradict_aerobic_threshold():
     plan["days"][0]["pace_seconds_per_km"] = 310
     with pytest.raises(ValueError, match="aerobic pace baseline"):
         validate_plan(plan, ctx)
+
+
+def test_prompt_trims_saved_context_without_changing_validation_or_stored_data():
+    source = context()
+    source.update(
+        activities=[{
+            "date": "2026-11-09", "sport": "Run", "distance_km": 10.123456,
+            "moving_minutes": 55.123456, "pace_seconds_per_km": 326.712345,
+            "hr_bpm": 140.123456, "elevation_gain_meters": 123.456789,
+            "coaching_summary": "Steady aerobic run.",
+        }],
+        previous_plans=[{
+            "date": "2026-11-10", "kind": "run", "focus": "easy", "distance_km": 10,
+            "pace_seconds_per_km": 345, "heart_rate_bpm": 140,
+            "rationale": "Previous explanation that need not be repeated.",
+        }],
+        weekly_objective={"mode": "maintain", "evidence": ["Stable training."]},
+        previous_attempt_error="Respect the long-run minimum.",
+    )
+    original = deepcopy(source)
+    _, prompt = build_prompt(source)
+    sent = json.loads(prompt)
+    assert source == original
+    assert sent["bounds"] == source["bounds"]
+    assert sent["weekly_objective"] == source["weekly_objective"]
+    assert sent["previous_attempt_error"] == source["previous_attempt_error"]
+    assert sent["previous_plans"] == [{k: v for k, v in source["previous_plans"][0].items() if k != "rationale"}]
+    assert sent["activities"][0] == dict(
+        source["activities"][0], distance_km=10.12, moving_minutes=55.1,
+        pace_seconds_per_km=327, hr_bpm=140, elevation_gain_meters=123,
+    )
+    assert prompt == json.dumps(sent, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    assert len(prompt) < len(json.dumps(source))
