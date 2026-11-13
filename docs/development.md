@@ -124,6 +124,31 @@ Useful log inspection commands:
   excerpts or an elevation profile. Missing splits produce an explicit limitation. Existing notes and plans remain
   stored; elevation remains in the chart.
 
+## Coaching Evidence and Period Reviews
+
+- Migration `20261113_0025` adds `activity_coaching_evidence` and nullable period-review `metrics`; it preserves all
+  existing activities and coaching text. Stop worker/beat/sync-dispatcher, build, run
+  `docker compose --env-file .env.secrets run --rm backend python -m alembic upgrade head`, then recreate backend,
+  frontend, worker, beat, and sync-dispatcher. Use `python -m alembic` so the backend package is importable.
+- Evidence is calculated locally when preparing activity or period context and reused by source fingerprint. It is
+  independent of model configuration and note availability. Populate older facts without Garmin/AI calls:
+  `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli prepare-evidence --user-id 1 --after-id 0 --limit 100`.
+  Repeat with the printed `--after-id` to resume; the maximum batch is 1,000. Context preparation refreshes changed facts.
+- Inspect context size without an AI call:
+  `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli inspect-context --user-id 1 --period-type month --period-start 2026-11-01`.
+  Counts are approximate input tokens at four characters/token and exclude the system prompt. Local evidence may be
+  persisted by inspection; generated text is untouched.
+- Existing ready notes/reviews remain visible. Explicitly queue a bounded historical review update:
+  `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli regenerate-periods --user-id 1 --period-type month --date-from 2026-11-01 --date-to 2026-11-01 --limit 1`.
+  The dates filter period starts inclusively; `--period-type` is optional and `--limit` is capped at 100. Generating
+  rows are skipped, old text is preserved, and this command queues work without calling the provider. Run the existing
+  coaching `run` command to consume it; the background queue may also process it. That step sends context to the
+  configured model. Deployment alone does not queue a mass replacement of legacy ready reviews.
+- Activity prompt version 4 requests interpretation without repeating displayed KPIs and includes available total
+  ascent, lap terrain, and a final-section aggregate. Weekly/monthly version 3 reuses facts without lap arrays, reports
+  measured HR-band time/distance and coverage, and qualifies endurance/tempo comparisons. Historical activities without
+  recorded laps remain valid for volume/HR totals; unsupported performance trends remain insufficient data.
+
 ## Validation Expectations
 
 - Run `make build` for every meaningful code change.

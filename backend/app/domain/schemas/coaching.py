@@ -16,6 +16,7 @@ class ActivityCoachingResponse(BaseModel):
 
 
 class PeriodCoachingItem(BaseModel):
+    metrics: dict | None = None
     period_type: Literal["week", "month"]
     period_start: date
     period_end: date

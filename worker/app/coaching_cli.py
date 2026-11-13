@@ -9,11 +9,14 @@ Examples:
 
 import argparse
 import textwrap
+import json
+from datetime import date
 
 from app.config import settings
 from app.db import SessionLocal
 from app.logging import configure_logging
 from app.models import (
+    Activity,
     ActivityCoachingNote,
     PeriodCoachingSummary,
     TrainingPlanDay,
@@ -52,9 +55,100 @@ def main(argv: list[str] | None = None) -> None:
     )
     replan.add_argument("--user-id", type=int, required=True)
 
+    evidence = commands.add_parser(
+        "prepare-evidence",
+        help="Populate reusable evidence from local data only; no AI calls.",
+    )
+    evidence.add_argument("--user-id", type=int, required=True)
+    evidence.add_argument("--after-id", type=int, default=0)
+    evidence.add_argument("--limit", type=int, default=100)
+
+    regenerate = commands.add_parser(
+        "regenerate-periods",
+        help="Queue a bounded set of stored period reviews, preserving text.",
+    )
+    regenerate.add_argument("--user-id", type=int, required=True)
+    regenerate.add_argument("--date-from", type=date.fromisoformat, required=True)
+    regenerate.add_argument("--date-to", type=date.fromisoformat, required=True)
+    regenerate.add_argument("--limit", type=int, default=10)
+    regenerate.add_argument("--period-type", choices=("week", "month"))
+
+    inspect = commands.add_parser(
+        "inspect-context",
+        help="Print local context size/estimated tokens; no model call.",
+    )
+    inspect.add_argument("--user-id", type=int, required=True)
+    inspect.add_argument("--period-type", choices=("week", "month"), required=True)
+    inspect.add_argument("--period-start", type=date.fromisoformat, required=True)
+
     args = parser.parse_args(argv)
     configure_logging(log_level=settings.log_level)
-    if args.command == "enqueue-latest":
+    if args.command == "prepare-evidence":
+        if not 1 <= args.limit <= 1000:
+            parser.error("--limit must be between 1 and 1000")
+        with SessionLocal() as session:
+            activities = (
+                session.query(Activity)
+                .filter(Activity.user_id == args.user_id, Activity.id > args.after_id)
+                .order_by(Activity.id)
+                .limit(args.limit)
+                .all()
+            )
+            CoachingRepository(session).activity_evidence_batch(
+                user_id=args.user_id, activities=activities
+            )
+            session.commit()
+            print(
+                f"Prepared {len(activities)} local evidence records. Resume with --after-id {activities[-1].id if activities else args.after_id}."
+            )
+    elif args.command == "regenerate-periods":
+        if not 1 <= args.limit <= 100 or args.date_to < args.date_from:
+            parser.error("Use an ordered date range and --limit between 1 and 100")
+        with SessionLocal() as session:
+            rows = (
+                session.query(PeriodCoachingSummary)
+                .filter(
+                    PeriodCoachingSummary.user_id == args.user_id,
+                    PeriodCoachingSummary.period_start >= args.date_from,
+                    PeriodCoachingSummary.period_start <= args.date_to,
+                    PeriodCoachingSummary.status != "generating",
+                    (
+                        PeriodCoachingSummary.period_type == args.period_type
+                        if args.period_type
+                        else True
+                    ),
+                )
+                .order_by(PeriodCoachingSummary.period_start, PeriodCoachingSummary.id)
+                .limit(args.limit)
+                .all()
+            )
+            repository = CoachingRepository(session)
+            for row in rows:
+                repository.mark_period_pending(row)
+            print(
+                f"Queued {len(rows)} reviews; existing text remains visible. Run coaching to process the queue."
+            )
+    elif args.command == "inspect-context":
+        from app.services.coaching.context_builder import CoachingContextBuilder
+
+        with SessionLocal() as session:
+            context = (
+                CoachingContextBuilder(CoachingRepository(session))
+                .build_period_context(
+                    user_id=args.user_id,
+                    period_type=args.period_type,
+                    period_start=args.period_start,
+                    today=date.today(),
+                )
+                .context
+            )
+            from app.services.coaching.prompts import compact_context
+            encoded = json.dumps(compact_context(context), separators=(",", ":"))
+            session.commit()
+            print(
+                f"Context bytes: {len(encoded.encode())}; estimated input tokens (~4 characters/token, excludes system prompt): {(len(encoded) + 3) // 4}"
+            )
+    elif args.command == "enqueue-latest":
         _enqueue_latest(user_id=args.user_id, count=args.count)
     elif args.command == "run":
         stats = run_coaching_generation(

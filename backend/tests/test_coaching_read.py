@@ -69,6 +69,13 @@ def _seed(db_session) -> None:
                 period_start=date(2026, 9, 28),
                 status="ready",
                 summary="Solid week.",
+                metrics={
+                    "hr_bands_by_sport": {
+                        "Run": {
+                            "bands": {"below_aet": {"time_s": 1200, "distance_m": 3000}}
+                        }
+                    }
+                },
                 recommendation="Add one tempo session.",
                 is_final=True,
             ),
@@ -115,12 +122,15 @@ def test_activity_detail_includes_stored_coaching_note(client, db_session) -> No
         app.dependency_overrides.clear()
 
 
-def test_period_coaching_lists_overlapping_periods_for_current_user(client, db_session) -> None:
+def test_period_coaching_lists_overlapping_periods_for_current_user(
+    client, db_session
+) -> None:
     _seed(db_session)
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(1)
     try:
         response = client.get(
-            "/coaching/periods", params={"date_from": "2026-09-01", "date_to": "2026-09-30"}
+            "/coaching/periods",
+            params={"date_from": "2026-09-01", "date_to": "2026-09-30"},
         )
         assert response.status_code == 200
         items = response.json()["items"]
@@ -134,16 +144,25 @@ def test_period_coaching_lists_overlapping_periods_for_current_user(client, db_s
         assert week["summary"] == "Solid week."
         assert week["period_end"] == "2026-10-04"
         assert week["is_final"] is True
+        assert (
+            week["metrics"]["hr_bands_by_sport"]["Run"]["bands"]["below_aet"][
+                "distance_m"
+            ]
+            == 3000
+        )
+        assert month["metrics"] is None
 
         october = client.get(
-            "/coaching/periods", params={"date_from": "2026-10-01", "date_to": "2026-10-31"}
+            "/coaching/periods",
+            params={"date_from": "2026-10-01", "date_to": "2026-10-31"},
         ).json()["items"]
         assert [(item["period_type"], item["period_start"]) for item in october] == [
             ("week", "2026-09-28")
         ]
 
         invalid = client.get(
-            "/coaching/periods", params={"date_from": "2026-10-31", "date_to": "2026-10-01"}
+            "/coaching/periods",
+            params={"date_from": "2026-10-31", "date_to": "2026-10-01"},
         )
         assert invalid.status_code == 422
     finally:

@@ -29,12 +29,18 @@ def test_heart_rate_zone_shares_are_time_weighted_and_ignore_pauses() -> None:
         "aet_heart_rate_bpm": 140,
         "ant_heart_rate_bpm": 160,
         "below_aet_percent": 25.0,
-        "aet_to_ant_percent": 25.0,
+        "between_aet_ant_percent": 25.0,
         "above_ant_percent": 50.0,
     }
-    assert heart_rate_zone_shares(
-        time_seconds=time_values, heartrate_bpm=heart_rates, aet_heart_rate_bpm=None, ant_heart_rate_bpm=160
-    ) is None
+    assert (
+        heart_rate_zone_shares(
+            time_seconds=time_values,
+            heartrate_bpm=heart_rates,
+            aet_heart_rate_bpm=None,
+            ant_heart_rate_bpm=160,
+        )
+        is None
+    )
 
 
 def test_aerobic_decoupling_detects_heart_rate_drift_at_constant_pace() -> None:
@@ -43,11 +49,18 @@ def test_aerobic_decoupling_detects_heart_rate_drift_at_constant_pace() -> None:
     heart_rates = [140 if seconds <= 1800 else 154 for seconds in time_values]
 
     decoupling = aerobic_decoupling_percent(
-        distance_meters=distance_values, time_seconds=time_values, heartrate_bpm=heart_rates
+        distance_meters=distance_values,
+        time_seconds=time_values,
+        heartrate_bpm=heart_rates,
     )
 
     assert decoupling is not None
     assert 8.0 < decoupling < 10.0
-    assert aerobic_decoupling_percent(
-        distance_meters=distance_values[:10], time_seconds=time_values[:10], heartrate_bpm=heart_rates[:10]
-    ) is None
+    assert (
+        aerobic_decoupling_percent(
+            distance_meters=distance_values[:10],
+            time_seconds=time_values[:10],
+            heartrate_bpm=heart_rates[:10],
+        )
+        is None
+    )

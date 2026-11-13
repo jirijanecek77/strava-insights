@@ -2,6 +2,7 @@ from app.models import (
     Activity,
     ActivitySplits,
     ActivityCoachingNote,
+    ActivityCoachingEvidence,
     ActivityRouteMembership,
     ActivityRouteSignature,
     ActivityStream,
@@ -614,7 +615,9 @@ class CoachingRepository:
         is_final: bool,
         model: str,
         prompt_version: str,
+        metrics: dict | None = None,
     ) -> None:
+        period.metrics = metrics
         period.summary = summary
         period.recommendation = recommendation
         period.source_hash = source_hash
@@ -699,6 +702,19 @@ class CoachingRepository:
             .one()
         )
 
+    def has_new_coaching_notes(self, period) -> bool:
+        from app.services.coaching.context_builder import period_bounds
+        from app.services.coaching.prompts import ACTIVITY_PROMPT_VERSION
+
+        start, end = period_bounds(period.period_type, period.period_start)
+        query = self.session.query(ActivityCoachingNote.id).join(Activity, Activity.id == ActivityCoachingNote.activity_id).filter(
+            ActivityCoachingNote.user_id == period.user_id, ActivityCoachingNote.status == "ready",
+            ActivityCoachingNote.prompt_version == ACTIVITY_PROMPT_VERSION,
+            Activity.start_date_local >= start, Activity.start_date_local < end)
+        if period.generated_at:
+            query = query.filter(ActivityCoachingNote.generated_at > period.generated_at)
+        return query.first() is not None
+
     def mark_period_pending(self, period: PeriodCoachingSummary) -> None:
         period.status = "pending"
         period.attempt_count = 0
@@ -714,6 +730,44 @@ class CoachingRepository:
             .filter(Activity.id == activity_id, Activity.user_id == user_id)
             .one_or_none()
         )
+
+    def activity_evidence_batch(self, *, user_id: int, activities: list) -> dict:
+        """Batch-read local sources and reuse persisted calculations when their fingerprint matches."""
+        from app.services.coaching.evidence import VERSION, build_evidence, fingerprint, threshold_values
+
+        if not activities:
+            return {}
+        if any(activity.user_id != user_id for activity in activities):
+            raise ValueError("Coaching evidence activities must belong to the requested athlete.")
+        ids = [activity.id for activity in activities]
+        streams = {row.activity_id: row for row in self.session.query(ActivityStream).filter(ActivityStream.activity_id.in_(ids))}
+        splits = {row.activity_id: row for row in self.session.query(ActivitySplits).filter(ActivitySplits.activity_id.in_(ids))}
+        stored = {row.activity_id: row for row in self.session.query(ActivityCoachingEvidence).filter(ActivityCoachingEvidence.activity_id.in_(ids))}
+        routes = {row.activity_id: row.route_group_id for row in self.session.query(ActivityRouteMembership).filter(ActivityRouteMembership.activity_id.in_(ids))}
+        profiles = self.session.query(UserThresholdProfile).filter(UserThresholdProfile.user_id == user_id).order_by(UserThresholdProfile.effective_from.desc()).all()
+        result = {}
+        for activity in activities:
+            day = (activity.start_date_local or activity.start_date_utc).date()
+            profile = next((row for row in profiles if row.effective_from <= day), None)
+            stream, recorded = streams.get(activity.id), splits.get(activity.id)
+            payload = {"version": VERSION, "activity": [activity.id, str(day), activity.sport_type, activity.source_provider,
+                       str(activity.distance_meters), activity.moving_time_seconds, str(activity.total_elevation_gain_meters)],
+                       "thresholds": threshold_values(profile), "route": routes.get(activity.id),
+                       "streams": {name: getattr(stream, name, None) for name in ("time_stream", "distance_stream", "heartrate_stream", "altitude_stream")},
+                       "splits": [recorded.status, recorded.laps] if recorded else None}
+            source_hash = fingerprint(payload)
+            cached = stored.get(activity.id)
+            if cached is not None and cached.source_hash == source_hash:
+                result[activity.id] = cached.facts
+                continue
+            facts = build_evidence(activity, stream, recorded, profile, routes.get(activity.id))
+            statement = pg_insert(ActivityCoachingEvidence).values(activity_id=activity.id, source_hash=source_hash, facts=facts)
+            self.session.execute(statement.on_conflict_do_update(index_elements=["activity_id"], set_={"source_hash": source_hash, "facts": facts}))
+            if cached is not None:
+                self.session.expire(cached)
+            result[activity.id] = facts
+        self.session.flush()
+        return result
 
     def get_stream(self, activity_id: int) -> ActivityStream | None:
         return (

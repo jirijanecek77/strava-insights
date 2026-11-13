@@ -134,6 +134,14 @@ class ActivitySplits(Base):
     laps: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
 
 
+class ActivityCoachingEvidence(Base):
+    __tablename__ = "activity_coaching_evidence"
+
+    activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True)
+    source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    facts: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
 class ActivityStream(Base):
     __tablename__ = "activity_streams"
 
@@ -275,6 +283,7 @@ class ActivityCoachingNote(Base):
 
 class PeriodCoachingSummary(Base):
     __tablename__ = "period_coaching_summaries"
+    __table_args__ = (UniqueConstraint("user_id", "period_type", "period_start", name="uq_period_coaching_summaries_user_period"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -283,6 +292,7 @@ class PeriodCoachingSummary(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     summary: Mapped[str | None] = mapped_column(Text)
     recommendation: Mapped[str | None] = mapped_column(Text)
+    metrics: Mapped[dict | None] = mapped_column(JSON)
     source_hash: Mapped[str | None] = mapped_column(String(64))
     is_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     model: Mapped[str | None] = mapped_column(String(100))

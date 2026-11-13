@@ -1,6 +1,7 @@
 """Local aggregate analytics and display formatting for compact coaching contexts."""
 
 from numbers import Real
+from math import isfinite
 
 MIN_DECOUPLING_DURATION_SECONDS = 20 * 60
 MAX_MOVING_GAP_SECONDS = 60
@@ -31,22 +32,32 @@ def heart_rate_zone_shares(
     ant_heart_rate_bpm: float | None,
 ) -> dict | None:
     """Share of moving time spent below AeT, between AeT and AnT, and above AnT."""
-    if aet_heart_rate_bpm is None or ant_heart_rate_bpm is None:
+    if not (
+        _is_number(aet_heart_rate_bpm)
+        and _is_number(ant_heart_rate_bpm)
+        and 0 < aet_heart_rate_bpm < ant_heart_rate_bpm
+    ):
         return None
-    totals = {"below_aet": 0.0, "aet_to_ant": 0.0, "above_ant": 0.0}
+    totals = {"below_aet": 0.0, "between_aet_ant": 0.0, "above_ant": 0.0}
     for index in range(1, min(len(time_seconds), len(heartrate_bpm))):
         heart_rate = heartrate_bpm[index]
         previous_time, current_time = time_seconds[index - 1], time_seconds[index]
-        if not (_is_number(heart_rate) and _is_number(previous_time) and _is_number(current_time)):
+        if not (
+            _is_number(heart_rate)
+            and _is_number(previous_time)
+            and _is_number(current_time)
+        ):
             continue
         duration = _number(current_time) - _number(previous_time)
         # Long gaps are pauses, not time spent at the recorded heart rate.
         if duration <= 0 or duration > MAX_MOVING_GAP_SECONDS:
             continue
+        if heart_rate <= 0:
+            continue
         if heart_rate < aet_heart_rate_bpm:
             totals["below_aet"] += duration
-        elif heart_rate <= ant_heart_rate_bpm:
-            totals["aet_to_ant"] += duration
+        elif heart_rate < ant_heart_rate_bpm:
+            totals["between_aet_ant"] += duration
         else:
             totals["above_ant"] += duration
     measured = sum(totals.values())
@@ -55,7 +66,10 @@ def heart_rate_zone_shares(
     return {
         "aet_heart_rate_bpm": aet_heart_rate_bpm,
         "ant_heart_rate_bpm": ant_heart_rate_bpm,
-        **{f"{key}_percent": round(value * 100 / measured, 1) for key, value in totals.items()},
+        **{
+            f"{key}_percent": round(value * 100 / measured, 1)
+            for key, value in totals.items()
+        },
     }
 
 
@@ -65,8 +79,13 @@ def aerobic_decoupling_percent(
     """Drop in speed-per-heartbeat from the first to the second half of the activity; positive means drift."""
     points = [
         (_number(time_value), _number(distance_value), _number(heart_rate))
-        for distance_value, time_value, heart_rate in zip(distance_meters, time_seconds, heartrate_bpm)
-        if _is_number(distance_value) and _is_number(time_value) and _is_number(heart_rate) and heart_rate > 0
+        for distance_value, time_value, heart_rate in zip(
+            distance_meters, time_seconds, heartrate_bpm
+        )
+        if _is_number(distance_value)
+        and _is_number(time_value)
+        and _is_number(heart_rate)
+        and heart_rate > 0
     ]
     if len(points) < 4:
         return None
@@ -95,7 +114,7 @@ def _efficiency(points: list[tuple[float, float, float]]) -> float | None:
 
 
 def _is_number(value) -> bool:
-    return isinstance(value, Real) and not isinstance(value, bool)
+    return isinstance(value, Real) and not isinstance(value, bool) and isfinite(value)
 
 
 def _number(value) -> float:

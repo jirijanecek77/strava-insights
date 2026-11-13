@@ -4,7 +4,11 @@ from datetime import UTC, date, datetime
 from app.services.coaching.context_builder import PeriodContext
 from app.services.coaching.context_builder import CoachingContextBuilder
 from app.services.coaching.generator import MAX_ATTEMPTS, CoachingGenerator
-from app.services.coaching.llm_client import LlmCompletion, LlmError, LlmRateLimitedError
+from app.services.coaching.llm_client import (
+    LlmCompletion,
+    LlmError,
+    LlmRateLimitedError,
+)
 
 TODAY = date(2026, 10, 11)
 
@@ -36,21 +40,54 @@ class InMemoryCoachingRepository:
         return self._claim(self.notes, user_id)
 
     def claim_next_period(self, *, user_id=None):
-        weeks_first = sorted(self.periods, key=lambda row: (row.period_type != "week", row.period_start))
+        weeks_first = sorted(
+            self.periods, key=lambda row: (row.period_type != "week", row.period_start)
+        )
         return self._claim(weeks_first, user_id)
 
-    def mark_activity_note_ready(self, note, *, description, summary, recommendation, model, prompt_version):
-        note.status, note.description, note.summary, note.recommendation = "ready", description, summary, recommendation
+    def mark_activity_note_ready(
+        self, note, *, description, summary, recommendation, model, prompt_version
+    ):
+        note.status, note.description, note.summary, note.recommendation = (
+            "ready",
+            description,
+            summary,
+            recommendation,
+        )
 
-    def mark_period_ready(self, period, *, summary, recommendation, source_hash, is_final, model, prompt_version):
-        period.status, period.summary, period.recommendation = "ready", summary, recommendation
+    def mark_period_ready(
+        self,
+        period,
+        *,
+        summary,
+        recommendation,
+        source_hash,
+        is_final,
+        model,
+        prompt_version,
+        metrics=None
+    ):
+        period.status, period.summary, period.recommendation = (
+            "ready",
+            summary,
+            recommendation,
+        )
         period.source_hash, period.is_final = source_hash, is_final
 
     def release_for_retry(self, row, *, error_message, delay_seconds, attempt_count):
-        row.status, row.last_error, row.retry_delay, row.attempt_count = "deferred", error_message, delay_seconds, attempt_count
+        row.status, row.last_error, row.retry_delay, row.attempt_count = (
+            "deferred",
+            error_message,
+            delay_seconds,
+            attempt_count,
+        )
 
     def mark_failed(self, row, *, error_message, attempt_count, source_hash=None):
-        row.status, row.last_error, row.attempt_count = "failed", error_message, attempt_count
+        row.status, row.last_error, row.attempt_count = (
+            "failed",
+            error_message,
+            attempt_count,
+        )
         if source_hash is not None:
             row.source_hash = source_hash
 
@@ -66,9 +103,15 @@ class InMemoryCoachingRepository:
 
     def get_or_create_period(self, *, user_id, period_type, period_start):
         for period in self.periods:
-            if (period.user_id, period.period_type, period.period_start) == (user_id, period_type, period_start):
+            if (period.user_id, period.period_type, period.period_start) == (
+                user_id,
+                period_type,
+                period_start,
+            ):
                 return period
-        period = Row(user_id=user_id, period_type=period_type, period_start=period_start)
+        period = Row(
+            user_id=user_id, period_type=period_type, period_start=period_start
+        )
         self.periods.append(period)
         return period
 
@@ -102,7 +145,9 @@ class ContextBuilderStub:
             context={"period_type": period_type, "in_progress": not self.is_final},
             source_hash=self.source_hash,
             is_final=self.is_final,
-            has_pending_notes=any(note.status in {"pending", "generating", "deferred"} for note in notes),
+            has_pending_notes=any(
+                note.status in {"pending", "generating", "deferred"} for note in notes
+            ),
             has_ready_notes=any(note.status == "ready" for note in notes),
         )
 
@@ -116,7 +161,11 @@ class ScriptedLlm:
 
     def complete_json(self, *, system_prompt, user_prompt):
         self.prompts.append(system_prompt)
-        response = self.responses.pop(0) if self.responses else _default_response(system_prompt)
+        response = (
+            self.responses.pop(0)
+            if self.responses
+            else _default_response(system_prompt)
+        )
         if isinstance(response, Exception):
             raise response
         return LlmCompletion(payload=response, model=self.model)
@@ -124,25 +173,33 @@ class ScriptedLlm:
 
 def _default_response(system_prompt: str) -> dict:
     if "one training activity" in system_prompt:
-        return {"description": "Solid run.", "summary": "Easy 10 km.", "recommendation": "Rest tomorrow."}
+        return {
+            "description": "Solid run.",
+            "summary": "Easy 10 km.",
+            "recommendation": "Rest tomorrow.",
+        }
     return {"summary": "Good period.", "recommendation": "Keep it up."}
 
 
 def _generator(repository, llm, *, configured=True, batch_size=10):
     builder = ContextBuilderStub(repository)
-    return CoachingGenerator(
-        repository=repository,
-        llm_client=llm,
-        context_builder=builder,
-        is_configured=configured,
-        batch_size=batch_size,
-        today=lambda: TODAY,
-    ), builder
+    return (
+        CoachingGenerator(
+            repository=repository,
+            llm_client=llm,
+            context_builder=builder,
+            is_configured=configured,
+            batch_size=batch_size,
+            today=lambda: TODAY,
+        ),
+        builder,
+    )
 
 
 def _repository(*notes: Row) -> InMemoryCoachingRepository:
     return InMemoryCoachingRepository(
-        list(notes), {note.activity_id: datetime(2026, 10, 7, 7, tzinfo=UTC) for note in notes}
+        list(notes),
+        {note.activity_id: datetime(2026, 10, 7, 7, tzinfo=UTC) for note in notes},
     )
 
 
@@ -156,17 +213,35 @@ def test_model_request_uses_recorded_laps_without_stream_excerpts():
         def complete_json(self, *, system_prompt, user_prompt):
             captured["system"] = system_prompt
             captured["context"] = json.loads(user_prompt.split("\n", 1)[1])
-            return LlmCompletion(payload={"description": "Controlled intervals.", "summary": "Good session.",
-                                          "recommendation": "Recover."}, model="test")
+            return LlmCompletion(
+                payload={
+                    "description": "Controlled intervals.",
+                    "summary": "Good session.",
+                    "recommendation": "Recover.",
+                },
+                model="test",
+            )
 
     repository = _repository(Row(user_id=1, activity_id=10))
-    stats = CoachingGenerator(repository=repository, llm_client=CapturingLlm(),
-                              context_builder=CoachingContextBuilder(RepositoryStub()), batch_size=1,
-                              today=lambda: TODAY).run(user_id=1)
+    stats = CoachingGenerator(
+        repository=repository,
+        llm_client=CapturingLlm(),
+        context_builder=CoachingContextBuilder(RepositoryStub()),
+        batch_size=1,
+        today=lambda: TODAY,
+    ).run(user_id=1)
     assert stats.activity_notes_generated == 1
-    assert captured["context"]["splits"][1] == {
-        "split": 2, "type": "INTERVAL", "distance_km": 0.4, "duration_seconds": 100,
-        "pace": "4:10 /km", "avg_hr_bpm": 166,
+    assert {
+        key: value
+        for key, value in captured["context"]["splits"][1].items()
+        if key != "terrain"
+    } == {
+        "split": 2,
+        "type": "INTERVAL",
+        "distance_km": 0.4,
+        "duration_seconds": 100,
+        "pace": "4:10 /km",
+        "avg_hr_bpm": 166,
     }
     assert "streams" not in captured["context"]
     assert all("elevation_change_m" not in lap for lap in captured["context"]["splits"])
@@ -181,8 +256,15 @@ def test_generates_activity_note_then_week_and_month_reviews() -> None:
     stats = generator.run()
 
     note = repository.notes[0]
-    assert (note.status, note.summary, note.recommendation) == ("ready", "Easy 10 km.", "Rest tomorrow.")
-    assert sorted((period.period_type, period.period_start, period.status) for period in repository.periods) == [
+    assert (note.status, note.summary, note.recommendation) == (
+        "ready",
+        "Easy 10 km.",
+        "Rest tomorrow.",
+    )
+    assert sorted(
+        (period.period_type, period.period_start, period.status)
+        for period in repository.periods
+    ) == [
         ("month", date(2026, 10, 1), "ready"),
         ("week", date(2026, 10, 5), "ready"),
     ]
@@ -210,7 +292,9 @@ def test_unchanged_periods_are_not_regenerated_until_they_end() -> None:
 
 
 def test_period_reviews_wait_for_pending_activity_notes() -> None:
-    repository = _repository(Row(user_id=1, activity_id=10), Row(user_id=1, activity_id=11))
+    repository = _repository(
+        Row(user_id=1, activity_id=10), Row(user_id=1, activity_id=11)
+    )
     generator, _ = _generator(repository, ScriptedLlm(), batch_size=1)
 
     stats = generator.run()
@@ -220,7 +304,9 @@ def test_period_reviews_wait_for_pending_activity_notes() -> None:
 
 
 def test_rate_limit_defers_without_counting_an_attempt_and_stops_the_run() -> None:
-    repository = _repository(Row(user_id=1, activity_id=10), Row(user_id=1, activity_id=11))
+    repository = _repository(
+        Row(user_id=1, activity_id=10), Row(user_id=1, activity_id=11)
+    )
     llm = ScriptedLlm(LlmRateLimitedError("quota", retry_after_seconds=37))
     generator, _ = _generator(repository, llm)
 
@@ -244,14 +330,20 @@ def test_repeated_failures_back_off_and_finally_fail() -> None:
     note.status, note.attempt_count = "pending", MAX_ATTEMPTS - 1
     generator.llm_client = ScriptedLlm(LlmError("boom"))
     stats = generator.run()
-    assert (note.status, note.attempt_count, note.last_error) == ("failed", MAX_ATTEMPTS, "boom")
+    assert (note.status, note.attempt_count, note.last_error) == (
+        "failed",
+        MAX_ATTEMPTS,
+        "boom",
+    )
     assert stats.failures == 1
 
 
 def test_invalid_model_answer_is_retried() -> None:
     note = Row(user_id=1, activity_id=10)
     repository = _repository(note)
-    generator, _ = _generator(repository, ScriptedLlm({"description": "Only a description."}))
+    generator, _ = _generator(
+        repository, ScriptedLlm({"description": "Only a description."})
+    )
 
     generator.run()
 
@@ -266,7 +358,12 @@ def test_failed_period_is_not_requeued_until_its_inputs_change() -> None:
     repository.notes[0].status = "ready"
     repository.notes[0].summary = "Easy 10 km."
     repository.periods.append(
-        Row(user_id=1, period_type="week", period_start=date(2026, 10, 5), attempt_count=MAX_ATTEMPTS - 1)
+        Row(
+            user_id=1,
+            period_type="week",
+            period_start=date(2026, 10, 5),
+            attempt_count=MAX_ATTEMPTS - 1,
+        )
     )
     generator.llm_client = ScriptedLlm(*week_error)
 
@@ -304,7 +401,6 @@ def test_missing_activity_marks_note_failed() -> None:
     assert (note.status, note.last_error) == ("failed", "Activity no longer exists.")
 
 
-
 def test_planning_and_notes_share_call_budget():
     from types import SimpleNamespace
     from unittest.mock import Mock
@@ -313,7 +409,9 @@ def test_planning_and_notes_share_call_budget():
     llm = ScriptedLlm()
     generator, _ = _generator(repository, llm, batch_size=1)
     planner = Mock()
-    planner.run.return_value = SimpleNamespace(calls=1, generated=1, failures=0, rate_limited=False)
+    planner.run.return_value = SimpleNamespace(
+        calls=1, generated=1, failures=0, rate_limited=False
+    )
     generator.planning_generator = planner
     stats = generator.run(user_id=1)
     assert stats.training_plans_generated == 1
@@ -326,9 +424,13 @@ def test_planning_rate_limit_stops_notes_too():
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    generator, _ = _generator(_repository(Row(user_id=1, activity_id=10)), ScriptedLlm())
+    generator, _ = _generator(
+        _repository(Row(user_id=1, activity_id=10)), ScriptedLlm()
+    )
     generator.planning_generator = Mock()
-    generator.planning_generator.run.return_value = SimpleNamespace(calls=1, generated=0, failures=0, rate_limited=True)
+    generator.planning_generator.run.return_value = SimpleNamespace(
+        calls=1, generated=0, failures=0, rate_limited=True
+    )
     stats = generator.run(user_id=1)
     assert stats.rate_limited
     assert stats.activity_notes_generated == 0

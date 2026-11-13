@@ -68,6 +68,7 @@ class CoachingReadService:
     def _to_period_item(summary: PeriodCoachingSummary) -> PeriodCoachingItem:
         has_text = summary.summary is not None
         return PeriodCoachingItem(
+            metrics=getattr(summary, "metrics", None),
             period_type=summary.period_type,  # type: ignore[arg-type]
             period_start=summary.period_start,
             period_end=period_end(summary.period_type, summary.period_start),

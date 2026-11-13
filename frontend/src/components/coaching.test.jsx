@@ -60,6 +60,24 @@ describe("PeriodCoachingPanel", () => {
         expect(screen.getByText(/this review will be written shortly/i)).toBeInTheDocument();
     });
 
+    it("shows measured bands and unclassified coverage, preserving unavailable values", () => {
+        render(<PeriodCoachingPanel calendarMonth={new Date(2026, 9, 1)} items={[{
+            period_type: "month", period_start: "2026-10-01", period_end: "2026-10-31", status: "ready",
+            summary: "Limited HR coverage.", metrics: {hr_bands_by_sport: {Run: {
+                bands: {below_aet: {time_s: 3661, distance_m: 12345}, between_aet_ant: {time_s: 0, distance_m: 0},
+                    above_ant: {time_s: null, distance_m: null}},
+                coverage: {unknown_time_s: 600, unknown_distance_m: 1000}, threshold_definitions: [{}, {}],
+            }}},
+        }]}/>);
+        expect(screen.getByRole("table", {name: "Run heart-rate threshold totals"})).toBeInTheDocument();
+        expect(screen.getByText("1:01:01")).toBeInTheDocument();
+        expect(screen.getByText("12.35 km")).toBeInTheDocument();
+        expect(screen.getByText("0.00 km")).toBeInTheDocument();
+        expect(screen.getAllByText("Unavailable")).toHaveLength(2);
+        expect(screen.getByText(/Unclassified: 0:10:00/)).toBeInTheDocument();
+        expect(screen.getByText(/Threshold definitions changed/)).toBeInTheDocument();
+    });
+
     it("renders nothing when there are no reviews", () => {
         const {container} = render(<PeriodCoachingPanel calendarMonth={new Date(2026, 9, 1)} items={[]}/>);
         expect(container).toBeEmptyDOMElement();

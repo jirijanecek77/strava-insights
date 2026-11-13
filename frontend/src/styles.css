@@ -2012,3 +2012,25 @@ button {
 
 .training-plan p { margin: 6px 0 8px; line-height: 1.5; }
 .training-plan-stale { border-color: #b6b6b6; background: #fafafa; }
+
+.coaching-band-totals {
+    overflow-x: auto;
+}
+
+.coaching-band-totals table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.coaching-band-totals caption,
+.coaching-band-totals th,
+.coaching-band-totals td {
+    text-align: left;
+    padding: 0.35rem 0.5rem;
+}
+
+.coaching-band-totals tbody th {
+    font-weight: normal;
+}

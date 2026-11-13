@@ -151,6 +151,41 @@ This document tracks implementation status against [specification.md](specificat
   fatigue, and trends.
 - [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
 
+### Coaching Context and Period Comparisons
+
+Implemented and locally validated on 2026-11-13; design and calculation rules are in
+[coaching_context_plan.md](coaching_context_plan.md). Existing ready text is preserved.
+
+- [x] Reviewed existing activity/period contexts and documented inputs, reusable outputs, missing evidence, and a
+  token-conscious flow for activity, weekly, and monthly coaching.
+- [x] Add backward-safe versioned activity evidence persistence and deterministic HR-band time/distance with dated
+  thresholds, correct AeT/AnT boundaries, explicit unknown coverage, and a bounded local-only evidence population command.
+- [x] Extract compact steady/endurance and tempo-block evidence from stored laps; validate comparable-session matching
+  and insufficient-data rules against representative local activities.
+- [x] Make activity output interpretation-only without repeating displayed KPIs; retain total elevation gain in input
+  and add compact lap/final-section terrain aggregates with coverage/noise handling. Test uphill finishes and missing
+  altitude so late slowing is not labelled fatigue without supporting evidence; propagate terrain limitations to periods.
+- [x] Reuse facts and existing short activity interpretations in compact period contexts; preserve legacy notes
+  and avoid sending laps/streams to period models.
+- [x] Add weekly absolute band time/distance, structured review metrics, and prior-week comparisons with matched windows.
+- [x] Add monthly distance/band comparisons and supported endurance/tempo findings with matched-window handling,
+  evidence counts, limitations, and no dependency on generated weekly prose.
+- [x] Update canonical source hashes and dependent-period planning for current/previous evidence changes; version prompts
+  and provide bounded historical review regeneration while preserving visible ready text and durable retry controls.
+- [x] Update read schemas/UI and developer commands for evidence and metrics; measure representative context/token costs.
+- [x] Pass targeted tests, `make build`, and `make test`; migrate/recreate affected Docker services and verify activity,
+  weekly, and monthly behavior in the local stack before marking this upgrade complete.
+
+Validation: migration `20261113_0025` applied; `make build`, frontend production build, and `make test` passed
+(37 backend, 183 worker, 67 frontend tests). Isolated PostgreSQL tests exercise the full scripted-model generation
+pipeline, evidence reuse/invalidation, metric persistence, legacy preservation, and bounded operator commands.
+Recreated the affected local services and verified real activity/period context preparation and stored-review reads.
+Sample current week/month payloads were about 4.7/7.9 KB with no lap arrays or raw streams.
+
+- [ ] Optional live provider quality review and regeneration of the current week/month: automatic approval review
+  rejected sending private health-derived context to Groq and replacing existing reviews without explicit approval.
+  No provider call or review regeneration occurred; existing summaries remain stored.
+
 ### Coaching Payload Token Reduction
 
 - [x] Compact coaching/planning JSON, omit redundant activity fields and equal elapsed/moving time, and round

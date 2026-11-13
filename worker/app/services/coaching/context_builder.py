@@ -1,7 +1,5 @@
 """Builds compact, data-only prompt contexts for activity coaching notes and period reviews."""
 
-import hashlib
-import json
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Protocol
@@ -10,15 +8,22 @@ from app.services.coaching.metrics import (
     aerobic_decoupling_percent,
     format_duration,
     format_pace,
-    heart_rate_zone_shares,
 )
 from app.services.coaching.prompts import PROMPT_VERSION
+from app.services.coaching.evidence import (
+    build_evidence,
+    aggregate_evidence,
+    compare_performance,
+    fingerprint,
+)
 
 RECENT_ACTIVITY_DAYS = 14
 RECENT_TOTALS_DAYS = 28
 
 
 class CoachingReadRepository(Protocol):
+    def activity_evidence_batch(self, *, user_id: int, activities: list) -> dict: ...
+
     def get_activity(self, *, user_id: int, activity_id: int) -> Any | None: ...
 
     def get_stream(self, activity_id: int) -> Any | None: ...
@@ -69,18 +74,28 @@ class CoachingContextBuilder:
         self.repository = repository
 
     def build_activity_context(self, *, user_id: int, activity_id: int) -> dict | None:
-        activity = self.repository.get_activity(user_id=user_id, activity_id=activity_id)
+        activity = self.repository.get_activity(
+            user_id=user_id, activity_id=activity_id
+        )
         if activity is None:
             return None
         local_start = activity.start_date_local or activity.start_date_utc
         stream = self.repository.get_stream(activity.id)
-        profile = self.repository.get_threshold_profile(user_id=user_id, on_date=local_start.date())
+        profile = self.repository.get_threshold_profile(
+            user_id=user_id, on_date=local_start.date()
+        )
         time_values = _stream_values(stream, "time_stream")
         distance_values = _stream_values(stream, "distance_stream")
         heart_rate_values = _stream_values(stream, "heartrate_stream")
-        recorded = self.repository.get_splits(activity.id) if activity.source_provider == "garmin" else None
+        recorded = (
+            self.repository.get_splits(activity.id)
+            if activity.source_provider == "garmin"
+            else None
+        )
         splits = []
-        for lap in recorded.laps if recorded is not None and recorded.status == "ready" else []:
+        for lap in (
+            recorded.laps if recorded is not None and recorded.status == "ready" else []
+        ):
             row = {
                 "split": lap["number"],
                 "type": lap.get("lap_type"),
@@ -94,8 +109,22 @@ class CoachingContextBuilder:
                 row["speed_kph"] = _optional_precision(lap.get("average_speed_kph"), 1)
             splits.append(_drop_empty(row))
 
-        aet = _optional_float(getattr(profile, "aet_heart_rate_bpm", None))
-        ant = _optional_float(getattr(profile, "ant_heart_rate_bpm", None))
+        evidence = self._evidence(user_id, [activity])[activity.id]
+        terrain_by_lap = {row["lap"]: row for row in evidence["terrain"]["laps"]}
+        for row in splits:
+            terrain = terrain_by_lap.get(row["split"])
+            if terrain and terrain["coverage_fraction"] > 0:
+                row["terrain"] = terrain
+
+        band_time = evidence["hr_bands"]["coverage"]["classified_time_s"]
+        zone_shares = (
+            {
+                f"{band}_percent": round(row["time_s"] * 100 / band_time, 1)
+                for band, row in evidence["hr_bands"]["bands"].items()
+            }
+            if band_time
+            else None
+        )
         context: dict = {
             "activity": _drop_empty(
                 {
@@ -111,13 +140,20 @@ class CoachingContextBuilder:
             ),
             "athlete_thresholds": _thresholds(profile, activity.sport_type),
             "splits": splits,
-            "split_data_limitation": None if splits else "Recorded Garmin laps are unavailable; within-activity pacing and HR changes cannot be assessed.",
-            "heart_rate_zones": heart_rate_zone_shares(
-                time_seconds=time_values,
-                heartrate_bpm=heart_rate_values,
-                aet_heart_rate_bpm=aet,
-                ant_heart_rate_bpm=ant,
+            "activity_evidence": {
+                key: value for key, value in evidence.items() if key != "terrain"
+            },
+            "terrain_context": {
+                key: value
+                for key, value in evidence["terrain"].items()
+                if key != "laps"
+            },
+            "split_data_limitation": (
+                None
+                if splits
+                else "Recorded Garmin laps are unavailable; within-activity pacing and HR changes cannot be assessed."
             ),
+            "heart_rate_zones": zone_shares,
             "aerobic_decoupling_percent": aerobic_decoupling_percent(
                 distance_meters=distance_values,
                 time_seconds=time_values,
@@ -133,54 +169,202 @@ class CoachingContextBuilder:
         self, *, user_id: int, period_type: str, period_start: date, today: date
     ) -> PeriodContext:
         start, end = period_bounds(period_type, period_start)
-        rows = self.repository.list_activities_with_notes(user_id=user_id, start=start, end=end)
+        rows = self.repository.list_activities_with_notes(
+            user_id=user_id, start=start, end=end
+        )
         previous_start, previous_end = period_bounds(
             period_type, previous_period_start(period_type, period_start)
         )
         previous_rows = self.repository.list_activities_with_notes(
             user_id=user_id, start=previous_start, end=previous_end
         )
+        in_progress = end > today
+        current_end = max(start, min(end, today + timedelta(days=1)))
+        rows = [
+            (activity, note)
+            for activity, note in rows
+            if _local_date(activity) < current_end
+        ]
+        comparison_end = (
+            min(previous_end, previous_start + (current_end - start))
+            if in_progress
+            else previous_end
+        )
+        comparable_previous = [
+            (activity, note)
+            for activity, note in previous_rows
+            if _local_date(activity) < comparison_end
+        ]
+        all_activities = {activity.id: activity for activity, _ in rows + previous_rows}
+        facts = self._evidence(user_id, list(all_activities.values()))
+        current_facts = [facts[activity.id] for activity, _ in rows]
+        previous_facts = [facts[activity.id] for activity, _ in comparable_previous]
+        totals = _totals_by_sport(activity for activity, _ in rows)
+        previous_totals = _totals_by_sport(
+            activity for activity, _ in comparable_previous
+        )
+        distance_changes = {}
+        for sport in sorted(set(totals) | set(previous_totals)):
+            current_distance = sum(
+                float(activity.distance_meters or 0)
+                for activity, _ in rows
+                if activity.sport_type == sport
+            )
+            old_distance = sum(
+                float(activity.distance_meters or 0)
+                for activity, _ in comparable_previous
+                if activity.sport_type == sport
+            )
+            distance_changes[sport] = {
+                "current_distance_m": current_distance,
+                "previous_distance_m": old_distance,
+                "change_m": current_distance - old_distance,
+                "change_pct": (
+                    (current_distance / old_distance - 1) * 100
+                    if old_distance
+                    else None
+                ),
+            }
+        # Bounded, chronologically spread interpretations. Totals always cover every activity.
+        cap = 12 if period_type == "month" else 30
+        indices = (
+            sorted(
+                {
+                    round(i * (len(rows) - 1) / (min(cap, len(rows)) - 1))
+                    for i in range(min(cap, len(rows)))
+                }
+            )
+            if len(rows) > 1
+            else list(range(len(rows)))
+        )
         activities = [
             {
-                **_activity_metrics(activity),
-                "coaching_summary": _ready_summary(note),
+                **_activity_metrics(rows[i][0]),
+                "activity_id": rows[i][0].id,
+                "coaching_summary": _ready_summary(rows[i][1]),
             }
-            for activity, note in rows
+            for i in indices
         ]
+        current_bands, previous_bands = aggregate_evidence(
+            current_facts
+        ), aggregate_evidence(previous_facts)
+        band_changes = {}
+        for sport in sorted(set(current_bands) | set(previous_bands)):
+            band_changes[sport] = {}
+            for band in ("below_aet", "between_aet_ant", "above_ant"):
+                current_band = (
+                    current_bands.get(sport, {}).get("bands", {}).get(band, {})
+                )
+                previous_band = (
+                    previous_bands.get(sport, {}).get("bands", {}).get(band, {})
+                )
+                current_distance, previous_distance = current_band.get(
+                    "distance_m"
+                ), previous_band.get("distance_m")
+                band_changes[sport][band] = {
+                    "current_distance_m": current_distance,
+                    "previous_distance_m": previous_distance,
+                    "change_m": (
+                        current_distance - previous_distance
+                        if current_distance is not None
+                        and previous_distance is not None
+                        else None
+                    ),
+                    "change_pct": (
+                        (current_distance / previous_distance - 1) * 100
+                        if current_distance is not None and previous_distance
+                        else None
+                    ),
+                }
         context = {
             "period_type": period_type,
             "period_start": start.isoformat(),
             "period_end": (end - timedelta(days=1)).isoformat(),
-            "in_progress": end > today,
-            "totals_by_sport": _totals_by_sport(activity for activity, _ in rows),
-            "previous_period_totals_by_sport": _totals_by_sport(
+            "in_progress": in_progress,
+            "comparison_windows": {
+                "current_start": str(start),
+                "current_end": str(current_end - timedelta(days=1)),
+                "previous_start": str(previous_start),
+                "previous_end": str(comparison_end - timedelta(days=1)),
+                "current_days": max(0, (current_end - start).days),
+                "previous_days": max(0, (comparison_end - previous_start).days),
+            },
+            "totals_by_sport": totals,
+            "previous_period_totals_by_sport": previous_totals,
+            "previous_full_period_totals_by_sport": _totals_by_sport(
                 activity for activity, _ in previous_rows
             ),
+            "hr_bands_by_sport": current_bands,
+            "hr_band_distance_comparison_by_sport": band_changes,
+            "previous_hr_bands_by_sport": previous_bands,
+            "distance_comparison_by_sport": distance_changes,
+            "performance_comparison": compare_performance(
+                current_facts, previous_facts
+            ),
+            "training_days": len({_local_date(activity) for activity, _ in rows}),
+            "running_days": len(
+                {
+                    _local_date(activity)
+                    for activity, _ in rows
+                    if activity.sport_type == "Run"
+                }
+            ),
+            "rest_days": max(
+                0,
+                (current_end - start).days
+                - len({_local_date(activity) for activity, _ in rows}),
+            ),
+            "interpretation_coverage": {
+                "activities": len(rows),
+                "ready_notes": sum(
+                    _ready_summary(note) is not None for _, note in rows
+                ),
+                "digests_included": len(activities),
+            },
             "activities": activities,
-        }
-        hash_input = [
-            PROMPT_VERSION,
-            period_type,
-            start.isoformat(),
-            [
-                [activity.id, str(activity.distance_meters), activity.moving_time_seconds, _ready_summary(note)]
-                for activity, note in rows
+            "limitations": [
+                "HR-band totals describe measured coverage only; unknown coverage is not assigned to a band.",
+                "Activity summaries are interpretations and may predate terrain-aware prompts; numeric evidence takes precedence.",
+                "Higher volume alone does not demonstrate fitness improvement. Threshold definition changes limit comparisons.",
             ],
-        ]
+        }
+        source_hash = fingerprint(
+            [PROMPT_VERSION, context, current_facts, previous_facts]
+        )
         return PeriodContext(
             context=context,
-            source_hash=hashlib.sha256(json.dumps(hash_input).encode()).hexdigest(),
+            source_hash=source_hash,
             is_final=end <= today,
             has_pending_notes=any(
-                note is not None and note.status in {"pending", "generating"} for _, note in rows
+                note is not None and note.status in {"pending", "generating"}
+                for _, note in rows
             ),
             has_ready_notes=any(_ready_summary(note) is not None for _, note in rows),
         )
 
+    def _evidence(self, user_id, activities):
+        if hasattr(self.repository, "activity_evidence_batch"):
+            return self.repository.activity_evidence_batch(
+                user_id=user_id, activities=activities
+            )
+        return {
+            activity.id: build_evidence(
+                activity,
+                self.repository.get_stream(activity.id),
+                self.repository.get_splits(activity.id),
+                self.repository.get_threshold_profile(
+                    user_id=user_id, on_date=_local_date(activity)
+                ),
+            )
+            for activity in activities
+        }
+
     def _best_efforts(self, user_id: int, activity) -> list[dict]:
         ranks: dict[str, int] = {}
         results = []
-        for effort in self.repository.list_best_efforts(user_id=user_id, sport_type=activity.sport_type):
+        for effort in self.repository.list_best_efforts(
+            user_id=user_id, sport_type=activity.sport_type
+        ):
             rank = ranks.get(effort.effort_code, 0) + 1
             ranks[effort.effort_code] = rank
             if effort.activity_id == activity.id:
@@ -203,9 +387,12 @@ class CoachingContextBuilder:
         earlier = [
             attempt
             for attempt in attempts
-            if attempt.id != activity.id and attempt.start_date_utc < activity.start_date_utc
+            if attempt.id != activity.id
+            and attempt.start_date_utc < activity.start_date_utc
         ]
-        previous = max(earlier, key=lambda attempt: attempt.start_date_utc, default=None)
+        previous = max(
+            earlier, key=lambda attempt: attempt.start_date_utc, default=None
+        )
         return _drop_empty(
             {
                 "attempts_on_this_route": len(attempts),
@@ -236,8 +423,20 @@ class CoachingContextBuilder:
             if other.id != activity.id
         ]
         recent_cutoff = local_start - timedelta(days=RECENT_ACTIVITY_DAYS)
+        recent_facts = self._evidence(
+            user_id,
+            [
+                other
+                for other, _ in rows
+                if (other.start_date_local or other.start_date_utc) >= recent_cutoff
+            ],
+        )
         recent = [
-            {**_activity_metrics(other), "coaching_summary": _ready_summary(note)}
+            {
+                **_activity_metrics(other),
+                "coaching_summary": _ready_summary(note),
+                "comparable_evidence": recent_facts[other.id]["candidates"],
+            }
             for other, note in rows
             if (other.start_date_local or other.start_date_utc) >= recent_cutoff
         ]
@@ -270,7 +469,9 @@ def _activity_metrics(activity) -> dict:
         "avg_hr_bpm": _optional_round(activity.average_heartrate_bpm),
     }
     if activity.sport_type == "Run":
-        metrics["avg_pace"] = format_pace(_optional_float(activity.average_pace_seconds_per_km))
+        metrics["avg_pace"] = format_pace(
+            _optional_float(activity.average_pace_seconds_per_km)
+        )
     else:
         metrics["avg_speed_kph"] = _speed_kph(activity.average_speed_mps)
     return _drop_empty(metrics)
@@ -281,7 +482,12 @@ def _totals_by_sport(activities) -> dict:
     for activity in activities:
         sport = totals.setdefault(
             activity.sport_type,
-            {"activities": 0, "distance_m": 0.0, "moving_time_s": 0, "elevation_gain_m": 0.0},
+            {
+                "activities": 0,
+                "distance_m": 0.0,
+                "moving_time_s": 0,
+                "elevation_gain_m": 0.0,
+            },
         )
         sport["activities"] += 1
         sport["distance_m"] += float(activity.distance_meters or 0)

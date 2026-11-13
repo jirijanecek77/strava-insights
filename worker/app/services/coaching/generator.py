@@ -66,7 +66,9 @@ class CoachingGenerator:
         stats = CoachingRunStats()
         if not self.is_configured:
             stats.skipped_reason = "llm_not_configured"
-            logger.info("Skipping AI coaching generation because no LLM API key is configured.")
+            logger.info(
+                "Skipping AI coaching generation because no LLM API key is configured."
+            )
             return stats
 
         budget = self.batch_size
@@ -116,7 +118,9 @@ class CoachingGenerator:
             )
             if context is None:
                 self.repository.mark_failed(
-                    note, error_message="Activity no longer exists.", attempt_count=note.attempt_count + 1
+                    note,
+                    error_message="Activity no longer exists.",
+                    attempt_count=note.attempt_count + 1,
                 )
                 stats.failures += 1
                 return
@@ -167,16 +171,35 @@ class CoachingGenerator:
                     today=today,
                 )
                 # Wait until every activity note in the period is done, so the review sees all summaries.
-                if period_context.has_pending_notes or not period_context.has_ready_notes:
+                if (
+                    period_context.has_pending_notes
+                    or not period_context.has_ready_notes
+                ):
                     continue
                 period = self.repository.get_or_create_period(
-                    user_id=candidate_user_id, period_type=period_type, period_start=period_start
+                    user_id=candidate_user_id,
+                    period_type=period_type,
+                    period_start=period_start,
                 )
+                # A deployment alone must not replace historical ready text. Explicit regeneration
+                # or a newly generated activity note can upgrade it; unfinished reviews still finalize.
+                legacy_ready = (
+                    period.status == "ready"
+                    and getattr(period, "prompt_version", PROMPT_VERSION)
+                    != PROMPT_VERSION
+                )
+                if legacy_ready and (period.is_final or not period_context.is_final):
+                    if hasattr(
+                        self.repository, "has_new_coaching_notes"
+                    ) and not self.repository.has_new_coaching_notes(period):
+                        self.repository.commit()
+                        continue
                 already_queued = period.status in {"pending", "generating"}
                 inputs_unchanged = period.source_hash == period_context.source_hash
                 needs_final_review = period_context.is_final and not period.is_final
                 if already_queued or (
-                    inputs_unchanged and (period.status == "failed" or not needs_final_review)
+                    inputs_unchanged
+                    and (period.status == "failed" or not needs_final_review)
                 ):
                     self.repository.commit()
                     continue
@@ -193,6 +216,14 @@ class CoachingGenerator:
                 period_start=period.period_start,
                 today=self.today(),
             )
+            if period_context.has_pending_notes:
+                self.repository.release_for_retry(
+                    period,
+                    error_message="Waiting for activity coaching notes.",
+                    delay_seconds=300,
+                    attempt_count=period.attempt_count,
+                )
+                return
             source_hash = period_context.source_hash
             system_prompt, user_prompt = build_period_prompt(period_context.context)
             completion = self.llm_client.complete_json(
@@ -216,6 +247,11 @@ class CoachingGenerator:
             is_final=period_context.is_final,
             model=completion.model,
             prompt_version=PROMPT_VERSION,
+            metrics={
+                key: value
+                for key, value in period_context.context.items()
+                if key != "activities"
+            },
         )
         stats.period_summaries_generated += 1
         logger.info(
@@ -246,7 +282,10 @@ class CoachingGenerator:
             )
             logger.warning(
                 "LLM rate limit reached; pausing AI coaching generation.",
-                extra={"user.id": row.user_id, "retry_after_seconds": exc.retry_after_seconds},
+                extra={
+                    "user.id": row.user_id,
+                    "retry_after_seconds": exc.retry_after_seconds,
+                },
             )
             raise _StopRun() from exc
 
@@ -268,7 +307,10 @@ class CoachingGenerator:
             return
         delay_seconds = min(MAX_RETRY_DELAY_SECONDS, 300 * 2 ** (attempt_count - 1))
         self.repository.release_for_retry(
-            row, error_message=str(exc), delay_seconds=delay_seconds, attempt_count=attempt_count
+            row,
+            error_message=str(exc),
+            delay_seconds=delay_seconds,
+            attempt_count=attempt_count,
         )
         logger.warning(
             f"Failed to generate {label}; it will be retried.",

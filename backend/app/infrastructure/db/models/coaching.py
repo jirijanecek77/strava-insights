@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -15,6 +16,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.models.mixins import TimestampMixin
+
+
+class ActivityCoachingEvidence(Base):
+    __tablename__ = "activity_coaching_evidence"
+
+    activity_id: Mapped[int] = mapped_column(
+        ForeignKey("activities.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    facts: Mapped[dict] = mapped_column(JSON, nullable=False)
 
 
 class ActivityCoachingNote(TimestampMixin, Base):
@@ -75,6 +86,7 @@ class PeriodCoachingSummary(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     summary: Mapped[str | None] = mapped_column(Text)
     recommendation: Mapped[str | None] = mapped_column(Text)
+    metrics: Mapped[dict | None] = mapped_column(JSON)
     source_hash: Mapped[str | None] = mapped_column(String(64))
     is_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     model: Mapped[str | None] = mapped_column(String(100))

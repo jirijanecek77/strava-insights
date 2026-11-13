@@ -62,6 +62,7 @@ function PeriodCoachingItem({item, title}) {
             </div>
             {item.status === "ready" ? (
                 <>
+                    <ThresholdTotals metrics={item.metrics}/>
                     <CoachingParagraphs text={item.summary}/>
                     <CoachingNext label={nextLabel} text={item.recommendation}/>
                 </>
@@ -70,6 +71,35 @@ function PeriodCoachingItem({item, title}) {
             )}
         </article>
     );
+}
+
+function ThresholdTotals({metrics}) {
+    const sports = Object.entries(metrics?.hr_bands_by_sport || {});
+    if (!sports.length) return null;
+    const labels = {below_aet: "Below AeT", between_aet_ant: "AeT to below AnT", above_ant: "At/above AnT"};
+    const duration = (value) => {
+        if (value == null) return "Unavailable";
+        const seconds = Math.round(value);
+        return `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    };
+    return <div className="coaching-band-totals">
+        {sports.map(([sport, data]) => <div key={sport}>
+            <table aria-label={`${sport} heart-rate threshold totals`}>
+                <caption>{sport} · Measured HR bands</caption>
+                <thead><tr><th scope="col">Intensity</th><th scope="col">Time</th><th scope="col">Distance</th></tr></thead>
+                <tbody>{Object.entries(labels).map(([key, label]) => <tr key={key}>
+                    <th scope="row">{label}</th>
+                    <td>{duration(data.bands[key].time_s)}</td>
+                    <td>{data.bands[key].distance_m == null ? "Unavailable" : `${(data.bands[key].distance_m / 1000).toFixed(2)} km`}</td>
+                </tr>)}</tbody>
+            </table>
+            <p className="coaching-text">Unclassified: {duration(data.coverage.unknown_time_s)} · {(data.coverage.unknown_distance_m / 1000).toFixed(2)} km.
+                {data.threshold_definitions?.length > 1 ? " Threshold definitions changed during this period." : ""}
+                {sport !== "Run" ? " Uses your configured HR thresholds." : ""}
+            </p>
+            {data.limitations?.filter((text) => text.includes("exceeds")).map((text) => <p className="coaching-text" key={text}>{text}</p>)}
+        </div>)}
+    </div>;
 }
 
 function CoachingHeading({label, model}) {
