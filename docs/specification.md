@@ -80,6 +80,9 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
 - The repository must expose short task entrypoints such as `make build`, `make up`, `make test`, and `make down`.
 - Windows is the primary local environment, so command design must remain Windows-compatible.
 - Every meaningful iteration should be validated locally.
+- Automated tests must use mocked database sessions/repositories, without PostgreSQL, SQLite or any physical
+  database. Test setup must not use application database credentials or create/drop schemas. Test database-specific
+  contracts through mocks or offline SQL compilation; running all tests must not require exclusion filters.
 - Every meaningful code change must include a successful build validation.
 - Do not rely on deleting or recreating the database as a normal development step.
 - When schema changes are required, add explicit backward-safe migrations.
@@ -421,29 +424,41 @@ Route comparison behavior:
 - Show `Split` and the recorded lap number, meaningful lap type (omit Garmin's generic `active` type), duration,
   average pace/speed, and average HR in a bounds-safe tooltip. Omit the separate distance-range row.
   Show ascent and descent together on one row (`↑ 12 m / ↓ 8 m`), rounded to whole meters, and the elevation at
-  the focused distance when available. Calculate ascent/descent from the original local elevation samples before
-  chart downsampling, interpolating at recorded lap boundaries. Skip missing/invalid samples and stationary or
-  reversed distance segments; omit the totals when no valid elevation segment overlaps the split.
+  the focused distance when available. Read lap ascent/descent from Garmin's persisted `elevationGain` and
+  `elevationLoss` values in meters. Preserve zero; missing, negative, or nonfinite values remain unavailable.
+  Show a missing side as `n/a` and omit the totals row if both sides are unavailable. Do not substitute a
+  stream-derived estimate. Compute net gain/loss only when both provider totals are available.
 - Link chart focus to the existing map and other graphs by distance and the original stream index. Do not equate
   lap indices with stream indices. Reflect focus from other charts in the containing lap.
 - Missing HR omits that tooltip value; missing elevation omits its area and axis. Invalid lap metrics remain gaps rather than zero
   values. Activities without usable distance-based splits show a compact unavailable state.
-- Fetch and persist splits only while importing a new Garmin activity, using the existing import session.
+- Fetch and persist splits while importing a new Garmin activity, using the existing import session, or through
+  an explicitly invoked historical split backfill.
   Activity-detail reads use local data only. Normalize the provider payload at the Garmin adapter boundary,
   with calculation/validation in testable application code.
 - Attempt splits once per new activity; empty responses or non-authentication failures make splits unavailable
   without blocking import. Authentication failures use the existing reconnect flow before inserting the activity.
-  No separate polling job, retry state, or historical backfill is required. Refresh, recalculation, and stream-only
-  backfill do not fetch splits for existing activities. Preserve existing splits, activity data, notes, and plans.
+  No separate polling job or durable split retry queue is required. Refresh, recalculation, and stream-only
+  backfill do not fetch splits for existing activities. An operator-only historical backfill reads Garmin activities
+  already in the local database, uses their source IDs, and preserves unrelated activity data, notes, and plans.
+  It enriches matching recorded lap boundaries with provider elevation totals and preserves existing known totals
+  when the response omits them. Boundary mismatches and request failures stop with a resumable activity-ID cursor.
+  Process bounded database batches until history is exhausted, commit each activity, persist refreshed session tokens,
+  and invalidate user caches. Skip legacy and other users' activities, reject active syncs, and apply bounded retries
+  and pacing to transient provider failures. The backfill does not enqueue AI generation.
 - Import chronological `lapDTOs` from Garmin's activity `/splits` endpoint. Use `averageSpeed` based on Garmin's
   timer duration (excluding timer stops but retaining timed recoveries), with lap distance divided by `duration`
   as the fallback. Do not substitute `averageMovingSpeed`, which can exclude low-speed recoveries. Persist timer,
   moving, and elapsed durations separately; derive running pace from the selected positive average speed.
+  Persist nullable `elevation_gain_meters` and `elevation_loss_meters` in each lap's JSON without changing the SQL
+  schema.
 - Use these persisted laps as the within-activity input for coaching, replacing stream-derived fixed-distance splits
   and any stream excerpts. Send each lap's number/type when available, distance, duration, average running pace or
-  cycling speed, and average HR. Do not send the elevation profile or per-sample data; elevation remains a UI series.
-  Include available activity-level elevation gain in coaching input. Compact local terrain aggregates aligned to
-  recorded laps and the final 20% of distance contextualize pace/HR changes, with explicit altitude coverage.
+  cycling speed, average HR, and available Garmin lap ascent/descent. Send provider totals even without altitude-stream
+  coverage, and identify their source separately from locally calculated net change, grade, and coverage. Missing lap
+  totals stay unavailable. Do not send the elevation profile or per-sample data; elevation remains a UI series.
+  Compact local terrain aggregates aligned to recorded laps and the final 20% of distance contextualize pace/HR changes,
+  with explicit altitude coverage. The final-section aggregates remain stream-derived.
 - Ensure split fetching is attempted before a new activity's coaching note is queued. If splits are unavailable,
   generate from available activity context with an explicit split-data limitation; do not silently substitute stream excerpts or invented laps.
 - Retain useful existing activity KPIs, thresholds, local aggregate analytics, and recent-training context. Prompts
@@ -668,7 +683,8 @@ The calendar should feel closer to a training overview than to a traditional ent
 - An operator can queue notes for a user's latest activities through the worker CLI; this is how existing data is
   tried out without a backfill.
 - Every week (Monday-based) and calendar month that contains at least one activity with a ready note gets one coaching
-  review. Reviews cover all activities in the period, including activities without a note.
+  review. Reviews reuse available saved child results, including numerical facts from activities without a note.
+  Missing saved weeks are reported as incomplete date coverage.
 
 ### Content
 
@@ -676,7 +692,8 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Notes and reviews are analyses, not retellings: they judge training quality (execution of the session's purpose,
   pacing, heart-rate response, zone distribution), fatigue (heart-rate drift, fading pace, heart rate versus recent
   similar sessions, load and rest days), and trends against recent training, and derive recommendations from that.
-- An activity note contains a `description` (three short analysis paragraphs: quality, fatigue, trends), a `summary`
+- An activity note contains a `description` (three short analysis paragraphs: execution/terrain, expected training
+  stimulus, and fatigue/recent comparison), a `summary`
   (at most about 40 words with the analytic verdict, derived from the description in the same model answer and reused
   as input for period reviews), and a `recommendation` for the next training session(s).
 - A period review contains a `summary` analysing the week or month and a `recommendation` for the next period, or for
@@ -696,37 +713,56 @@ The calendar should feel closer to a training overview than to a traditional ent
 
 ### Reusable Context and Period Comparisons
 
-The delivery design and calculation rules are in [coaching_context_plan.md](coaching_context_plan.md).
+The following rules define the implemented coaching hierarchy and period comparisons.
 
-- Compute and persist reusable, versioned activity evidence locally, separately from AI narrative. Activity coaching
-  receives recorded laps; weekly and monthly contexts reuse compact facts and available short interpretations,
-  without forwarding full lap arrays, stream samples, or long activity descriptions.
-- Activity coaching output must interpret execution, effort, fatigue evidence, and training implications without
-  repeating the KPIs already visible above it. Use numerical comparisons only when needed to explain a finding.
-  Keep reusable numerical evidence in structured facts rather than requiring it to be repeated in prose.
-- Include available total elevation gain and compact, locally calculated
-  ascent/descent/grade evidence aligned to recorded laps and the final 20% of distance, with coverage limitations;
-  raw elevation profiles and samples remain excluded. Terrain aggregates accompany the recorded-lap contract.
-  Interpret slowing against this evidence: an uphill finish must not be labelled
-  fatigue from pace/HR changes alone. Total ascent cannot establish hill location; missing terrain evidence must
-  qualify the conclusion. Retain relevant terrain limitations in period comparison evidence.
-- Weekly reviews must report absolute time and distance below AeT, between AeT and AnT, and at/above AnT, with explicit
-  sport scope and coverage. Use HR bands and dated thresholds, with exactly AeT in the middle band and exactly AnT
-  in the upper band. Calculate totals from aligned local streams; lap averages cannot establish exact band totals.
-  Missing inputs remain unavailable rather than being presented as zero. Keep band metrics available as structured
-  stored/read data as well as in the review narrative.
-- Monthly reviews must compare current and previous distances, including running distance by HR band, and assess
-  endurance and tempo development from comparable sustained efforts. Faster pace at comparable HR, sustained duration,
-  and valid steady-effort drift may support a finding; volume growth alone does not establish fitness improvement.
-  Explain insufficient or confounded evidence and never automatically change configured thresholds.
-- For in-progress reviews compare equivalent elapsed calendar windows, identify the dates and exposure, and retain
-  previous full-period totals as context. Aggregate all activities independently of note availability; monthly metrics
-  come directly from activities within calendar-month boundaries, not sums of overlapping or rounded weekly values.
-- Use weekly/monthly summary guidance of approximately 120-180/150-220 words respectively to accommodate
-  the required metrics and analysis. Preserve the existing summary/recommendation text fields and legacy ready text.
-- Use backward-safe evidence storage, complete dependency hashing including previous-period inputs, bounded local-only
-  evidence population, and explicit bounded regeneration of historical reviews. UI reads remain local and generation
-  retains durable queue, retry, lease, and call-budget controls.
+- Coaching follows a persisted hierarchy: activity evaluations feed weekly evaluations; weekly evaluations feed
+  calendar-month evaluations. Running endurance and sustainable pace are the main goals; cycling supplies supporting
+  cardiovascular training and recovery load. Keep the existing shared dated AeT/AnT thresholds.
+- Compute the activity's own numerical evidence locally when preparing that activity's coaching. Store compact,
+  validated numerical facts with the successful short AI interpretation as a consistent reusable result. Retain
+  `activity_coaching_evidence` and period `metrics`; another table is not required for this hierarchy.
+- An activity receives its own KPIs, recorded splits, terrain and eligible sustained-effort evidence, at most seven
+  previous ready activity interpretations, and seven-day volume totals. Previous evaluations are selected by count
+  and timestamp, without a fourteen-day age cutoff. Never use future evaluations as surrounding context.
+- A week reads saved activity evaluations, together with up to three preceding calendar-week reviews. It must not
+  load original streams/laps or calculate activity evidence. Its stored handoff groups unrounded compact numerical
+  facts and input revisions by local activity date. Full activity descriptions and recorded laps do not propagate.
+- A month reads saved weekly handoffs and weekly interpretations, together with up to three preceding calendar-month
+  reviews. It must not query original activities, their notes, evidence, streams, or laps. Local sums and comparisons
+  use the already calculated values saved in the weekly handoffs. The model receives weekly summaries and compact
+  aggregate/comparison evidence, never the stored daily handoff or all activity interpretations.
+- Calendar weeks start Monday. Select exact local dates from each weekly handoff for monthly membership and for
+  matching elapsed-calendar windows in an unfinished month. A boundary week may still be in progress when a month
+  closes. Whole boundary-week prose is labelled as context outside the clipped monthly interval; only the clipped
+  numeric facts support monthly totals and performance comparisons. Never prorate a week or sum rounded percentages.
+  Missing saved weeks are unknown date coverage, not inactivity; do not infer rest days from incomplete history.
+- Weekly tables show absolute time, distance and time-weighted percentages in three HR bands: below AeT, AeT to
+  below AnT, and at/above AnT. Exactly AeT is in the middle band; exactly AnT is in the upper band. Derive percentages
+  from the summed classified durations. Do not average per-activity shares or infer time in zones from lap averages.
+  No additional missing-HR workflow or sport-specific threshold configuration is part of this upgrade.
+- Activity text must explain likely endurance/tempo stimulus and execution without repeating the displayed KPIs.
+  Expected workout benefit is distinct from observed improvement. Preserve relevant terrain explanations in the
+  short summary so an uphill slowdown is not reintroduced as fatigue by a parent evaluation.
+- Include recorded-lap ascent/descent and their net change when available, plus compact grade/final-section context.
+  Total activity ascent cannot locate a hill. Only valid, continuous, steady aerobic blocks on nearly flat terrain
+  may supply raw pace/HR decoupling. Whole-activity decoupling is excluded from activity prompts. Terrain cannot prove
+  the absence of fatigue, and time in a high HR zone alone cannot establish anaerobic or sprint benefit.
+- Monthly endurance and tempo findings use repeated comparable sustained efforts carried through the hierarchy.
+  Display evidence counts and qualify environmental/sampling limitations. Greater volume alone does not establish
+  improved fitness. Missing terrain cannot be replaced by equal lap numbers on the same route. Thresholds are never
+  automatically changed. Activities without suitable recorded laps do not acquire invented comparison blocks.
+- Keep prompts compact: activity summaries at most 40 words, weekly review summaries approximately 70-100 words,
+  monthly summaries 90-130 words. Tables hold exact figures; narrative interprets them. Provider payloads omit
+  persistence metadata, repeated aggregate figures and full candidate details, without reducing stored precision.
+- Child revisions, dates, source facts and surrounding same-level reviews participate in source hashing. New/changed
+  activity results update their week before the month; pending child work defers its parent. Changes arriving during
+  an AI call remain detectable from saved child revisions. An unchanged closed period is not rewritten because a
+  boundary week later gains activity outside that period. Preserve existing text until a replacement succeeds.
+- Reuse legacy cached facts without reading their streams. A ready legacy week may receive a numerical handoff from
+  cached child results while retaining its prose. Activities never evaluated contribute available volume only; missing
+  cached facts do not trigger automatic historical stream analysis. Keep coverage explicit and conclusions limited.
+- Preserve durable queue, retries, leases, call budgets, local-only UI reads, and bounded explicit historical
+  regeneration.
 
 ### Generation Model
 
@@ -741,9 +777,9 @@ The delivery design and calculation rules are in [coaching_context_plan.md](coac
 - Generation runs in the worker right after a sync that imported activities and periodically from `beat`. Workers claim
   rows with leases so concurrent runs never generate the same item twice.
 - Notes for a user are generated only after that user's sync job finishes, so best efforts and route groups already
-  include the new activity. A period review waits until no note in that period is still pending.
-- A period review is regenerated when its inputs change and once more after the period ends, so every finished period
-  ends with a final review.
+  include the new activity. A week waits for pending activity notes; a month waits for pending weekly evaluations.
+- A period review is regenerated when its own saved child results change and once after the period ends.
+  Changes confined to surrounding context or an outside-month part of a boundary week preserve a closed review.
 - Rate-limit responses defer the item until the provider's retry delay without counting an attempt and stop the
   current run. Other failures retry with exponential backoff and become `failed` after five attempts; a failed
   review is retried only when its inputs change.

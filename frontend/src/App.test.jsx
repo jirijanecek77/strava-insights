@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, waitFor, within} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 
 import App from "./App";
 import {
@@ -22,6 +22,7 @@ function jsonResponse(body, status = 200) {
 
 describe("App", () => {
     afterEach(() => {
+        cleanup();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });

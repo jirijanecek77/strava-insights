@@ -154,38 +154,45 @@ This document tracks implementation status against [specification.md](specificat
 
 ### Coaching Context and Period Comparisons
 
-Implemented and locally validated on 2026-11-13; design and calculation rules are in
-[coaching_context_plan.md](coaching_context_plan.md). Existing ready text is preserved.
+The hierarchy redesign supersedes the direct activity-to-month flow introduced in `463805d`.
 
-- [x] Reviewed existing activity/period contexts and documented inputs, reusable outputs, missing evidence, and a
-  token-conscious flow for activity, weekly, and monthly coaching.
-- [x] Add backward-safe versioned activity evidence persistence and deterministic HR-band time/distance with dated
-  thresholds, correct AeT/AnT boundaries, explicit unknown coverage, and a bounded local-only evidence population command.
-- [x] Extract compact steady/endurance and tempo-block evidence from stored laps; validate comparable-session matching
-  and insufficient-data rules against representative local activities.
-- [x] Make activity output interpretation-only without repeating displayed KPIs; retain total elevation gain in input
-  and add compact lap/final-section terrain aggregates with coverage/noise handling. Test uphill finishes and missing
-  altitude so late slowing is not labelled fatigue without supporting evidence; propagate terrain limitations to periods.
-- [x] Reuse facts and existing short activity interpretations in compact period contexts; preserve legacy notes
-  and avoid sending laps/streams to period models.
-- [x] Add weekly absolute band time/distance, structured review metrics, and prior-week comparisons with matched windows.
-- [x] Add monthly distance/band comparisons and supported endurance/tempo findings with matched-window handling,
-  evidence counts, limitations, and no dependency on generated weekly prose.
-- [x] Update canonical source hashes and dependent-period planning for current/previous evidence changes; version prompts
-  and provide bounded historical review regeneration while preserving visible ready text and durable retry controls.
-- [x] Update read schemas/UI and developer commands for evidence and metrics; measure representative context/token costs.
-- [x] Pass targeted tests, `make build`, and `make test`; migrate/recreate affected Docker services and verify activity,
-  weekly, and monthly behavior in the local stack before marking this upgrade complete.
+- [x] Keep existing evidence/period JSON storage and add validated typed activity and period handoffs.
+- [x] Publish a successful activity interpretation with a consistent snapshot of its own numerical facts.
+- [x] Build weeks only from saved activity evaluations; build months only from saved weekly evaluations.
+- [x] Add up to seven past activity interpretations and three past same-type period reviews as bounded context.
+- [x] Preserve exact date-grouped facts for calendar-month boundaries and equal elapsed-window comparisons.
+- [x] Show time-weighted HR-band percentages alongside times/distances using the existing shared thresholds.
+- [x] Distinguish expected endurance/tempo stimulus from measured progress; exclude unqualified whole-session drift.
+- [x] Gate steady-block drift by terrain, continuity and rolling pace; weight HR by duration; reject matching by lap
+  numbers alone.
+- [x] Propagate changed child results week-first within the existing retry/lease/call budget; preserve unchanged closed
+  periods.
+- [x] Keep daily handoffs and repeated figures outside compact AI payloads and reduce review narrative length.
+- [x] Reproduce hierarchy, terrain/interval, percentage, persistence, and dependency-race regressions before fixing
+  them.
 
-Validation: migration `20261113_0025` applied; `make build`, frontend production build, and `make test` passed
-(37 backend, 183 worker, 67 frontend tests). Isolated PostgreSQL tests exercise the full scripted-model generation
-pipeline, evidence reuse/invalidation, metric persistence, legacy preservation, and bounded operator commands.
-Recreated the affected local services and verified real activity/period context preparation and stored-review reads.
-Sample current week/month payloads were about 4.7/7.9 KB with no lap arrays or raw streams.
+Validation uses local tests only at the user's request; Docker, physical databases, and live provider calls are
+excluded.
+The regression suite includes saved-result handoff consistency checks and a scripted-model activity/week/month flow.
+See [development.md](development.md) for full test-suite commands and [specification.md](specification.md#ai-coaching)
+for the implemented hierarchy.
 
-- [ ] Optional live provider quality review and regeneration of the current week/month: automatic approval review
-  rejected sending private health-derived context to Groq and replacing existing reviews without explicit approval.
-  No provider call or review regeneration occurred; existing summaries remain stored.
+### Database-free automated tests
+
+- [x] Replace the backend PostgreSQL engine/schema fixtures with mocked sessions and repository boundaries.
+- [x] Convert worker planning, import and split-backfill tests from PostgreSQL/SQLite storage to mocks.
+- [x] Keep the reverted worker `conftest.py` unchanged; remove marker/filter-dependent test instructions.
+- [x] Preserve HTTP validation/serialization, real analytics, lease/publication, import ordering, retries and
+  lap-enrichment checks.
+- [x] Check migration/query contracts with mocked operations and offline SQL compilation, without executing them against
+  a database.
+- [x] Run both complete Python suites with all SQLAlchemy/PostgreSQL/SQLite connection entry points disabled during
+  verification.
+
+Validation on 2026-11-14: all 228 worker tests and all 43 backend tests passed, without skipped tests or database
+filters.
+The verification process recorded zero physical database connection attempts. Application database configuration and
+production database adapters were unchanged; no database, migration, service, or live AI request was executed.
 
 ### Coaching Payload Token Reduction
 
@@ -280,7 +287,8 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
   ready/unavailable states. No provider requests occur on UI read paths.
 - [x] Replaced coaching's computed distance splits with recorded Garmin laps containing distance, duration,
   average pace/speed, and HR. Removed the obsolete segmentation code and stream-excerpt prompt wording.
-  Activity prompt version 3 explains lap-average limitations; period prompt version 2 remains unchanged so stored
+  The original lap delivery used activity prompt version 3 and period prompt version 2; subsequent hierarchy versions
+  are described above. Stored
   period reviews are not regenerated by this change. Coaching uses an explicit
   limitation when recorded splits are unavailable. Existing ready notes and plans remain stored.
 - [x] Added Splits immediately above Slope, with filled distance-proportional pace/speed steps on the left axis,
@@ -305,7 +313,7 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
 
 - [x] Increased distance-axis density across pace/speed, HR, splits, and slope charts, with whole-kilometer labels
   and automatic collision filtering at narrower widths.
-- [x] Added split ascent/descent on one tooltip row using local elevation samples and interpolated lap boundaries;
+- [x] Added split ascent/descent on one tooltip row, now sourced from persisted Garmin lap totals;
   missing data remains unavailable. Replaced `Lap` with `Split`, omitted the generic `active` type, and removed the
   separate distance-range row while retaining workout types, duration, averages, and focused elevation.
 - [x] Confirmed regression tests fail before the changes, then passed all 75 frontend tests and `npm.cmd run build`
@@ -314,6 +322,26 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
 - [x] Restricted all four distance axes to distinct integer ticks, preserving 1 km spacing over a 12 km activity.
   Covered short activities and fractional total distances with rendered-axis regression tests; all 77 frontend
   tests and the production build pass. Unmount app-test components before restoring network mocks.
+
+### Garmin Lap Elevation and Explicit History Enrichment
+
+- [x] Preserve valid Garmin lap ascent/descent, including zeros, in the existing lap JSON; expose nullable,
+  nonnegative finite values through the activity-detail contract. No SQL schema migration is required.
+- [x] Use stored provider totals in tooltips and activity coaching even without an altitude stream; omit missing
+  totals instead of silently estimating them. Retain local elevation, net-change, grade, and final-section evidence.
+  Updated evidence and activity prompt versions without replacing existing AI text.
+- [x] Added `python -m app.splits_cli backfill` with user-scoped Garmin history, bounded database batches,
+  lap-boundary validation, enrichment of elevation fields only, per-activity commits, session-token persistence,
+  cache invalidation, request pacing/retries, and a resumable internal activity-ID cursor. Missing source totals
+  preserve previously known values; provider errors cannot erase recorded laps. No automatic task or AI generation.
+- [x] Added regression coverage for provider parsing, API compatibility, UI/coaching source selection, and mocked
+  Garmin backfill behavior with mocked persistence. No physical database or live Garmin requests are used by tests.
+- [x] Passed host validation on 2026-11-14: all 228 worker tests and all 43 backend tests with mocked persistence,
+  without exclusions or skips and with zero physical database connection attempts. Earlier frontend validation passed
+  all 76 tests and the production build; Python source compilation and type checks passed for all three backfill
+  modules.
+- [ ] Run the explicit historical backfill in the deployed stack when requested by the operator. It was intentionally
+  not invoked during implementation, and no application or Docker service was started.
 
 ## Remaining Work
 

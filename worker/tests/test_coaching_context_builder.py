@@ -14,8 +14,8 @@ from app.services.coaching.context_builder import (
 from app.services.coaching.llm_client import LlmResponseFormatError
 from app.services.coaching.prompts import (
     build_activity_prompt,
-    compact_context,
     build_period_prompt,
+    compact_context,
     parse_activity_narrative,
     parse_period_review,
 )
@@ -62,6 +62,83 @@ class RepositoryStub:
             9: SimpleNamespace(status="ready", summary="Easy recovery run."),
             10: SimpleNamespace(status="pending", summary=None),
         }
+        self.periods = []
+
+    def list_activity_evaluations(self, *, user_id, start, end):
+        # Fixture preparation represents already persisted child calculations.
+        from app.services.coaching.evidence import build_evidence, fingerprint
+
+        return [
+            {
+                "facts": build_evidence(
+                    activity,
+                    self.get_stream(activity.id),
+                    self.get_splits(activity.id),
+                    self.get_threshold_profile(
+                        user_id=user_id, on_date=activity.start_date_local.date()
+                    ),
+                ),
+                "summary": note.summary if note else None,
+                "status": note.status if note else "missing",
+                "revision": fingerprint(
+                    [
+                        activity.id,
+                        str(activity.distance_meters),
+                        note.summary if note else None,
+                    ]
+                ),
+            }
+            for activity, note in self.list_activities_with_notes(
+                user_id=user_id, start=start, end=end
+            )
+        ]
+
+    def list_period_evaluations(self, *, user_id, period_type, start, end):
+        return [
+            row
+            for row in self.periods
+            if row.period_type == period_type and start <= row.period_start < end
+        ]
+
+    def list_recent_activity_evaluations(self, *, user_id, before, limit):
+        return [
+            row
+            for row in self.list_activity_evaluations(
+                user_id=user_id, start=datetime(2000, 1, 1, tzinfo=UTC), end=before
+            )
+            if row["status"] == "ready"
+        ][-limit:]
+
+    def recent_activity_totals(self, *, user_id, start, end):
+        rows = self.list_activities_with_notes(user_id=user_id, start=start, end=end)
+        return {"Run": {"activities": len(rows)}} if rows else {}
+
+    def prepare_saved_weeks(self):
+        self.periods = []
+        builder = CoachingContextBuilder(self)
+        for start in sorted(
+                {
+                    period_start_for("week", row.start_date_local.date())
+                    for row in (self.old, self.earlier, self.current)
+                }
+        ):
+            context = builder.build_period_context(
+                user_id=1,
+                period_type="week",
+                period_start=start,
+                today=start + timedelta(days=7),
+            )
+            self.periods.append(
+                SimpleNamespace(
+                    period_type="week",
+                    period_start=start,
+                    status="ready",
+                    summary="Saved week.",
+                    source_hash=context.source_hash,
+                    metrics=context.metrics,
+                    is_final=True,
+                )
+            )
 
     def get_activity(self, *, user_id, activity_id):
         return self.current if activity_id == 10 else None
@@ -185,7 +262,7 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
     assert context["heart_rate_zones"]["below_aet_percent"] == pytest.approx(
         51.7, abs=0.5
     )
-    assert context["aerobic_decoupling_percent"] > 0
+    assert "aerobic_decoupling_percent" not in context
     assert context["best_efforts"] == [
         {"distance": "10km", "time": "48:20", "all_time_rank": 2},
         {"distance": "5km", "time": "23:20", "all_time_rank": 1},
@@ -199,13 +276,9 @@ def test_activity_context_combines_metrics_thresholds_efforts_route_and_recent_t
     }
     recent = context["recent_training"]
     assert recent["days_since_previous_activity"] == 2
-    assert [item["date"] for item in recent["activities_last_14_days"]] == [
-        "2026-10-05"
-    ]
-    assert (
-        recent["activities_last_14_days"][0]["coaching_summary"] == "Easy recovery run."
-    )
-    assert recent["totals_last_28_days_by_sport"]["Run"]["activities"] == 2
+    assert [item["date"] for item in recent["previous_activities"]] == ["2026-10-05"]
+    assert recent["previous_activities"][0]["summary"] == "Easy recovery run."
+    assert recent["totals_last_7_days_by_sport"]["Run"]["activities"] == 1
 
     system_prompt, user_prompt = build_activity_prompt(context)
     assert "recommendation" in system_prompt
@@ -254,9 +327,7 @@ def test_period_context_flags_pending_notes_and_hashes_its_inputs() -> None:
     assert in_progress.has_ready_notes is True
     assert in_progress.context["totals_by_sport"]["Run"]["activities"] == 2
     assert in_progress.context["previous_period_totals_by_sport"] == {}
-    assert [
-        item.get("coaching_summary") for item in in_progress.context["activities"]
-    ] == [
+    assert [item.get("summary") for item in in_progress.context["activities"]] == [
         "Easy recovery run.",
         None,
     ]

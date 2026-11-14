@@ -47,15 +47,12 @@ def test_aerobic_decoupling_detects_heart_rate_drift_at_constant_pace() -> None:
     time_values = list(range(0, 3601, 60))
     distance_values = [seconds * 3.0 for seconds in time_values]
     heart_rates = [140 if seconds <= 1800 else 154 for seconds in time_values]
-
-    decoupling = aerobic_decoupling_percent(
+    value = aerobic_decoupling_percent(
         distance_meters=distance_values,
         time_seconds=time_values,
         heartrate_bpm=heart_rates,
     )
-
-    assert decoupling is not None
-    assert 8.0 < decoupling < 10.0
+    assert value is not None and 8.0 < value < 10.0
     assert (
         aerobic_decoupling_percent(
             distance_meters=distance_values[:10],
@@ -64,3 +61,14 @@ def test_aerobic_decoupling_detects_heart_rate_drift_at_constant_pace() -> None:
         )
         is None
     )
+
+
+def test_decoupling_weights_heart_rate_by_duration_not_recording_density():
+    times = sorted(set(range(0, 3601, 60)) | set(range(1, 11)))
+    hrs = [170 if 1 <= time <= 10 else 140 if time <= 1800 else 154 for time in times]
+    value = aerobic_decoupling_percent(
+        time_seconds=times,
+        distance_meters=[time * 3 for time in times],
+        heartrate_bpm=hrs,
+    )
+    assert 8.5 < value < 10

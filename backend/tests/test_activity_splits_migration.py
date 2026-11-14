@@ -1,11 +1,12 @@
-"""Exercise schema cleanup against real PostgreSQL while preserving recorded data."""
+"""Verify the migration's safety contract using offline SQL generation, with no database."""
 
 import importlib.util
+from io import StringIO
 from pathlib import Path
+from unittest.mock import Mock
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import inspect, text
 
 
 def load_migration(filename, operations):
@@ -17,36 +18,42 @@ def load_migration(filename, operations):
     return module
 
 
-def test_cleanup_preserves_laps_and_finalizes_pending_rows(db_session):
-    with db_session.bind.connect() as connection, connection.begin():
-        # A separate transactional schema keeps the migration independent of the current ORM.
-        connection.execute(text("CREATE SCHEMA pytest_splits_migration"))
-        connection.execute(text("SET LOCAL search_path TO pytest_splits_migration"))
-        connection.execute(text("CREATE TABLE activities (id integer PRIMARY KEY)"))
-        operations = Operations(MigrationContext.configure(connection))
-        original = load_migration("20261111_0023_activity_splits.py", operations)
-        cleanup = load_migration("20261111_0024_inline_activity_splits.py", operations)
-        original.upgrade()
-        connection.execute(text("INSERT INTO activities VALUES (1), (2), (3), (4)"))
-        connection.execute(text("""
-            INSERT INTO activity_splits (activity_id, status, laps, attempt_count)
-            VALUES (1, 'ready', '[{"number": 1,"average_heartrate_bpm": 145}]', 2),
-                   (2, 'pending', '[]', 3), (3, 'pending', '[{"number": 2}]', 1),
-                   (4, 'unavailable', '[]', 0)
-        """))
-        before = connection.execute(text("SELECT activity_id, laps FROM activity_splits ORDER BY activity_id")).all()
-        cleanup.upgrade()
-        assert {column["name"] for column in inspect(connection).get_columns("activity_splits")} == {
-            "activity_id", "status", "laps"
-        }
-        assert inspect(connection).get_indexes("activity_splits") == []
-        assert connection.execute(text("SELECT activity_id, laps FROM activity_splits ORDER BY activity_id")).all() == before
-        assert connection.execute(text("SELECT status FROM activity_splits ORDER BY activity_id")).scalars().all() == [
-            "ready", "unavailable", "ready", "unavailable"
-        ]
-        status = next(column for column in inspect(connection).get_columns("activity_splits") if column["name"] == "status")
-        assert "unavailable" in status["default"]
-        cleanup.downgrade()
-        assert connection.execute(text("SELECT activity_id, laps FROM activity_splits ORDER BY activity_id")).all() == before
-        cleanup.upgrade()
-        connection.execute(text("DROP SCHEMA pytest_splits_migration CASCADE"))
+def test_cleanup_only_updates_pending_status_and_removes_queue_columns():
+    operations = Mock()
+    migration = load_migration("20261111_0024_inline_activity_splits.py", operations)
+    migration.upgrade()
+    sql = operations.execute.call_args.args[0]
+    assert "WHERE status = 'pending'" in sql
+    assert "jsonb_array_length(laps)" in sql
+    assert "THEN 'ready' ELSE 'unavailable'" in sql
+    assert {call.args[1] for call in operations.drop_column.call_args_list} == {
+        "version",
+        "attempt_count",
+        "next_attempt_at",
+        "fetched_at",
+    }
+    assert all(
+        call.args[0] == "activity_splits"
+        for call in operations.drop_column.call_args_list
+    )
+    operations.drop_table.assert_not_called()
+    operations.alter_column.assert_called_once_with(
+        "activity_splits", "status", server_default="unavailable"
+    )
+
+
+def test_upgrade_and_downgrade_compile_offline_without_replacing_lap_data():
+    output = StringIO()
+    context = MigrationContext.configure(
+        dialect_name="postgresql", opts={"as_sql": True, "output_buffer": output}
+    )
+    migration = load_migration(
+        "20261111_0024_inline_activity_splits.py", Operations(context)
+    )
+    migration.upgrade()
+    migration.downgrade()
+    sql = output.getvalue()
+    assert "ALTER TABLE activity_splits" in sql
+    assert "CREATE INDEX ix_activity_splits_pending" in sql
+    assert "DELETE" not in sql and "TRUNCATE" not in sql and "DROP TABLE" not in sql
+    assert "DROP COLUMN laps" not in sql and "SET laps" not in sql

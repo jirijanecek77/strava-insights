@@ -3,7 +3,9 @@ from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
+from test_coaching_context_builder import RepositoryStub, _activity
 
+from app.services.coaching.context_builder import CoachingContextBuilder
 from app.services.coaching.evidence import (
     aggregate_evidence,
     band_totals,
@@ -13,10 +15,8 @@ from app.services.coaching.evidence import (
     terrain_section,
     threshold_values,
 )
-from app.services.coaching.context_builder import CoachingContextBuilder
 from app.services.coaching.metrics import heart_rate_zone_shares
 from app.services.coaching.prompts import build_activity_prompt
-from test_coaching_context_builder import RepositoryStub, _activity
 
 
 def stream(times, distances, hrs, altitudes=None):
@@ -175,6 +175,66 @@ def sample(activity_id, day, pace=350, hr=150, route=1):
     }
 
 
+def test_hilly_steady_laps_do_not_supply_flat_pace_decoupling():
+    times = list(range(0, 1801, 10))
+    distances = [time * 3 for time in times]
+    laps = [
+        dict(
+            number=1,
+            distance_meters=5400,
+            duration_seconds=1800,
+            average_heartrate_bpm=130,
+        )
+    ]
+    data = stream(
+        times,
+        distances,
+        [130] * len(times),
+        [100 + distance * 0.03 for distance in distances],
+    )
+    _, candidates = lap_evidence(
+        laps, data, {"aet_hr_bpm": 140, "ant_hr_bpm": 165}, "Run"
+    )
+    assert candidates["endurance"][0]["decoupling_pct"] is None
+    assert candidates["endurance"][0]["start_distance_m"] == 0
+    assert candidates["endurance"][0]["end_distance_m"] == 5400
+
+
+def test_same_lap_numbers_with_different_physical_boundaries_are_not_a_match():
+    old, current = sample(1, "2026-10-01"), sample(2, "2026-11-01")
+    for item, start in ((old, 0), (current, 1000)):
+        for candidate in item["candidates"].values():
+            candidate[0].update(
+                net_grade_pct=None,
+                ascent_m_per_km=None,
+                lap_range=[1, 3],
+                start_distance_m=start,
+                end_distance_m=start + 5000,
+            )
+    assert compare_performance([current], [old])["endurance"]["matched_pairs"] == 0
+
+
+def test_auto_lap_averages_do_not_disguise_work_recovery_changes_as_steady_drift():
+    times = list(range(0, 1801, 10))
+    distances = [
+        (time // 180) * 540 + min(time % 180, 90) * 5 + max(0, time % 180 - 90)
+        for time in times
+    ]
+    laps = [
+        dict(
+            number=1,
+            distance_meters=5400,
+            duration_seconds=1800,
+            average_heartrate_bpm=130,
+        )
+    ]
+    data = stream(times, distances, [130] * len(times), [100] * len(times))
+    _, candidates = lap_evidence(
+        laps, data, {"aet_hr_bpm": 140, "ant_hr_bpm": 165}, "Run"
+    )
+    assert candidates["endurance"][0]["decoupling_pct"] is None
+
+
 def test_trends_need_independent_pairs_and_comparable_hr_thresholds_and_terrain():
     old = [sample(1, "2026-10-01"), sample(2, "2026-10-15")]
     current = [sample(3, "2026-11-01", pace=335), sample(4, "2026-11-15", pace=335)]
@@ -189,9 +249,23 @@ def test_trends_need_independent_pairs_and_comparable_hr_thresholds_and_terrain(
     assert compare_performance(current, old)["tempo"]["matched_pairs"] == 0
 
 
+def test_progress_uses_every_matched_pair_while_sending_only_three_examples():
+    old = [sample(i + 1, f"2026-10-{i + 1:02}") for i in range(7)]
+    current = [
+        sample(i + 11, f"2026-11-{i + 1:02}", pace=315 if i in {0, 3, 6} else 350)
+        for i in range(7)
+    ]
+    result = compare_performance(current, old)["tempo"]
+    assert result["matched_pairs"] == 7
+    assert result["median_pace_change_pct"] == 0
+    assert result["status"] == "stable"
+    assert len(result["evidence"]) == 3
+
+
 def test_month_windows_distance_totals_and_prior_evidence_invalidation():
     repo = RepositoryStub()
     repo.old = _activity(8, datetime(2026, 9, 7, tzinfo=UTC), distance="12000")
+    repo.prepare_saved_weeks()
     builder = CoachingContextBuilder(repo)
     first = builder.build_period_context(
         user_id=1,
@@ -203,6 +277,7 @@ def test_month_windows_distance_totals_and_prior_evidence_invalidation():
     assert first.context["distance_comparison_by_sport"]["Run"]["change_m"] == 8000
     assert "laps" not in str(first.context)
     repo.old.distance_meters = 11000
+    repo.prepare_saved_weeks()
     second = builder.build_period_context(
         user_id=1,
         period_type="month",
@@ -230,6 +305,7 @@ def test_calendar_month_clamps_previous_window_and_never_uses_overlapping_weeks(
     repo.old = _activity(8, datetime(2026, 2, 28, tzinfo=UTC))
     repo.earlier = _activity(9, datetime(2026, 3, 1, tzinfo=UTC))
     repo.current = _activity(10, datetime(2026, 3, 31, tzinfo=UTC))
+    repo.prepare_saved_weeks()
     context = (
         CoachingContextBuilder(repo)
         .build_period_context(

@@ -1,7 +1,7 @@
 """Local aggregate analytics and display formatting for compact coaching contexts."""
 
-from numbers import Real
 from math import isfinite
+from numbers import Real
 
 MIN_DECOUPLING_DURATION_SECONDS = 20 * 60
 MAX_MOVING_GAP_SECONDS = 60
@@ -107,7 +107,17 @@ def _efficiency(points: list[tuple[float, float, float]]) -> float | None:
         return None
     duration = points[-1][0] - points[0][0]
     distance = points[-1][1] - points[0][1]
-    average_heart_rate = sum(point[2] for point in points) / len(points)
+    if any(right[0] <= left[0] for left, right in zip(points, points[1:])):
+        return None
+    average_heart_rate = (
+        sum(
+            (right[0] - left[0]) * (left[2] + right[2]) / 2
+            for left, right in zip(points, points[1:])
+        )
+        / duration
+        if duration > 0
+        else 0
+    )
     if duration <= 0 or distance <= 0 or average_heart_rate <= 0:
         return None
     return (distance / duration) / average_heart_rate

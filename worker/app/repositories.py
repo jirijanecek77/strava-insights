@@ -19,7 +19,7 @@ from app.models import (
 )
 from datetime import UTC, date, datetime
 from datetime import timedelta
-from sqlalchemy import and_, exists, or_
+from sqlalchemy import and_, exists, or_, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -603,6 +603,7 @@ class CoachingRepository:
         note.description = description
         note.summary = summary
         note.recommendation = recommendation
+        self._save_activity_evaluation(note, summary, prompt_version)
         self._mark_ready(note, model=model, prompt_version=prompt_version)
 
     def mark_period_ready(
@@ -761,6 +762,10 @@ class CoachingRepository:
                 result[activity.id] = cached.facts
                 continue
             facts = build_evidence(activity, stream, recorded, profile, routes.get(activity.id))
+            # A prepared calculation must not replace the facts used by the last successful
+            # AI evaluation until its replacement has also completed successfully.
+            if cached is not None and cached.facts.get("evaluation"):
+                facts["evaluation"] = cached.facts["evaluation"]
             statement = pg_insert(ActivityCoachingEvidence).values(activity_id=activity.id, source_hash=source_hash, facts=facts)
             self.session.execute(statement.on_conflict_do_update(index_elements=["activity_id"], set_={"source_hash": source_hash, "facts": facts}))
             if cached is not None:
@@ -768,6 +773,85 @@ class CoachingRepository:
             result[activity.id] = facts
         self.session.flush()
         return result
+
+    def _save_activity_evaluation(self, note, summary: str, prompt_version: str) -> None:
+        from app.services.coaching.contracts import ActivityEvaluation, ActivityFacts
+        from app.services.coaching.evidence import fingerprint
+
+        stored = self.session.get(ActivityCoachingEvidence, note.activity_id)
+        if stored is None:
+            raise ValueError("Activity calculations must be prepared before its AI evaluation.")
+        facts = ActivityFacts.model_validate(stored.facts)
+        saved = ActivityEvaluation(
+            facts=facts, summary=summary, status="ready",
+            revision=fingerprint([stored.source_hash, summary, prompt_version]),
+        )
+        stored.facts = {**stored.facts, "evaluation": saved.model_dump(mode="json")}
+
+    def list_activity_evaluations(self, *, user_id: int, start: date, end: date) -> list:
+        """Read cached handoffs only. No source streams, laps, or evidence preparation."""
+        rows = self._activity_evaluations_query(user_id).filter(
+            Activity.start_date_local >= start, Activity.start_date_local < end,
+        ).order_by(Activity.start_date_local, Activity.id).all()
+        return [self._activity_evaluation(*row) for row in rows]
+
+    def list_recent_activity_evaluations(self, *, user_id: int, before: datetime, limit: int) -> list:
+        rows = self._activity_evaluations_query(user_id).filter(
+            Activity.start_date_local < before,
+            ActivityCoachingNote.status == "ready", ActivityCoachingNote.summary.isnot(None),
+        ).order_by(Activity.start_date_local.desc(), Activity.id.desc()).limit(limit).all()
+        return [self._activity_evaluation(*row) for row in reversed(rows)]
+
+    def _activity_evaluations_query(self, user_id):
+        return self.session.query(Activity, ActivityCoachingNote, ActivityCoachingEvidence).outerjoin(
+            ActivityCoachingNote, ActivityCoachingNote.activity_id == Activity.id,
+        ).outerjoin(ActivityCoachingEvidence, ActivityCoachingEvidence.activity_id == Activity.id).filter(
+            Activity.user_id == user_id,
+        ).populate_existing()
+
+    @staticmethod
+    def _activity_evaluation(activity, note, stored):
+        from app.services.coaching.contracts import ActivityEvaluation, ActivityFacts
+        from app.services.coaching.evidence import fingerprint
+
+        status = note.status if note is not None else "missing"
+        if stored is not None and stored.facts.get("evaluation"):
+            return ActivityEvaluation.model_validate(stored.facts["evaluation"]).model_copy(update={"status": status})
+        # Legacy cached calculations and prose are reusable without re-reading their source.
+        # Activities that have never been evaluated can supply volume, but no invented HR facts.
+        facts = stored.facts if stored is not None else {
+            "activity_id": activity.id, "date": str((activity.start_date_local or activity.start_date_utc).date()),
+            "sport": activity.sport_type,
+            "volume": {"distance_m": float(activity.distance_meters or 0),
+                       "moving_time_s": activity.moving_time_seconds or 0},
+            "hr_bands": {"coverage": {"unknown_time_s": activity.moving_time_seconds or 0,
+                                      "unknown_distance_m": float(activity.distance_meters or 0)}},
+        }
+        summary = note.summary if note is not None else None
+        return ActivityEvaluation(
+            facts=ActivityFacts.model_validate(facts), summary=summary, status=status,
+            facts_ready=stored is not None,
+            revision=fingerprint([stored.source_hash if stored is not None else facts, summary,
+                                  note.prompt_version if note is not None else None]),
+        )
+
+    def recent_activity_totals(self, *, user_id: int, start: datetime, end: datetime) -> dict:
+        rows = self.session.query(
+            Activity.sport_type, func.count(Activity.id), func.sum(Activity.distance_meters),
+            func.sum(Activity.moving_time_seconds),
+        ).filter(Activity.user_id == user_id, Activity.start_date_local >= start,
+                 Activity.start_date_local < end).group_by(Activity.sport_type).all()
+        return {sport: {"activities": count, "distance_km": float(distance or 0) / 1000,
+                        "moving_seconds": seconds or 0} for sport, count, distance, seconds in rows}
+
+    def list_period_evaluations(self, *, user_id: int, period_type: str, start: date, end: date) -> list:
+        from app.services.coaching.contracts import PeriodEvaluation
+
+        rows = self.session.query(PeriodCoachingSummary).filter(
+            PeriodCoachingSummary.user_id == user_id, PeriodCoachingSummary.period_type == period_type,
+            PeriodCoachingSummary.period_start >= start, PeriodCoachingSummary.period_start < end,
+        ).order_by(PeriodCoachingSummary.period_start).populate_existing().all()
+        return [PeriodEvaluation.model_validate(row) for row in rows]
 
     def get_stream(self, activity_id: int) -> ActivityStream | None:
         return (

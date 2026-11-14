@@ -48,6 +48,8 @@ def normalize_recorded_splits(payload: dict) -> list[dict]:
             "average_speed_kph": round(speed * 3.6, 4) if speed else None,
             "average_pace_seconds_per_km": round(1000 / speed, 4) if speed else None,
             "average_heartrate_bpm": _number(row.get("averageHR"), positive=True),
+            "elevation_gain_meters": _number(row.get("elevationGain")),
+            "elevation_loss_meters": _number(row.get("elevationLoss")),
         })
         distance += length
         timer = timer + duration if timer is not None and duration is not None else None

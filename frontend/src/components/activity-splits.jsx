@@ -13,7 +13,6 @@ import {
 
 import {
     buildSplitChartData,
-    calculateSplitElevation,
     closestSplitStreamIndex,
     splitAtDistance
 } from "../utils/activity-splits";
@@ -45,9 +44,10 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
     }, [activeIndex, hoverDistance, tooltipVisible]);
     const distance = hoverDistance ?? series.distance_km[activeIndex];
     const focused = splitAtDistance(laps, distance);
-    const elevation = useMemo(() => calculateSplitElevation(focused, series.distance_km, series.altitude_meters),
-        [focused, series.distance_km, series.altitude_meters]);
+    const ascent = focused?.elevation_gain_meters ?? null;
+    const descent = focused?.elevation_loss_meters ?? null;
     const lapType = focused?.lap_type?.toLowerCase();
+    const netElevation = ascent != null && descent != null ? Math.round(ascent - descent) : null;
     const metricName = isRun ? "Avg pace" : "Avg speed";
     const hasMetric = data.some((point) => point.metric != null);
     const hasElevation = data.some((point) => point.altitude != null);
@@ -80,8 +80,11 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
                             ? focused.average_pace_seconds_per_km != null ? formatTooltipSeriesValue("pace", focused.average_pace_seconds_per_km / 60) : "n/a"
                             : focused.average_speed_kph != null ? `${formatNumber(focused.average_speed_kph)} km/h` : "n/a"}</span>
                         {focused.average_heartrate_bpm != null ? <span>Avg HR: {Math.round(focused.average_heartrate_bpm)} bpm</span> : null}
-                        {elevation ? <span
-                            aria-label="Split ascent and descent">↑ {Math.round(elevation.ascent)} m / ↓ {Math.round(elevation.descent)} m</span> : null}
+                        {ascent != null || descent != null ? <span aria-label="Split ascent and descent">
+                            ↑ {ascent != null ? `${Math.round(ascent)} m` : "n/a"} / ↓ {descent != null ? `${Math.round(descent)} m` : "n/a"}
+                        </span> : null}
+                        {netElevation != null ? <span
+                            aria-label="Split net elevation change">Net: {netElevation >= 0 ? "+" : ""}{netElevation} m</span> : null}
                         {typeof altitude === "number" && Number.isFinite(altitude) ? <span>Elevation: {formatAltitudeAxisValue(altitude)}</span> : null}
                     </div> : null}
                     <ResponsiveContainer width="100%" height="100%">

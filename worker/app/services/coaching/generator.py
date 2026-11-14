@@ -7,10 +7,11 @@ from app.services.coaching.context_builder import (
     CoachingContextBuilder,
     period_start_for,
 )
+from app.services.coaching.evidence import fingerprint
 from app.services.coaching.llm_client import LlmClient, LlmRateLimitedError
 from app.services.coaching.prompts import (
-    PROMPT_VERSION,
     ACTIVITY_PROMPT_VERSION,
+    PROMPT_VERSION,
     build_activity_prompt,
     build_period_prompt,
     parse_activity_narrative,
@@ -97,6 +98,8 @@ class CoachingGenerator:
                     break
                 budget -= 1
                 self._generate_period(period, stats)
+                # A successful week makes its month eligible in this same bounded run.
+                stats.periods_planned.extend(self._plan_periods(user_id=user_id))
         except _StopRun:
             stats.rate_limited = True
         logger.info(
@@ -161,7 +164,8 @@ class CoachingGenerator:
                         user_id=candidate_user_id, since=since
                     )
                     for period_type in PERIOD_TYPES
-                }
+                },
+                key=lambda key: (key[0] != "week", key[1]),
             )
             for period_type, period_start in period_keys:
                 period_context = self.context_builder.build_period_context(
@@ -188,12 +192,34 @@ class CoachingGenerator:
                     and getattr(period, "prompt_version", PROMPT_VERSION)
                     != PROMPT_VERSION
                 )
+                if (
+                        period.period_type == "week"
+                        and period.status == "ready"
+                        and not (getattr(period, "metrics", None) or {}).get("hierarchy")
+                        and period_context.metrics is not None
+                ):
+                    # Upgrade the numeric handoff from cached child results only, retaining
+                    # legacy prose. This never reads original streams or calls the model.
+                    period.metrics = period_context.metrics
+                    self.repository.commit()
                 if legacy_ready and (period.is_final or not period_context.is_final):
                     if hasattr(
                         self.repository, "has_new_coaching_notes"
                     ) and not self.repository.has_new_coaching_notes(period):
                         self.repository.commit()
                         continue
+                if (
+                        period.status == "ready"
+                        and period.is_final
+                        and not legacy_ready
+                        and (getattr(period, "metrics", None) or {}).get("hierarchy")
+                        and period_context.metrics is not None
+                        and fingerprint(period.metrics["hierarchy"]["days"])
+                        == fingerprint(period_context.metrics["hierarchy"]["days"])
+                ):
+                    # December changes to a boundary week must not rewrite a closed November.
+                    self.repository.commit()
+                    continue
                 already_queued = period.status in {"pending", "generating"}
                 inputs_unchanged = period.source_hash == period_context.source_hash
                 needs_final_review = period_context.is_final and not period.is_final
@@ -216,10 +242,10 @@ class CoachingGenerator:
                 period_start=period.period_start,
                 today=self.today(),
             )
-            if period_context.has_pending_notes:
+            if period_context.has_pending_notes or not period_context.has_ready_notes:
                 self.repository.release_for_retry(
                     period,
-                    error_message="Waiting for activity coaching notes.",
+                    error_message="Waiting for child coaching evaluations.",
                     delay_seconds=300,
                     attempt_count=period.attempt_count,
                 )
@@ -247,11 +273,15 @@ class CoachingGenerator:
             is_final=period_context.is_final,
             model=completion.model,
             prompt_version=PROMPT_VERSION,
-            metrics={
-                key: value
-                for key, value in period_context.context.items()
-                if key != "activities"
-            },
+            metrics=(
+                period_context.metrics
+                if period_context.metrics is not None
+                else {
+                    key: value
+                    for key, value in period_context.context.items()
+                    if key != "activities"
+                }
+            ),
         )
         stats.period_summaries_generated += 1
         logger.info(

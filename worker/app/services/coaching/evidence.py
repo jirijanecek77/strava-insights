@@ -5,7 +5,7 @@ import json
 from math import isfinite
 from statistics import median
 
-VERSION = 1
+VERSION = 3
 BANDS = ("below_aet", "between_aet_ant", "above_ant")
 
 
@@ -141,6 +141,7 @@ def terrain_section(stream, start_m, end_m):
         "coverage_fraction": round(min(1, coverage), 3),
         "ascent_m": round(ascent, 1) if covered else None,
         "descent_m": round(descent, 1) if covered else None,
+        "net_change_m": round(net, 1) if covered else None,
         "net_grade_pct": round(net * 100 / covered, 2) if covered else None,
     }
 
@@ -159,6 +160,18 @@ def lap_evidence(laps, stream, thresholds, sport):
         end = start + distance
         position = end
         section = terrain_section(stream, start, end)
+        # Recorded totals are independent of stream coverage. Never replace missing Garmin totals with estimates.
+        for field, stored_field in (
+                ("ascent_m", "elevation_gain_meters"),
+                ("descent_m", "elevation_loss_meters"),
+        ):
+            value = number(lap.get(stored_field))
+            section[field] = value if value is not None and value >= 0 else None
+        section["elevation_totals_source"] = (
+            "garmin"
+            if section["ascent_m"] is not None or section["descent_m"] is not None
+            else "unavailable"
+        )
         section["lap"] = lap["number"]
         terrain.append(section)
         duration, hr = number(lap.get("duration_seconds")), number(
@@ -210,6 +223,11 @@ def lap_evidence(laps, stream, thresholds, sport):
         complete_terrain = all(
             row["terrain"]["coverage_fraction"] >= 0.8 for row in rows
         )
+        complete_totals = all(
+            row["terrain"]["ascent_m"] is not None
+            and row["terrain"]["descent_m"] is not None
+            for row in rows
+        )
         decoupling = None
         if kind == "endurance":
             from app.services.coaching.metrics import aerobic_decoupling_percent
@@ -230,6 +248,17 @@ def lap_evidence(laps, stream, thresholds, sport):
             valid_times = [number(row[0]) for row in samples]
             if (
                 complete_terrain
+                    and complete_totals
+                    # Raw pace/HR decoupling is meaningful only on nearly flat work.
+                    # GAP is deliberately not approximated from a whole-lap net grade.
+                    and all(abs(row["terrain"]["net_grade_pct"]) <= 0.5 for row in rows)
+                    and sum(
+                row["terrain"]["ascent_m"] + row["terrain"]["descent_m"]
+                for row in rows
+            )
+                    * 1000
+                    / distance
+                    <= 10
                 and samples
                 and all(time is not None for time in valid_times)
                 and all(
@@ -240,6 +269,9 @@ def lap_evidence(laps, stream, thresholds, sport):
                     for left, right in zip(valid_times, valid_times[1:])
                 )
                 and valid_times[-1] - valid_times[0] >= duration * 0.8
+                    and valid_times[-1] - valid_times[0] <= duration * 1.05
+                    and all(right[1] > left[1] for left, right in zip(samples, samples[1:]))
+                    and _steady_speed(samples)
             ):
                 decoupling = aerobic_decoupling_percent(
                     time_seconds=[row[0] for row in samples],
@@ -249,11 +281,16 @@ def lap_evidence(laps, stream, thresholds, sport):
         candidates[kind].append(
             {
                 "lap_range": [rows[0]["lap"], rows[-1]["lap"]],
+                "start_distance_m": rows[0]["terrain"]["start_distance_m"],
+                "end_distance_m": rows[-1]["terrain"]["end_distance_m"],
                 "duration_s": duration,
                 "distance_m": distance,
                 "pace_s_per_km": duration * 1000 / distance,
                 "decoupling_pct": decoupling,
                 "hr_bpm": sum(row["hr_bpm"] * row["time_s"] for row in rows) / duration,
+                "efficiency_m_per_beat": distance
+                                         * 60
+                                         / sum(row["hr_bpm"] * row["time_s"] for row in rows),
                 "net_grade_pct": (
                     (
                         sum(
@@ -267,7 +304,7 @@ def lap_evidence(laps, stream, thresholds, sport):
                 ),
                 "ascent_m_per_km": (
                     sum(row["terrain"]["ascent_m"] for row in rows) * 1000 / distance
-                    if complete_terrain
+                    if all(row["terrain"]["ascent_m"] is not None for row in rows)
                     else None
                 ),
                 "limitations": [
@@ -281,6 +318,19 @@ def lap_evidence(laps, stream, thresholds, sport):
         for kind, rows in candidates.items()
     }
     return terrain, candidates
+
+
+def _steady_speed(samples):
+    """Reject hidden work/recovery changes using rolling minute speeds, not lap averages."""
+    left = 0
+    speeds = []
+    for right in range(1, len(samples)):
+        while left + 1 < right and samples[right][0] - samples[left + 1][0] >= 60:
+            left += 1
+        duration = samples[right][0] - samples[left][0]
+        if duration >= 60:
+            speeds.append((samples[right][1] - samples[left][1]) / duration)
+    return bool(speeds) and min(speeds) > 0 and max(speeds) / min(speeds) <= 1.2
 
 
 def build_evidence(activity, stream, recorded, profile, route_group_id=None):
@@ -399,12 +449,9 @@ def compare_performance(current, previous):
                             candidate["net_grade_pct"] is not None
                             and baseline["net_grade_pct"] is not None
                         )
-                        same_section = same_route and candidate.get(
-                            "lap_range"
-                        ) == baseline.get("lap_range")
-                        if (has_terrain and not terrain_ok) or (
-                            not has_terrain and not same_section
-                        ):
+                        # Identical lap numbers/distance offsets on a matched loop do
+                        # not prove the same physical terrain (manual/auto laps vary).
+                        if not has_terrain or not terrain_ok:
                             continue
                         score = (
                             not same_route,
@@ -439,8 +486,6 @@ def compare_performance(current, previous):
                         ),
                     }
                 )
-        if len(pairs) > 3:
-            pairs = [pairs[0], pairs[len(pairs) // 2], pairs[-1]]
         pace = median(pair["pace_change_pct"] for pair in pairs) if pairs else None
         duration = (
             median(pair["duration_change_pct"] for pair in pairs) if pairs else None
@@ -469,7 +514,11 @@ def compare_performance(current, previous):
             "median_pace_change_pct": pace,
             "median_duration_change_pct": duration,
             "median_decoupling_change_pp": drift,
-            "evidence": pairs,
+            "evidence": (
+                [pairs[0], pairs[len(pairs) // 2], pairs[-1]]
+                if len(pairs) > 3
+                else pairs
+            ),
             "limitations": [
                 "At least two independent matched session pairs required for a trend.",
                 "Lap averages do not establish workout intent; weather and fatigue can confound comparisons.",

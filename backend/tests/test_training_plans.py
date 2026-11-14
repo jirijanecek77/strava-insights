@@ -7,7 +7,6 @@ from app.infrastructure.db.models.training_plan import (
     TrainingPlanDay,
     TrainingPlanRequest,
 )
-from app.infrastructure.db.models.user import User
 from app.main import app
 
 
@@ -24,50 +23,39 @@ class Athlete:
 
 
 def test_training_plan_reads_are_scoped_and_preserve_old_targets_while_pending(
-    client, db_session, monkeypatch
+        client, monkeypatch
 ):
     monkeypatch.setattr(
         "app.application.read_models.training_plans.datetime",
         SimpleNamespace(now=lambda _: datetime(2026, 11, 10, tzinfo=UTC)),
     )
-    session = db_session
-    session.add_all(
-        [User(id=i, display_name=f"Runner {i}", is_active=True) for i in (1, 2)]
+    from unittest.mock import Mock
+
+    from app.application.read_models import training_plans
+
+    repository = Mock(spec=training_plans.TrainingPlanRepository)
+    request = TrainingPlanRequest(
+        id=2, user_id=1, status="pending", timezone="Europe/Prague", context_json=None
     )
-    session.flush()
-    for i in (1, 2):
-        request = TrainingPlanRequest(
-            user_id=i,
-            source_key="manual:first",
-            status="ready",
-            timezone="Europe/Prague",
-            target_start=date(2026, 11, 30),
-        )
-        session.add(request)
-        session.flush()
-        session.add(
-            TrainingPlanDay(
-                user_id=i,
-                request_id=request.id,
-                planned_date=date(2026, 12, 1),
-                kind="run",
-                focus="easy",
-                distance_meters=10000,
-                pace_seconds_per_km=330,
-                heart_rate_bpm=145,
-                rationale=f"Endurance for athlete {i}",
-                generated_at=datetime.now(UTC),
-            )
-        )
-    session.add(
-        TrainingPlanRequest(
-            user_id=1,
-            source_key="manual:second",
-            status="pending",
-            timezone="Europe/Prague",
-        )
+    day = TrainingPlanDay(
+        user_id=1,
+        request_id=1,
+        planned_date=date(2026, 12, 1),
+        kind="run",
+        focus="easy",
+        distance_meters=10000,
+        pace_seconds_per_km=330,
+        heart_rate_bpm=145,
+        rationale="Endurance for athlete 1",
+        generated_at=datetime.now(UTC),
     )
-    session.commit()
+    repository.latest_request.return_value = request
+    repository.list_days.side_effect = lambda user_id, *, date_from, date_to: (
+        [day] if date_from <= day.planned_date <= date_to else []
+    )
+    monkeypatch.setattr(
+        training_plans, "TrainingPlanRepository", Mock(return_value=repository)
+    )
     app.dependency_overrides[CurrentUserService] = lambda: Athlete()
     response = client.get("/training-plans?date_from=2026-11-30&date_to=2026-12-06")
     assert response.status_code == 200
@@ -93,18 +81,12 @@ def test_training_plan_reads_are_scoped_and_preserve_old_targets_while_pending(
         "long_run_min_km": 18,
         "long_run_max_km": 21,
     }
-    pending = (
-        session.query(TrainingPlanRequest)
-        .filter_by(user_id=1, source_key="manual:second")
-        .one()
-    )
-    pending.context_json = {"weekly_objective": objective}
-    session.commit()
+    request.context_json = {"weekly_objective": objective}
     with_objective = client.get(
         "/training-plans?date_from=2026-11-30&date_to=2026-12-06"
     ).json()
     assert with_objective["weekly_objective"] == objective
-    assert session.query(TrainingPlanRequest).count() == 3
+    assert all(call.args[0] == 1 for call in repository.list_days.call_args_list)
     assert (
         client.get("/training-plans?date_from=2026-11-01&date_to=2026-11-30").json()[
             "items"

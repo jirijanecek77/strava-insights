@@ -72,6 +72,29 @@ npm.cmd run build
 These commands run tests and compile the frontend without starting application services. On other platforms,
 use `npm` instead of `npm.cmd`.
 
+Python tests without Docker (from the repository root):
+
+```powershell
+uv sync --project worker --locked --system-certs
+uv sync --project backend --locked --system-certs
+Push-Location worker
+.\.venv\Scripts\python.exe -m pytest tests -p no:cacheprovider
+Pop-Location
+Push-Location backend
+.\.venv\Scripts\python.exe -m pytest tests -p no:cacheprovider
+Pop-Location
+```
+
+Both complete Python suites use mocked database sessions and repositories. Tests must not open PostgreSQL,
+SQLite, or another physical database, read the application database URL for test storage, or create/drop schemas.
+No database marker, exclusion filter, or service startup is required. Migration and PostgreSQL-specific query contracts
+are checked with mocked operations or offline SQL compilation; those checks do not connect to a database.
+Backend HTTP tests keep real request validation, serialization, analytics and application services while mocking their
+repository boundaries. Worker import/backfill/planning tests mock persistence and retain their behavioral assertions.
+The worker's `conftest.py` only establishes the import path; it does not hide or skip database-dependent tests.
+Use `--cache-dir .venv/uv-cache` for uv when the default user cache is not writable. If validation is restricted to
+only tests, run these test commands and the frontend tests without a build or service restart.
+
 AI coaching:
 
 - Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses the official `groq` Python SDK with
@@ -122,7 +145,7 @@ Useful log inspection commands:
 
 - Recorded Garmin laps are fetched once as part of importing each new activity, using the existing Garmin session,
   before coaching is queued. Full-history imports also fetch laps for newly inserted activities.
-- There is no separate split task, polling schedule, historical backfill, or retry queue. Refresh and Recalculate All
+- There is no separate split task, polling schedule, or retry queue. Refresh and Recalculate All
   fetch splits only for new activities, never for existing activities or stream-only backfills.
 - Empty responses and non-authentication failures are stored as `unavailable` without blocking activity import.
   Authentication failures use the normal sync reconnect flow before the new activity is inserted.
@@ -135,6 +158,34 @@ Useful log inspection commands:
 - New activity coaching uses recorded lap distance/duration, average pace or speed, and average HR, without stream
   excerpts or an elevation profile. Missing splits produce an explicit limitation. Existing notes and plans remain
   stored; elevation remains in the chart.
+- Each normalized lap also stores nullable `elevation_gain_meters` and `elevation_loss_meters` from Garmin. Detail
+  tooltips and activity coaching use these same values, including genuine zeros, without a local estimate fallback.
+  Old laps remain readable with missing totals. The existing JSONB column requires no schema migration.
+
+### Explicit Historical Split Backfill
+
+The following is an operator action that reads Garmin and writes the existing database. It is never run by ordinary
+refresh, Recalculate All, coaching, or UI reads. Finish active syncs and stop worker, beat, and sync-dispatcher before
+running it to avoid simultaneous session refreshes or coaching generation. Keep PostgreSQL and Redis available.
+After deploying the updated images, run from the repository root:
+
+```powershell
+docker compose --env-file .env.secrets run --rm --no-deps worker python -m app.splits_cli backfill --user-id 1 --batch-size 100 --delay-seconds 1 --after-id 0
+```
+
+- The command processes the user's entire stored Garmin history in ID order; the batch size limits each database
+  read, not the total number of activities. Repeat for each athlete as needed. Legacy activity IDs are excluded.
+- Existing laps must match by number and distance boundaries. Only their elevation totals are enriched; other
+  metrics stay intact. Missing splits are populated from a valid response. Empty responses cannot erase recorded laps,
+  and omitted provider totals cannot erase previously known totals. Genuine zero values can replace previous totals.
+- Each activity commits independently. Progress and errors print `--after-id N`; use the last reported cursor to resume.
+  Errors stop without advancing past the failed activity. Resolve boundary mismatches before resuming. Reconnect Garmin
+  if authentication is rejected. Refreshed session tokens are encrypted and saved during processing.
+- Transient requests retry at most three times with backoff. Honor numeric/date `Retry-After`; a requested cooldown
+  longer than 60 seconds stops the command so it can be resumed later instead of retrying early.
+- Caches are invalidated after successful activity writes. Existing notes, reviews, plans, and activity totals are
+  retained; no AI calls are queued. Rebuild local evidence with the existing `prepare-evidence` command below if needed,
+  then restart worker, beat, and sync-dispatcher. Evidence fingerprints also refresh changed facts on their next use.
 
 ## Coaching Evidence and Period Reviews
 
@@ -142,24 +193,31 @@ Useful log inspection commands:
   existing activities and coaching text. Stop worker/beat/sync-dispatcher, build, run
   `docker compose --env-file .env.secrets run --rm backend python -m alembic upgrade head`, then recreate backend,
   frontend, worker, beat, and sync-dispatcher. Use `python -m alembic` so the backend package is importable.
-- Evidence is calculated locally when preparing activity or period context and reused by source fingerprint. It is
+- Evidence is calculated locally for activity coaching and reused by source fingerprint. Week/month context reads
+  saved child evaluations only; it never prepares activity evidence or reads source streams. It is
   independent of model configuration and note availability. Populate older facts without Garmin/AI calls:
   `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli prepare-evidence --user-id 1 --after-id 0 --limit 100`.
   Repeat with the printed `--after-id` to resume; the maximum batch is 1,000. Context preparation refreshes changed facts.
 - Inspect context size without an AI call:
   `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli inspect-context --user-id 1 --period-type month --period-start 2026-11-01`.
-  Counts are approximate input tokens at four characters/token and exclude the system prompt. Local evidence may be
-  persisted by inspection; generated text is untouched.
+  Counts estimate the actual compact provider payload at four characters/token, including the system prompt.
+  Period inspection is read-only and does not prepare evidence, query Garmin, or call the model.
 - Existing ready notes/reviews remain visible. Explicitly queue a bounded historical review update:
   `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli regenerate-periods --user-id 1 --period-type month --date-from 2026-11-01 --date-to 2026-11-01 --limit 1`.
   The dates filter period starts inclusively; `--period-type` is optional and `--limit` is capped at 100. Generating
   rows are skipped, old text is preserved, and this command queues work without calling the provider. Run the existing
   coaching `run` command to consume it; the background queue may also process it. That step sends context to the
   configured model. Deployment alone does not queue a mass replacement of legacy ready reviews.
-- Activity prompt version 4 requests interpretation without repeating displayed KPIs and includes available total
-  ascent, lap terrain, and a final-section aggregate. Weekly/monthly version 3 reuses facts without lap arrays, reports
-  measured HR-band time/distance and coverage, and qualifies endurance/tempo comparisons. Historical activities without
-  recorded laps remain valid for volume/HR totals; unsupported performance trends remain insufficient data.
+- Activity prompt version 6 describes endurance/tempo stimulus, Garmin lap elevation totals, local terrain coverage,
+  and qualified fatigue evidence. Period prompt
+  version 4 uses the activity-to-week-to-month hierarchy, with at most seven preceding activity summaries and three
+  preceding same-type period reviews. Week metrics store date-grouped numeric handoffs outside the provider payload.
+- The hierarchy reuses existing JSON storage (`activity_coaching_evidence.facts.evaluation` and period
+  `metrics.hierarchy`),
+  so no additional migration is required beyond `20261113_0025`. Successful activity prose and its numeric handoff are
+  published together; failed replacement attempts keep the previous consistent result. Old activity text is not
+  regenerated
+  automatically. Ready legacy weekly text can retain its prose while receiving a handoff from already cached facts.
 
 ## Validation Expectations
 

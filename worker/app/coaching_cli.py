@@ -142,11 +142,11 @@ def main(argv: list[str] | None = None) -> None:
                 )
                 .context
             )
-            from app.services.coaching.prompts import compact_context
-            encoded = json.dumps(compact_context(context), separators=(",", ":"))
+            from app.services.coaching.prompts import build_period_prompt
+            system_prompt, encoded = build_period_prompt(context)
             session.commit()
             print(
-                f"Context bytes: {len(encoded.encode())}; estimated input tokens (~4 characters/token, excludes system prompt): {(len(encoded) + 3) // 4}"
+                f"Context bytes: {len(encoded.encode())}; estimated input tokens (~4 characters/token, includes system prompt): {(len(system_prompt) + len(encoded) + 3) // 4}"
             )
     elif args.command == "enqueue-latest":
         _enqueue_latest(user_id=args.user_id, count=args.count)

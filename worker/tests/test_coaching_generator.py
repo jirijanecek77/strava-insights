@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
-from app.services.coaching.context_builder import PeriodContext
-from app.services.coaching.context_builder import CoachingContextBuilder
+from app.services.coaching.context_builder import CoachingContextBuilder, PeriodContext
 from app.services.coaching.generator import MAX_ATTEMPTS, CoachingGenerator
 from app.services.coaching.llm_client import (
     LlmCompletion,
@@ -28,6 +27,7 @@ class Row:
     is_final: bool = False
     last_error: str | None = None
     retry_delay: int | None = None
+    metrics: dict | None = None
 
 
 class InMemoryCoachingRepository:
@@ -73,6 +73,7 @@ class InMemoryCoachingRepository:
             recommendation,
         )
         period.source_hash, period.is_final = source_hash, is_final
+        period.metrics = metrics
 
     def release_for_retry(self, row, *, error_message, delay_seconds, attempt_count):
         row.status, row.last_error, row.retry_delay, row.attempt_count = (
@@ -205,6 +206,7 @@ def _repository(*notes: Row) -> InMemoryCoachingRepository:
 
 def test_model_request_uses_recorded_laps_without_stream_excerpts():
     import json
+
     from test_coaching_context_builder import RepositoryStub
 
     captured = {}
@@ -388,6 +390,93 @@ def test_missing_api_key_skips_without_claiming_work() -> None:
 
     assert stats.skipped_reason == "llm_not_configured"
     assert note.status == "pending"
+
+
+def test_closed_review_detects_a_child_changed_during_the_previous_model_call():
+    repository = _repository(
+        Row(user_id=1, activity_id=10, status="ready", summary="A run.")
+    )
+    repository.has_new_coaching_notes = lambda period: False
+    generator, builder = _generator(repository, ScriptedLlm())
+    builder.is_final = True
+    old_days = [
+        {"date": "2026-10-07", "activities": [], "input_revisions": {"10": "old"}}
+    ]
+    week = Row(
+        user_id=1,
+        period_type="week",
+        period_start=date(2026, 10, 5),
+        status="ready",
+        is_final=True,
+        source_hash="old-parent",
+        metrics={"hierarchy": {"days": old_days}},
+    )
+    repository.periods.append(week)
+    original = builder.build_period_context
+
+    def changed_context(**kwargs):
+        value = original(**kwargs)
+        return PeriodContext(
+            value.context,
+            "new-parent",
+            True,
+            False,
+            True,
+            {
+                "hierarchy": {
+                    "days": [{**old_days[0], "input_revisions": {"10": "new"}}]
+                }
+            },
+        )
+
+    builder.build_period_context = changed_context
+    generator._plan_periods(user_id=1)
+    assert week.status == "pending"
+
+
+def test_real_hierarchy_generates_week_before_month_and_sends_only_week_reviews_to_month():
+    import json
+
+    from test_coaching_hierarchy import SavedRepository, saved_activity
+
+    class HierarchyRepository(InMemoryCoachingRepository, SavedRepository):
+        def __init__(self):
+            InMemoryCoachingRepository.__init__(
+                self,
+                [
+                    Row(
+                        user_id=1,
+                        activity_id=10,
+                        status="ready",
+                        summary="Aerobic benefit.",
+                    )
+                ],
+                {10: datetime(2026, 10, 7, 7, tzinfo=UTC)},
+            )
+            self.activities = [saved_activity(10, "2026-10-07")]
+
+    class CapturingLlm(ScriptedLlm):
+        def __init__(self):
+            super().__init__()
+            self.inputs = []
+
+        def complete_json(self, *, system_prompt, user_prompt):
+            self.inputs.append(json.loads(user_prompt.split("\n", 1)[1]))
+            return super().complete_json(
+                system_prompt=system_prompt, user_prompt=user_prompt
+            )
+
+    repository, llm = HierarchyRepository(), CapturingLlm()
+    generator = CoachingGenerator(
+        repository=repository, llm_client=llm, batch_size=5, today=lambda: TODAY
+    )
+    result = generator.run(user_id=1)
+    assert result.period_summaries_generated == 2
+    assert [item["period_type"] for item in llm.inputs] == ["week", "month"]
+    assert llm.inputs[1]["weeks"][0]["summary"] == "Good period."
+    assert "activities" not in llm.inputs[1]
+    assert all("hierarchy" not in item for item in llm.inputs)
+    assert generator.run(user_id=1).period_summaries_generated == 0
 
 
 def test_missing_activity_marks_note_failed() -> None:

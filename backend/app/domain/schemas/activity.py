@@ -176,6 +176,8 @@ class ActivitySplit(BaseModel):
     average_speed_kph: float | None = None
     average_pace_seconds_per_km: float | None = None
     average_heartrate_bpm: float | None = None
+    elevation_gain_meters: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    elevation_loss_meters: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class ActivitySplitsResponse(BaseModel):

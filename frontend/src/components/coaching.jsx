@@ -86,10 +86,18 @@ function ThresholdTotals({metrics}) {
         {sports.map(([sport, data]) => <div key={sport}>
             <table aria-label={`${sport} heart-rate threshold totals`}>
                 <caption>{sport} · Measured HR bands</caption>
-                <thead><tr><th scope="col">Intensity</th><th scope="col">Time</th><th scope="col">Distance</th></tr></thead>
+                <thead>
+                <tr>
+                    <th scope="col">Intensity</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">% time</th>
+                    <th scope="col">Distance</th>
+                </tr>
+                </thead>
                 <tbody>{Object.entries(labels).map(([key, label]) => <tr key={key}>
                     <th scope="row">{label}</th>
                     <td>{duration(data.bands[key].time_s)}</td>
+                    <td>{data.bands[key].time_percent == null ? "—" : `${data.bands[key].time_percent.toFixed(1)}%`}</td>
                     <td>{data.bands[key].distance_m == null ? "Unavailable" : `${(data.bands[key].distance_m / 1000).toFixed(2)} km`}</td>
                 </tr>)}</tbody>
             </table>

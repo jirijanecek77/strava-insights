@@ -38,6 +38,28 @@ describe("ActivityCoachingCard", () => {
 });
 
 describe("PeriodCoachingPanel", () => {
+    it("shows time-weighted percentages for weekly HR bands", () => {
+        render(<PeriodCoachingPanel calendarMonth={new Date(2026, 10, 1)} items={[{
+            period_type: "week", period_start: "2026-11-02", period_end: "2026-11-08", status: "ready",
+            summary: "Mostly aerobic work.", metrics: {
+                hr_bands_by_sport: {
+                    Run: {
+                        bands: {
+                            below_aet: {time_s: 3600, distance_m: 10000, time_percent: 75},
+                            between_aet_ant: {time_s: 1200, distance_m: 4000, time_percent: 25},
+                            above_ant: {time_s: 0, distance_m: 0, time_percent: 0}
+                        },
+                        coverage: {unknown_time_s: 0, unknown_distance_m: 0}, threshold_definitions: [],
+                    }
+                }
+            },
+        }]}/>);
+        expect(screen.getByRole("columnheader", {name: "% time"})).toBeInTheDocument();
+        expect(screen.getByText("75.0%")).toBeInTheDocument();
+        expect(screen.getByText("25.0%")).toBeInTheDocument();
+        expect(screen.getByText("0.0%")).toBeInTheDocument();
+    });
+
     it("shows the month review first and weeks newest first", () => {
         render(
             <PeriodCoachingPanel

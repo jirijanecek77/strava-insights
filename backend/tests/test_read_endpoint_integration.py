@@ -1,18 +1,14 @@
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+
 from app.application.auth.current_user import CurrentUserService
 from app.domain.schemas.user import CurrentUserResponse
 from app.infrastructure.db.models.activity import Activity
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
-from app.infrastructure.db.models.local_route import (
-    ActivityRouteMembership,
-    RouteGroup,
-)
 from app.infrastructure.db.models.period_summary import PeriodSummary
-from app.infrastructure.db.models.user import User
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 from app.main import app
-from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
 
 
 class CurrentUserServiceStub:
@@ -29,7 +25,7 @@ class CurrentUserServiceStub:
         return self.user
 
 
-def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
+def test_read_endpoints_with_mocked_repositories(client, monkeypatch) -> None:
     today = date.today()
     current_month = today.replace(day=1)
     previous_month = (current_month - timedelta(days=1)).replace(day=1)
@@ -38,14 +34,6 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
     current_week = today - timedelta(days=today.weekday())
     previous_week = current_week - timedelta(days=7)
 
-    user = User(
-        id=1,
-        external_user_id="162181",
-        source_provider="garmin",
-        display_name="Integration Athlete",
-        profile_picture_url=None,
-        is_active=True,
-    )
     profile = UserThresholdProfile(
         user_id=1,
         effective_from=date(1900, 1, 1),
@@ -201,40 +189,46 @@ def test_read_endpoints_with_db_backed_data(client, db_session) -> None:
         ),
     ]
 
-    db_session.add(user)
-    db_session.add(profile)
-    db_session.add(activity)
-    db_session.add(faster_route_activity)
-    db_session.flush()
-    route_group = RouteGroup(
-        id=42,
-        user_id=1,
-        sport_type="Run",
-        representative_activity_id=6,
-        algorithm_version="1",
-        nominal_distance_meters=Decimal("10000.00"),
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from app.application.read_models import best_efforts, dashboard
+    from tests.read_mocks import mock_activity_repositories
+
+    repositories = mock_activity_repositories(
+        monkeypatch, [activity, faster_route_activity]
     )
-    db_session.add(route_group)
-    db_session.flush()
-    db_session.add_all(
-        [
-            ActivityRouteMembership(
-                activity_id=5,
-                route_group_id=42,
-                similarity_score=Decimal("0.9700"),
-            ),
-            ActivityRouteMembership(
-                activity_id=6,
-                route_group_id=42,
-                similarity_score=Decimal("1.0000"),
-            ),
+    repositories.streams.get_for_activity.return_value = stream
+    repositories.user_profiles.get_effective_for_user.return_value = profile
+    repositories.best_efforts.list_for_user.return_value = [
+        faster_best_effort,
+        best_effort,
+    ]
+    repositories.activities.get_route_attempt_group.return_value = SimpleNamespace(
+        id=42,
+        sport_type="Run",
+        nominal_distance_meters=Decimal("10000"),
+        activities=[faster_route_activity, activity],
+    )
+    monkeypatch.setattr(
+        best_efforts,
+        "BestEffortRepository",
+        Mock(return_value=repositories.best_efforts),
+    )
+    summaries = Mock(spec=dashboard.PeriodSummaryRepository)
+    summaries.get_for_period.side_effect = (
+        lambda user_id, *, period_type, period_start, sport_type: [
+            row
+            for row in period_summaries
+            if row.period_type == period_type and row.period_start == period_start
         ]
     )
-    db_session.add(stream)
-    db_session.add(best_effort)
-    db_session.add(faster_best_effort)
-    db_session.add_all(period_summaries)
-    db_session.commit()
+    summaries.list_for_user.side_effect = lambda user_id, *, period_type, sport_type: [
+        row for row in period_summaries if row.period_type == period_type
+    ]
+    monkeypatch.setattr(
+        dashboard, "PeriodSummaryRepository", Mock(return_value=summaries)
+    )
 
     app.dependency_overrides[CurrentUserService] = lambda: CurrentUserServiceStub(1)
     try:
