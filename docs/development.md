@@ -114,6 +114,22 @@ AI coaching:
   `.\make.ps1 ai-plan-replan -AiUserId 2` on Windows. The athlete must exist and be active.
   These shortcuts require a running worker container. Use the CLI commands below for other users or larger batches.
 - Queue notes for a user's latest activities: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli enqueue-latest --user-id <id> --count 3`
+- Replace the latest five activity notes and the latest eligible stored week/month reviews:
+
+  ```powershell
+  docker compose --env-file .env.secrets exec worker python -m app.coaching_cli regenerate-latest --user-id 1 --activity-count 5 --week-count 1 --month-count 1
+  docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id 1 --batch-size 20
+  ```
+
+  `regenerate-latest` only queues work, committing all three levels together without calling the provider or
+  requesting a running plan. Defaults are five activities, one stored week and one stored month. Counts are
+  independent, each from 0 to 100, and at least one must be positive; zero skips that level. Activities are selected
+  by newest start time; reviews by newest period start, independently of the selected activities. Existing text and
+  saved evaluations remain visible until a replacement succeeds. Retry counters/delays/errors are reset, while
+  actively generating rows and locked reviews are skipped. Missing activity notes are created; this explicit
+  period selection only requeues stored reviews. Normal generation also plans affected weeks/months from changed
+  child results. The `run` budget is shared with any other queued notes, reviews and running plans for that user;
+  rate limits/retry delays may require a later run, or the background worker will continue processing.
 - Generate pending plans, notes, and reviews immediately: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli run --user-id <id> --batch-size 10`
 - Request and attempt a new running plan: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli replan --user-id <id>`
 - Print stored plans, notes, and reviews: `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli show --user-id <id>`

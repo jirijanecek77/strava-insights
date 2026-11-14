@@ -22,6 +22,7 @@ from datetime import timedelta
 from sqlalchemy import and_, exists, or_, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
+from typing import Literal
 
 
 class UserRepository:
@@ -538,13 +539,62 @@ class CoachingRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def enqueue_activity_note(self, *, user_id: int, activity_id: int) -> None:
-        self.session.execute(
+    def enqueue_activity_note(
+            self, *, user_id: int, activity_id: int, regenerate: bool = False
+    ) -> None:
+        statement = (
             pg_insert(ActivityCoachingNote)
             .values(user_id=user_id, activity_id=activity_id, status="pending", attempt_count=0)
-            .on_conflict_do_nothing(index_elements=["activity_id"])
         )
+        if regenerate:
+            statement = statement.on_conflict_do_update(
+                index_elements=["activity_id"],
+                set_={
+                    "status": "pending",
+                    "attempt_count": 0,
+                    "next_attempt_at": None,
+                    "lease_expires_at": None,
+                    "last_error": None,
+                },
+                where=and_(
+                    ActivityCoachingNote.user_id == user_id,
+                    ActivityCoachingNote.status != "generating",
+                ),
+            )
+        else:
+            statement = statement.on_conflict_do_nothing(index_elements=["activity_id"])
+        self.session.execute(statement)
         self.session.flush()
+
+    def requeue_latest_periods(
+            self, *, user_id: int, period_type: Literal["week", "month"], count: int
+    ) -> int:
+        """Requeue stored reviews without erasing results or committing the caller's batch."""
+        if count == 0:
+            return 0
+        periods = (
+            self.session.query(PeriodCoachingSummary)
+            .filter(
+                PeriodCoachingSummary.user_id == user_id,
+                PeriodCoachingSummary.period_type == period_type,
+                PeriodCoachingSummary.status != "generating",
+            )
+            .order_by(
+                PeriodCoachingSummary.period_start.desc(),
+                PeriodCoachingSummary.id.desc(),
+            )
+            .limit(count)
+            .with_for_update(skip_locked=True)
+            .all()
+        )
+        for period in periods:
+            period.status = "pending"
+            period.attempt_count = 0
+            period.next_attempt_at = None
+            period.lease_expires_at = None
+            period.last_error = None
+        self.session.flush()
+        return len(periods)
 
     def list_latest_activity_ids(self, *, user_id: int, count: int) -> list[int]:
         rows = (

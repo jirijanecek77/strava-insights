@@ -2,16 +2,15 @@
 
 Examples:
     python -m app.coaching_cli enqueue-latest --user-id 1 --count 3
+    python -m app.coaching_cli regenerate-latest --user-id 1 --activity-count 5 --week-count 1 --month-count 1
     python -m app.coaching_cli run --user-id 1 --batch-size 10
     python -m app.coaching_cli show --user-id 1
     python -m app.coaching_cli replan --user-id 1
 """
 
 import argparse
-import textwrap
 import json
-from datetime import date
-
+import textwrap
 from app.config import settings
 from app.db import SessionLocal
 from app.logging import configure_logging
@@ -24,8 +23,9 @@ from app.models import (
     User,
 )
 from app.repositories import CoachingRepository
-from app.tasks.coaching import run_coaching_generation, run_planning_generation
 from app.services.planning.repository import PlanningRepository
+from app.tasks.coaching import run_coaching_generation, run_planning_generation
+from datetime import date
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -37,6 +37,30 @@ def main(argv: list[str] | None = None) -> None:
     )
     enqueue.add_argument("--user-id", type=int, required=True)
     enqueue.add_argument("--count", type=int, default=3)
+
+    regenerate_latest = commands.add_parser(
+        "regenerate-latest",
+        help="Queue replacements for recent activity notes and stored week/month reviews.",
+    )
+    regenerate_latest.add_argument("--user-id", type=int, required=True)
+    regenerate_latest.add_argument(
+        "--activity-count",
+        type=int,
+        default=5,
+        help="Latest activities to regenerate, from 0 to 100 (default: 5).",
+    )
+    regenerate_latest.add_argument(
+        "--week-count",
+        type=int,
+        default=1,
+        help="Latest eligible stored weekly reviews, from 0 to 100 (default: 1).",
+    )
+    regenerate_latest.add_argument(
+        "--month-count",
+        type=int,
+        default=1,
+        help="Latest eligible stored monthly reviews, from 0 to 100 (default: 1).",
+    )
 
     run = commands.add_parser(
         "run", help="Generate pending coaching notes and period reviews now."
@@ -83,7 +107,17 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     configure_logging(log_level=settings.log_level)
-    if args.command == "prepare-evidence":
+    if args.command == "regenerate-latest":
+        counts = (args.activity_count, args.week_count, args.month_count)
+        if not all(0 <= count <= 100 for count in counts) or not any(counts):
+            parser.error("Counts must be between 0 and 100, with at least one above zero")
+        _regenerate_latest(
+            user_id=args.user_id,
+            activity_count=args.activity_count,
+            week_count=args.week_count,
+            month_count=args.month_count,
+        )
+    elif args.command == "prepare-evidence":
         if not 1 <= args.limit <= 1000:
             parser.error("--limit must be between 1 and 1000")
         with SessionLocal() as session:
@@ -208,6 +242,34 @@ def _enqueue_latest(*, user_id: int, count: int) -> None:
         )
     finally:
         session.close()
+
+
+def _regenerate_latest(
+        *, user_id: int, activity_count: int, week_count: int, month_count: int
+) -> None:
+    with SessionLocal() as session:
+        repository = CoachingRepository(session)
+        activity_ids = (
+            repository.list_latest_activity_ids(user_id=user_id, count=activity_count)
+            if activity_count
+            else []
+        )
+        for activity_id in activity_ids:
+            repository.enqueue_activity_note(
+                user_id=user_id, activity_id=activity_id, regenerate=True
+            )
+        weeks = repository.requeue_latest_periods(
+            user_id=user_id, period_type="week", count=week_count
+        )
+        months = repository.requeue_latest_periods(
+            user_id=user_id, period_type="month", count=month_count
+        )
+        session.commit()
+    print(
+        f"Requested coaching regeneration for activities {activity_ids}; "
+        f"queued {weeks} week and {months} month reviews; existing text remains visible. "
+        "Active generation and locked reviews are skipped. Run coaching to process the queue."
+    )
 
 
 def _show(*, user_id: int) -> None:

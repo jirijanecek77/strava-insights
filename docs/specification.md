@@ -784,6 +784,12 @@ The following rules define the implemented coaching hierarchy and period compari
   current run. Other failures retry with exponential backoff and become `failed` after five attempts; a failed
   review is retried only when its inputs change.
 - Each run is capped by a configurable call budget to stay within provider request and token quotas.
+- Operators can explicitly queue replacements for bounded independent counts of the latest activities, stored
+  weekly reviews and stored monthly reviews. The default is five activities, one week and one month; each count
+  accepts 0 to 100, with at least one positive count. Queue all requested levels in one transaction, reset failed
+  work's retry state, preserve existing text and saved results, and skip active generation/locked reviews. This
+  command does not call the model or request a running plan; the existing generator consumes the durable queue
+  with its usual child-first ordering, leases, retries and shared call budget.
 - UI read paths only read stored coaching rows and never call the model. Existing text stays visible while a
   regeneration is pending.
 

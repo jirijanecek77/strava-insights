@@ -152,6 +152,17 @@ This document tracks implementation status against [specification.md](specificat
   fatigue, and trends.
 - [ ] Review coaching quality over the next weeks of real use and tune prompts (`PROMPT_VERSION`) if needed.
 
+### Explicit Recent Coaching Regeneration
+
+- [x] Added `regenerate-latest` with independent bounded activity/week/month counts (defaults: 5/1/1), including
+  zero-count exclusions and validation before database access.
+- [x] Atomically requeue activity notes and stored period reviews while retaining successful text/evaluations,
+  resetting retry state, and preserving active generation and locked reviews. Ordinary enqueue remains additive.
+- [x] Reproduced missing regeneration behavior with failing tests, then passed targeted CLI, PostgreSQL query,
+  persistence-preservation and hierarchy regression tests with mocked storage and no live provider calls.
+- [x] Passed all 243 worker tests and 43 backend tests locally on 2026-11-14. Further Docker work was excluded at
+  the user's request; this change leaves Docker configuration and dependencies unchanged.
+
 ### Coaching Context and Period Comparisons
 
 The hierarchy redesign supersedes the direct activity-to-month flow introduced in `463805d`.
