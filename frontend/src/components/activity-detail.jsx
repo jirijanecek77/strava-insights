@@ -513,7 +513,7 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                         </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
-                    <XAxis axisLine={false} dataKey="distance" domain={[xMin, xMax]}
+                    <XAxis allowDecimals={false} axisLine={false} dataKey="distance" domain={[xMin, xMax]}
                            tick={{fill: "#6f6b62", fontSize: 11}}
                            tickFormatter={formatNumber} tickLine={false} type="number" tickCount={25} minTickGap={8}
                            interval="preserveStartEnd"/>

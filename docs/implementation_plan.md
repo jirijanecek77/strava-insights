@@ -303,7 +303,7 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
 
 ### Activity Detail Axis and Split Tooltip Refinements
 
-- [x] Increased distance-axis density across pace/speed, HR, splits, and slope charts, with fractional-kilometer labels
+- [x] Increased distance-axis density across pace/speed, HR, splits, and slope charts, with whole-kilometer labels
   and automatic collision filtering at narrower widths.
 - [x] Added split ascent/descent on one tooltip row using local elevation samples and interpolated lap boundaries;
   missing data remains unavailable. Replaced `Lap` with `Split`, omitted the generic `active` type, and removed the
@@ -311,6 +311,9 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
 - [x] Confirmed regression tests fail before the changes, then passed all 75 frontend tests and `npm.cmd run build`
   on 2026-11-14. Improved test text measurements so real rendered axis labels are checked. Per the requested
   validation scope, no application service or Docker stack was started.
+- [x] Restricted all four distance axes to distinct integer ticks, preserving 1 km spacing over a 12 km activity.
+  Covered short activities and fractional total distances with rendered-axis regression tests; all 77 frontend
+  tests and the production build pass. Unmount app-test components before restoring network mocks.
 
 ## Remaining Work
 

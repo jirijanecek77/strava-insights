@@ -346,8 +346,8 @@ Implementation rule:
 - slope when available
 - hover-linked active marker on the map driven by graph focus
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
-- distance axes on pace/speed, heart-rate, splits, and slope charts target 25 ticks (0.5 km spacing over 12 km),
-  preserve fractional kilometers, and omit overlapping labels as the chart narrows
+- distance axes on pace/speed, heart-rate, splits, and slope charts target up to 25 whole-kilometer ticks (1 km spacing
+  over 12 km), with distinct integer labels and automatic overlap filtering as the chart narrows
 - detail-chart axis scaling may ignore abnormal first and last source samples for presentation while preserving their
   original values for tooltips and linked interactions; interior samples must remain visible so interval sessions retain
   their full range

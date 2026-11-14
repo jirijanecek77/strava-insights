@@ -4,7 +4,7 @@ import {describe, expect, it, vi} from "vitest";
 import {ActivityDetail, ActivityTitle, createMapyCzMap} from "./activity-detail";
 import {ActivitySplitsChart} from "./activity-splits";
 
-it.each([1.2, 12, 120])("shows dense, distinct distance ticks across all detail charts for %s km", async (distance) => {
+it.each([1.2, 12, 12.3, 12.8, 120])("shows dense, distinct whole-kilometer ticks across all detail charts for %s km", async (distance) => {
     const distanceValues = Array.from({length: 25}, (_, index) => distance * index / 24);
     const {container} = render(<ActivityDetail activeSeriesIndex={0} detail={{
         id: 11, name: "Morning Run", sport_type: "Run", kpis: {},
@@ -27,11 +27,13 @@ it.each([1.2, 12, 120])("shows dense, distinct distance ticks across all detail 
         expect(axes).toHaveLength(4);
         axes.forEach((axis) => {
             const labels = [...axis.querySelectorAll("text")].map((tick) => tick.textContent);
-            expect(labels.length).toBeGreaterThanOrEqual(13);
+            expect(labels.length).toBeGreaterThanOrEqual(Math.min(13, Math.floor(distance) + 1));
             expect(labels.length).toBeLessThanOrEqual(25);
+            labels.forEach((label) => expect(label).toMatch(/^\d+$/));
             expect(new Set(labels).size).toBe(labels.length);
             expect(labels[0]).toBe("0");
-            expect(labels.at(-1)).toBe(String(distance));
+            expect(Number(labels.at(-1))).toBeGreaterThanOrEqual(Math.floor(distance));
+            expect(Number(labels.at(-1))).toBeLessThanOrEqual(Math.ceil(distance));
         });
     });
 });

@@ -98,7 +98,8 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
                                 </linearGradient>
                             </defs>
                             <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
-                            <XAxis dataKey="distance" type="number" domain={[xMin, xMax]} axisLine={false} tickLine={false}
+                            <XAxis allowDecimals={false} dataKey="distance" type="number" domain={[xMin, xMax]}
+                                   axisLine={false} tickLine={false}
                                    tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={formatNumber}
                                    tickCount={25} minTickGap={8} interval="preserveStartEnd"/>
                             <YAxis yAxisId="metric" hide={!hasMetric} reversed={isRun} domain={["auto", "auto"]}
