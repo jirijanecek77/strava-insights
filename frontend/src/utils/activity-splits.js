@@ -25,6 +25,30 @@ export function closestSplitStreamIndex(distances, distanceKm) {
     return best;
 }
 
+export function calculateSplitElevation(lap, distances, altitudes) {
+    if (!lap || !finite(lap.start_distance_meters) || !finite(lap.end_distance_meters)
+        || lap.end_distance_meters <= lap.start_distance_meters) return null;
+    let ascent = 0;
+    let descent = 0;
+    let hasElevation = false;
+    for (let index = 1; index < distances.length; index += 1) {
+        const start = distances[index - 1] * 1000;
+        const end = distances[index] * 1000;
+        const previous = altitudes[index - 1];
+        const current = altitudes[index];
+        if (!finite(distances[index - 1]) || !finite(distances[index]) || end <= start
+            || !finite(previous) || !finite(current)) continue;
+        const overlap = Math.min(end, lap.end_distance_meters) - Math.max(start, lap.start_distance_meters);
+        if (overlap <= 0) continue;
+        // Interpolate the part of each source segment inside the lap, without bridging missing samples.
+        const change = (current - previous) * overlap / (end - start);
+        ascent += Math.max(0, change);
+        descent += Math.max(0, -change);
+        hasElevation = true;
+    }
+    return hasElevation ? {ascent, descent} : null;
+}
+
 export function buildSplitChartData(laps, distances, altitudes, isRun) {
     const visible = laps.filter((lap) => lap.end_distance_meters > lap.start_distance_meters);
     if (!visible.length) return [];

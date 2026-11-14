@@ -1,8 +1,29 @@
 import {useEffect, useId, useMemo, useState} from "react";
-import {Area, CartesianGrid, ComposedChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
+import {
+    Area,
+    CartesianGrid,
+    ComposedChart,
+    ReferenceArea,
+    ReferenceLine,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis
+} from "recharts";
 
-import {buildSplitChartData, closestSplitStreamIndex, splitAtDistance} from "../utils/activity-splits";
-import {formatAltitudeAxisValue, formatAxisValue, formatDuration, formatNumber, formatTooltipSeriesValue} from "../utils/formatters";
+import {
+    buildSplitChartData,
+    calculateSplitElevation,
+    closestSplitStreamIndex,
+    splitAtDistance
+} from "../utils/activity-splits";
+import {
+    formatAltitudeAxisValue,
+    formatAxisValue,
+    formatDuration,
+    formatNumber,
+    formatTooltipSeriesValue
+} from "../utils/formatters";
 import {EmptyState} from "./common";
 
 export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelectIndex}) {
@@ -24,6 +45,9 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
     }, [activeIndex, hoverDistance, tooltipVisible]);
     const distance = hoverDistance ?? series.distance_km[activeIndex];
     const focused = splitAtDistance(laps, distance);
+    const elevation = useMemo(() => calculateSplitElevation(focused, series.distance_km, series.altitude_meters),
+        [focused, series.distance_km, series.altitude_meters]);
+    const lapType = focused?.lap_type?.toLowerCase();
     const metricName = isRun ? "Avg pace" : "Avg speed";
     const hasMetric = data.some((point) => point.metric != null);
     const hasElevation = data.some((point) => point.altitude != null);
@@ -50,13 +74,14 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
             {!data.length || !hasMetric ? <EmptyState compact text={unavailableText}/> : <>
                 <div aria-label="Splits chart" className="mini-chart splits-chart" role="img">
                     {tooltipVisible && focused ? <div className="detail-chart-tooltip splits-tooltip" style={{left: `clamp(0.5rem, calc(${focusPercent}% - 6rem), calc(100% - 12.5rem))`, top: 8}}>
-                        <span>Lap {focused.number}{focused.lap_type ? ` · ${focused.lap_type.toLowerCase()}` : ""}</span>
-                        <span>{formatNumber(focused.start_distance_meters / 1000)}–{formatNumber(focused.end_distance_meters / 1000)} km</span>
+                        <span>Split {focused.number}{lapType && lapType !== "active" ? ` · ${lapType}` : ""}</span>
                         {focused.duration_seconds != null ? <span>Time: {formatDuration(Math.round(focused.duration_seconds))}</span> : null}
                         <span>{metricName}: {isRun
                             ? focused.average_pace_seconds_per_km != null ? formatTooltipSeriesValue("pace", focused.average_pace_seconds_per_km / 60) : "n/a"
                             : focused.average_speed_kph != null ? `${formatNumber(focused.average_speed_kph)} km/h` : "n/a"}</span>
                         {focused.average_heartrate_bpm != null ? <span>Avg HR: {Math.round(focused.average_heartrate_bpm)} bpm</span> : null}
+                        {elevation ? <span
+                            aria-label="Split ascent and descent">↑ {Math.round(elevation.ascent)} m / ↓ {Math.round(elevation.descent)} m</span> : null}
                         {typeof altitude === "number" && Number.isFinite(altitude) ? <span>Elevation: {formatAltitudeAxisValue(altitude)}</span> : null}
                     </div> : null}
                     <ResponsiveContainer width="100%" height="100%">
@@ -74,7 +99,8 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
                             </defs>
                             <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
                             <XAxis dataKey="distance" type="number" domain={[xMin, xMax]} axisLine={false} tickLine={false}
-                                   tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={formatNumber}/>
+                                   tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={formatNumber}
+                                   tickCount={25} minTickGap={8} interval="preserveStartEnd"/>
                             <YAxis yAxisId="metric" hide={!hasMetric} reversed={isRun} domain={["auto", "auto"]}
                                    interval={0} tickCount={5}
                                    axisLine={false} tickLine={false} width={42} tick={{fill: "#6f6b62", fontSize: 11}}

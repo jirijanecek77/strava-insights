@@ -1,8 +1,40 @@
 import {fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {describe, expect, it, vi} from "vitest";
 
-import {ActivityTitle, createMapyCzMap} from "./activity-detail";
+import {ActivityDetail, ActivityTitle, createMapyCzMap} from "./activity-detail";
 import {ActivitySplitsChart} from "./activity-splits";
+
+it.each([1.2, 12, 120])("shows dense, distinct distance ticks across all detail charts for %s km", async (distance) => {
+    const distanceValues = Array.from({length: 25}, (_, index) => distance * index / 24);
+    const {container} = render(<ActivityDetail activeSeriesIndex={0} detail={{
+        id: 11, name: "Morning Run", sport_type: "Run", kpis: {},
+        series: {
+            distance_km: distanceValues,
+            pace_minutes_per_km: distanceValues.map(() => 5), speed_kph: [],
+            heartrate_bpm: distanceValues.map(() => 145),
+            slope_percent: distanceValues.map(() => 1), altitude_meters: distanceValues.map(() => 200),
+        },
+        splits: {
+            status: "ready", laps: [{
+                number: 1, start_distance_meters: 0,
+                end_distance_meters: distance * 1000, distance_meters: distance * 1000, average_pace_seconds_per_km: 300
+            }]
+        },
+    }}/>);
+
+    await waitFor(() => {
+        const axes = container.querySelectorAll(".recharts-xAxis-tick-labels");
+        expect(axes).toHaveLength(4);
+        axes.forEach((axis) => {
+            const labels = [...axis.querySelectorAll("text")].map((tick) => tick.textContent);
+            expect(labels.length).toBeGreaterThanOrEqual(13);
+            expect(labels.length).toBeLessThanOrEqual(25);
+            expect(new Set(labels).size).toBe(labels.length);
+            expect(labels[0]).toBe("0");
+            expect(labels.at(-1)).toBe(String(distance));
+        });
+    });
+});
 
 it("renders filled pace steps with gray elevation on the right and HR only in the tooltip", async () => {
     const {container} = render(<ActivitySplitsChart isRun activeIndex={0} series={{distance_km: [0, 0.5, 1], altitude_meters: [200, 210, 205]}}

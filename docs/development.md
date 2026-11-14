@@ -60,6 +60,18 @@ Windows fallback when `make` is unavailable:
 - `.\make.ps1 down-prod`
 - `.\make.ps1 logs-prod`
 
+Frontend-only validation when Docker is unavailable or service startup is explicitly excluded:
+
+```powershell
+cd frontend
+npm.cmd ci # Only when dependencies are not already installed.
+npm.cmd run test -- --run
+npm.cmd run build
+```
+
+These commands run tests and compile the frontend without starting application services. On other platforms,
+use `npm` instead of `npm.cmd`.
+
 AI coaching:
 
 - Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses the official `groq` Python SDK with
@@ -151,7 +163,8 @@ Useful log inspection commands:
 
 ## Validation Expectations
 
-- Run `make build` for every meaningful code change.
+- Run `make build` for every meaningful code change; for frontend-only changes without Docker, use the frontend
+  test and production-build commands above.
 - After each meaningful fix, run the relevant automated tests.
 - Prefer validating behavior through the Docker stack rather than ad hoc host-only execution.
 - If a change affects a running service, restart or rebuild the affected Docker service or services before validating the behavior in the stack.

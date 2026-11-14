@@ -7,7 +7,8 @@ This document tracks implementation status against [specification.md](specificat
 ## Status Rules
 
 - Mark work complete only after code is implemented and relevant validation has passed.
-- Every meaningful code change must include a successful `make build`.
+- Every meaningful code change must include a successful build using the validation workflow
+  in [development.md](development.md).
 - Prefer Docker-based validation through the standard command surface in [development.md](development.md).
 
 ## Current State
@@ -299,6 +300,17 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
   cannot be used for Garmin splits; legacy activities show an unavailable state.
 - [x] Confirmed before/after fingerprints match for all stored split laps, activity coaching notes, and training-plan
   days during cleanup. Activity 1455's existing coaching summary was preserved.
+
+### Activity Detail Axis and Split Tooltip Refinements
+
+- [x] Increased distance-axis density across pace/speed, HR, splits, and slope charts, with fractional-kilometer labels
+  and automatic collision filtering at narrower widths.
+- [x] Added split ascent/descent on one tooltip row using local elevation samples and interpolated lap boundaries;
+  missing data remains unavailable. Replaced `Lap` with `Split`, omitted the generic `active` type, and removed the
+  separate distance-range row while retaining workout types, duration, averages, and focused elevation.
+- [x] Confirmed regression tests fail before the changes, then passed all 75 frontend tests and `npm.cmd run build`
+  on 2026-11-14. Improved test text measurements so real rendered axis labels are checked. Per the requested
+  validation scope, no application service or Docker stack was started.
 
 ## Remaining Work
 

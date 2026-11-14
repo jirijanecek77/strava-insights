@@ -25,7 +25,13 @@ const TEST_ELEMENT_BOUNDS = {
 
 Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
     configurable: true,
-    value: () => TEST_ELEMENT_BOUNDS,
+    value() {
+        if (this.id === "recharts_measurement_span") {
+            const width = this.textContent.length * 6;
+            return {...TEST_ELEMENT_BOUNDS, bottom: 12, height: 12, right: width, width};
+        }
+        return TEST_ELEMENT_BOUNDS;
+    },
 });
 
 globalThis.ResizeObserver = class ResizeObserver {

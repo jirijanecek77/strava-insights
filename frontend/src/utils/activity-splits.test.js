@@ -1,5 +1,10 @@
 import {describe, expect, it} from "vitest";
-import {buildSplitChartData, closestSplitStreamIndex, splitAtDistance} from "./activity-splits";
+import {
+    buildSplitChartData,
+    calculateSplitElevation,
+    closestSplitStreamIndex,
+    splitAtDistance
+} from "./activity-splits";
 
 const laps = [
     {number: 1, start_distance_meters: 0, end_distance_meters: 890.58, distance_meters: 890.58, average_pace_seconds_per_km: 300, average_speed_kph: 12, average_heartrate_bpm: 140},
@@ -7,6 +12,45 @@ const laps = [
     {number: 3, start_distance_meters: 1290.58, end_distance_meters: 1290.58, distance_meters: 0, average_pace_seconds_per_km: null},
     {number: 4, start_distance_meters: 1290.58, end_distance_meters: 1300.58, distance_meters: 10, average_pace_seconds_per_km: 480, average_speed_kph: 7.5, average_heartrate_bpm: null},
 ];
+
+describe("split elevation totals", () => {
+    it("adds ascent and descent separately and interpolates at recorded lap boundaries", () => {
+        const lap = {start_distance_meters: 250, end_distance_meters: 750};
+        expect(calculateSplitElevation(lap, [0, 0.5, 1], [100, 120, 90]))
+            .toEqual({ascent: 10, descent: 15});
+    });
+
+    it("preserves total ascent and descent when a stream segment spans multiple laps", () => {
+        const distances = [0, 0.4, 1];
+        const altitudes = [100, 120, 90];
+        const first = calculateSplitElevation({
+            start_distance_meters: 0,
+            end_distance_meters: 500
+        }, distances, altitudes);
+        const second = calculateSplitElevation({
+            start_distance_meters: 500,
+            end_distance_meters: 1000
+        }, distances, altitudes);
+        expect(first).toEqual({ascent: 20, descent: 5});
+        expect(second).toEqual({ascent: 0, descent: 25});
+    });
+
+    it("does not bridge missing samples or count stationary and reversed distances", () => {
+        const lap = {start_distance_meters: 0, end_distance_meters: 1000};
+        expect(calculateSplitElevation(lap, [0, 0.2, 0.4, 0.6, 0.6, 0.5, 1], [100, 110, null, 150, 200, 120, 125]))
+            .toEqual({ascent: 15, descent: 0});
+    });
+
+    it("distinguishes flat terrain from unavailable elevation", () => {
+        const lap = {start_distance_meters: 0, end_distance_meters: 1000};
+        expect(calculateSplitElevation(lap, [0, 1], [0, 0])).toEqual({ascent: 0, descent: 0});
+        expect(calculateSplitElevation(lap, [0, 1], [])).toBeNull();
+        expect(calculateSplitElevation(lap, [0, 0.5, 1], [null, 100, NaN])).toBeNull();
+        expect(calculateSplitElevation(lap, [2, 3], [100, 110])).toBeNull();
+        expect(calculateSplitElevation({...lap, end_distance_meters: 0}, [0, 1], [100, 110])).toBeNull();
+        expect(calculateSplitElevation(null, [0, 1], [100, 110])).toBeNull();
+    });
+});
 
 describe("recorded split chart data", () => {
     it("keeps exact boundaries and both sides of each step through elevation sampling", () => {

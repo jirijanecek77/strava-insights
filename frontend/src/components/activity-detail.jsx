@@ -513,7 +513,10 @@ function MiniLineChart({accent, activeIndex, altitudeValues, distanceValues, lab
                         </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(31, 41, 55, 0.10)" strokeDasharray="3 4" vertical={false}/>
-                    <XAxis axisLine={false} dataKey="distance" domain={[xMin, xMax]} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => Math.round(value)} tickLine={false} type="number"/>
+                    <XAxis axisLine={false} dataKey="distance" domain={[xMin, xMax]}
+                           tick={{fill: "#6f6b62", fontSize: 11}}
+                           tickFormatter={formatNumber} tickLine={false} type="number" tickCount={25} minTickGap={8}
+                           interval="preserveStartEnd"/>
                     <YAxis allowDataOverflow axisLine={false} domain={[minValue, maxValue]} reversed={valueKind === "pace"} tick={{fill: "#6f6b62", fontSize: 11}} tickFormatter={(value) => formatAxisValue(valueKind, value)} tickLine={false} width={34}/>
                     <YAxis axisLine={false} dataKey="altitude" domain={["dataMin", "dataMax"]} hide={!numericAltitudes.length} orientation="right" tick={{fill: "rgba(100, 116, 139, 0.88)", fontSize: 10}} tickFormatter={formatAltitudeAxisValue} tickLine={false} width={30} yAxisId="altitude"/>
                     <Tooltip content={() => null} cursor={{stroke: "rgba(29, 122, 243, 0.28)", strokeDasharray: "4 4"}}/>

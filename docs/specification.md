@@ -346,6 +346,8 @@ Implementation rule:
 - slope when available
 - hover-linked active marker on the map driven by graph focus
 - average lines plus AeT and AnT guides on pace and heart-rate charts when thresholds are available
+- distance axes on pace/speed, heart-rate, splits, and slope charts target 25 ticks (0.5 km spacing over 12 km),
+  preserve fractional kilometers, and omit overlapping labels as the chart narrows
 - detail-chart axis scaling may ignore abnormal first and last source samples for presentation while preserving their
   original values for tooltips and linked interactions; interior samples must remain visible so interval sessions retain
   their full range
@@ -416,8 +418,12 @@ Route comparison behavior:
   cannot change the pace/speed scale.
 - Keep cumulative distance in kilometers on the horizontal axis; lap widths must reflect actual distances.
   Preserve the final partial lap. Retain zero-distance laps in the payload without inventing a visible distance width.
-- Show lap number, available lap type, distance range, duration, average pace/speed, and average HR in a bounds-safe
-  tooltip. Show the elevation at the focused distance when available.
+- Show `Split` and the recorded lap number, meaningful lap type (omit Garmin's generic `active` type), duration,
+  average pace/speed, and average HR in a bounds-safe tooltip. Omit the separate distance-range row.
+  Show ascent and descent together on one row (`↑ 12 m / ↓ 8 m`), rounded to whole meters, and the elevation at
+  the focused distance when available. Calculate ascent/descent from the original local elevation samples before
+  chart downsampling, interpolating at recorded lap boundaries. Skip missing/invalid samples and stationary or
+  reversed distance segments; omit the totals when no valid elevation segment overlaps the split.
 - Link chart focus to the existing map and other graphs by distance and the original stream index. Do not equate
   lap indices with stream indices. Reflect focus from other charts in the containing lap.
 - Missing HR omits that tooltip value; missing elevation omits its area and axis. Invalid lap metrics remain gaps rather than zero
