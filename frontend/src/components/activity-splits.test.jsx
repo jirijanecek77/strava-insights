@@ -31,7 +31,7 @@ describe("ActivitySplitsChart", () => {
         expect(screen.queryByText("Elevation (m)")).not.toBeInTheDocument();
         fireEvent.mouseMove(screen.getByRole("button", {name: "Focus split"}));
         expect(onSelectIndex).toHaveBeenCalledWith(3);
-        expect(screen.getByText("Split 2 · interval")).toBeInTheDocument();
+        expect(screen.getByText("Lap 2 · interval")).toBeInTheDocument();
         expect(screen.queryByText("0.89–1.29 km")).not.toBeInTheDocument();
         expect(screen.getByText("Time: 1:40")).toBeInTheDocument();
         expect(screen.getByLabelText("Split net elevation change")).toHaveTextContent("Net: +4 m");
@@ -39,14 +39,6 @@ describe("ActivitySplitsChart", () => {
         expect(screen.getByText("Avg HR: 166 bpm")).toBeInTheDocument();
         expect(screen.getByText("Elevation: 207 m")).toBeInTheDocument();
         expect(screen.getByText("↑ 8 m / ↓ 3 m")).toBeInTheDocument();
-    });
-
-    it("labels ordinary active laps as splits without exposing the provider's active type", () => {
-        const activeSplits = {...splits, laps: splits.laps.map((lap) => ({...lap, lap_type: "ACTIVE"}))};
-        render(<ActivitySplitsChart splits={activeSplits} series={series} isRun activeIndex={0}/>);
-        fireEvent.mouseMove(screen.getByRole("button", {name: "Focus split"}));
-        expect(screen.getByText("Split 2")).toBeInTheDocument();
-        expect(screen.queryByText(/active/i)).not.toBeInTheDocument();
     });
 
     it("reflects external focus, shows ride speed, and works without elevation or HR", () => {

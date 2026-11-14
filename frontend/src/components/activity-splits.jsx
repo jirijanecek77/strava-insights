@@ -1,28 +1,8 @@
 import {useEffect, useId, useMemo, useState} from "react";
-import {
-    Area,
-    CartesianGrid,
-    ComposedChart,
-    ReferenceArea,
-    ReferenceLine,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis
-} from "recharts";
+import {Area, CartesianGrid, ComposedChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
 
-import {
-    buildSplitChartData,
-    closestSplitStreamIndex,
-    splitAtDistance
-} from "../utils/activity-splits";
-import {
-    formatAltitudeAxisValue,
-    formatAxisValue,
-    formatDuration,
-    formatNumber,
-    formatTooltipSeriesValue
-} from "../utils/formatters";
+import {buildSplitChartData, closestSplitStreamIndex, splitAtDistance} from "../utils/activity-splits";
+import {formatAltitudeAxisValue, formatAxisValue, formatDuration, formatNumber, formatTooltipSeriesValue} from "../utils/formatters";
 import {EmptyState} from "./common";
 
 export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelectIndex}) {
@@ -74,7 +54,7 @@ export function ActivitySplitsChart({splits, series, isRun, activeIndex, onSelec
             {!data.length || !hasMetric ? <EmptyState compact text={unavailableText}/> : <>
                 <div aria-label="Splits chart" className="mini-chart splits-chart" role="img">
                     {tooltipVisible && focused ? <div className="detail-chart-tooltip splits-tooltip" style={{left: `clamp(0.5rem, calc(${focusPercent}% - 6rem), calc(100% - 12.5rem))`, top: 8}}>
-                        <span>Split {focused.number}{lapType && lapType !== "active" ? ` · ${lapType}` : ""}</span>
+                        <span>Lap {focused.number}{focused.lap_type ? ` · ${focused.lap_type.toLowerCase()}` : ""}</span>
                         {focused.duration_seconds != null ? <span>Time: {formatDuration(Math.round(focused.duration_seconds))}</span> : null}
                         <span>{metricName}: {isRun
                             ? focused.average_pace_seconds_per_km != null ? formatTooltipSeriesValue("pace", focused.average_pace_seconds_per_km / 60) : "n/a"
