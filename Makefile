@@ -2,7 +2,7 @@ COMPOSE = docker compose --env-file .env.secrets
 PROD_COMPOSE = docker compose --env-file .env.production -f docker-compose.prod.yml
 AI_USER_ID ?= 1
 
-.PHONY: build up down deploy test logs build-prod up-prod down-prod logs-prod ai-notes-enqueue ai-notes-run ai-plan-replan
+.PHONY: build up down deploy test logs build-prod up-prod down-prod logs-prod ai-notes-enqueue ai-notes-run ai-plan-replan db-backup
 
 build:
 	$(COMPOSE) build
@@ -34,6 +34,9 @@ down-prod:
 
 logs-prod:
 	$(PROD_COMPOSE) logs -f
+
+db-backup:
+	docker exec strava-insights-postgres-1 pg_dump -U postgres -d strava_insights -Fc > "./../athlete_db.dump"
 
 ai-notes-enqueue:
 	$(COMPOSE) exec worker python -m app.coaching_cli enqueue-latest --user-id $(AI_USER_ID) --count 1
