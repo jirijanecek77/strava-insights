@@ -666,6 +666,10 @@ The calendar should feel closer to a training overview than to a traditional ent
   running pace when no AeT pace is configured, and easy HR must remain at or below its baseline.
 - Expose plans through an authenticated local read API. Calendar cells show planned sessions only from today onward,
   using the browser's local date; past run and rest targets remain stored but are hidden in the calendar.
+  Hide today's planned run or rest suggestion whenever the user has any imported activity on that local date,
+  regardless of sport or active calendar filters. Plan items expose `has_completed_activity`, computed from the
+  user's stored activities without sport filters, so a filtered-out ride still hides today's running suggestion.
+  This is a display rule: retain stored plans and keep future suggestions visible.
   Calendar cells show planned distance, pace, and HR or rest,
   with the purpose always visible above the targets, without expand/collapse controls. Running plans follow the running/all-sports filter and remain separate from actual
   activity markers. Show pending, failed, insufficient-data, and previous-target states without blocking the calendar.

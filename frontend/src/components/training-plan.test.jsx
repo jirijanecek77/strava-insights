@@ -5,8 +5,15 @@ import {CalendarView} from "./views";
 
 const plan = {planned_date: "2026-12-01", kind: "run", focus: "easy", distance_km: 10, pace_seconds_per_km: 330, heart_rate_bpm: 145, rationale: "Build aerobic endurance.", stale: true};
 
-function renderCalendar(selectedSport = "") {
-    return render(<CalendarView calendarMonth={new Date(2026, 10, 1)} activities={[{id: 5, sport_type: "Run", start_date_local: "2026-12-01T10:00:00", distance_km: 8}]} onChangeMonth={() => {}} onSelectActivity={() => {}} selectedSport={selectedSport}/>);
+function renderCalendar(selectedSport = "", activities = [{
+    id: 5,
+    sport_type: "Run",
+    start_date_local: "2026-12-01T10:00:00",
+    distance_km: 8
+}]) {
+    return render(<CalendarView calendarMonth={new Date(2026, 10, 1)} activities={activities} onChangeMonth={() => {
+    }} onSelectActivity={() => {
+    }} selectedSport={selectedSport}/>);
 }
 
 beforeEach(() => {
@@ -33,17 +40,49 @@ describe("calendar running plans", () => {
         expect(screen.getByRole("button", {name: "8 km, 1 activity"})).toBeInTheDocument();
     });
 
-    it("loads the entire visible grid and shows targets alongside completed runs", async () => {
+    it("hides today's suggestion after an activity while keeping future targets and completed activities", async () => {
         const fetch = vi.spyOn(global, "fetch").mockResolvedValue({ok: true, status: 200, json: async () => ({status: "pending", items: [plan, {...plan, planned_date: "2026-12-02", kind: "rest", rationale: "Recover."}]})});
         renderCalendar();
-        expect(await screen.findByText("5:30 min/km")).toBeInTheDocument();
-        expect(screen.getByText("145 bpm")).toBeInTheDocument();
+        expect(await screen.findByText("Recover.")).toBeVisible();
+        expect(screen.queryByText("5:30 min/km")).not.toBeInTheDocument();
+        expect(screen.queryByText("145 bpm")).not.toBeInTheDocument();
         expect(screen.getByText("Rest")).toBeInTheDocument();
         expect(screen.getByRole("button", {name: "8 km, 1 activity"})).toBeInTheDocument();
         expect(screen.getByText(/updating your running plan/i)).toBeInTheDocument();
         expect(fetch.mock.calls[0][0]).toContain("date_from=2026-10-26&date_to=2026-12-06");
-        expect(screen.getByText("Build aerobic endurance.")).toBeVisible();
+        expect(screen.queryByText("Build aerobic endurance.")).not.toBeInTheDocument();
         expect(screen.getByText("Recover.")).toBeVisible();
+    });
+
+    it.each(["Ride", "EBikeRide"])("hides today's suggestion after a recorded %s", async (sport) => {
+        vi.spyOn(global, "fetch").mockResolvedValue({
+            ok: true, status: 200, json: async () => ({
+                status: "ready", items: [
+                    plan,
+                    {...plan, planned_date: "2026-12-02", rationale: "Tomorrow's run."},
+                ]
+            })
+        });
+        renderCalendar("", [{id: 6, sport_type: sport, start_date_local: "2026-12-01T23:00:00", distance_km: 8}]);
+        expect(await screen.findByText("Tomorrow's run.")).toBeVisible();
+        expect(screen.queryByText("Build aerobic endurance.")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", {name: "8 km, 1 activity"})).toBeInTheDocument();
+    });
+
+    it.each(["run", "rest"])("hides today's %s suggestion when activity is excluded by the running filter", async (kind) => {
+        vi.spyOn(global, "fetch").mockResolvedValue({
+            ok: true, status: 200, json: async () => ({
+                status: "ready", items: [
+                    {...plan, kind, has_completed_activity: true, rationale: "Today's suggestion."},
+                    {...plan, planned_date: "2026-12-02", has_completed_activity: true, rationale: "Tomorrow's run."},
+                ]
+            })
+        });
+        renderCalendar("Run", []);
+        expect(await screen.findByText("Tomorrow's run.")).toBeVisible();
+        expect(screen.queryByText("Today's suggestion.")).not.toBeInTheDocument();
+        expect(screen.getByText("5:30 min/km")).toBeInTheDocument();
+        expect(screen.getByText("145 bpm")).toBeInTheDocument();
     });
 
     it("hides running plans under the cycling filter", async () => {

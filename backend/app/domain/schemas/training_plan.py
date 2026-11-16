@@ -1,7 +1,6 @@
 from datetime import date, datetime
-from typing import Literal
-
 from pydantic import BaseModel
+from typing import Literal
 
 
 class TrainingPlanItem(BaseModel):
@@ -15,6 +14,7 @@ class TrainingPlanItem(BaseModel):
     generated_at: datetime
     request_id: int
     stale: bool
+    has_completed_activity: bool
 
 
 class WeeklyTrainingObjective(BaseModel):

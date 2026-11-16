@@ -260,6 +260,11 @@ Implemented and validated locally on 2026-11-10. Product behavior and training p
   cards with rationales always visible above targets, sport filtering, and pending/failure/previous-target states.
 - [x] Hide planned run/rest sessions before today in the calendar using the browser's local date, preserving
   stored targets and completed activity markers.
+- [x] Hide today's planned run/rest suggestion after any imported activity on the same local date. Add user-scoped
+  `has_completed_activity` metadata to plan reads so sport/date filters cannot reveal the suggestion again; retain
+  stored plans and future suggestions. Reproduced the old display with a failing regression test before the fix.
+  Validated on 2026-11-16 with all 44 backend tests, all 79 frontend tests, and a frontend production build locally.
+  Docker builds and service restarts were excluded by the user's instruction not to touch Docker.
 - [x] Added CLI `replan --user-id <id>`, plan output in `show`, `make ai-plan-replan` with optional `AI_USER_ID`, and
   Windows `.\make.ps1 ai-plan-replan -AiUserId <id>`. Manual replanning explicitly permits generation without new activity.
 - [x] Added history-based `build`/`maintain`/`recover` objectives before daily workout generation, with explicit

@@ -98,8 +98,10 @@ export function CalendarView({activities, calendarMonth, onChangeMonth, onSelect
     const showPlans = !selectedSport || selectedSport === "Run";
     const planning = useTrainingPlans(calendarMonth, showPlans);
     const today = formatLocalDateKey(new Date());
+    const hasActivityToday = activities.some((activity) => (activity.start_date_local ?? "").slice(0, 10) === today);
     const plansByDate = new Map((planning.payload?.items ?? [])
         .filter((plan) => plan.planned_date >= today)
+        .filter((plan) => plan.planned_date !== today || !(hasActivityToday || plan.has_completed_activity))
         .map((plan) => [plan.planned_date, plan]));
     return (
         <section className="panel">

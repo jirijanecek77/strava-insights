@@ -1,14 +1,12 @@
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-from fastapi import Depends
-from sqlalchemy.orm import Session
-
 from app.api.dependencies import get_db_session
 from app.domain.schemas.training_plan import TrainingPlanItem, TrainingPlanResponse
 from app.infrastructure.repositories.training_plan_repository import (
     TrainingPlanRepository,
 )
+from datetime import datetime, timedelta
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from zoneinfo import ZoneInfo
 
 
 class TrainingPlanReadService:
@@ -18,6 +16,13 @@ class TrainingPlanReadService:
     def list_plans(self, user_id, *, date_from, date_to):
         request = self.repository.latest_request(user_id)
         days = self.repository.list_days(user_id, date_from=date_from, date_to=date_to)
+        activity_dates = (
+            self.repository.completed_activity_dates(
+                user_id, date_from=date_from, date_to=date_to
+            )
+            if days
+            else set()
+        )
         today = datetime.now(ZoneInfo(request.timezone)).date() if request else None
         return TrainingPlanResponse(
             items=[
@@ -38,6 +43,7 @@ class TrainingPlanReadService:
                     stale=bool(
                         request and d.request_id < request.id and d.planned_date > today
                     ),
+                    has_completed_activity=d.planned_date in activity_dates,
                 )
                 for d in days
             ],
