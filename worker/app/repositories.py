@@ -1,10 +1,10 @@
 from app.models import (
     Activity,
-    ActivitySplits,
-    ActivityCoachingNote,
     ActivityCoachingEvidence,
+    ActivityCoachingNote,
     ActivityRouteMembership,
     ActivityRouteSignature,
+    ActivitySplits,
     ActivityStream,
     BestEffort,
     GarminCredential,
@@ -14,15 +14,17 @@ from app.models import (
     SyncCheckpoint,
     SyncDispatchOutbox,
     SyncJob,
+    TrainingPlanRequest,
     User,
     UserThresholdProfile,
 )
-from datetime import UTC, date, datetime
-from datetime import timedelta
-from sqlalchemy import and_, exists, or_, func
+from app.services.planning.queries import recent_planning_activity
+from datetime import UTC, date, datetime, timedelta
+from sqlalchemy import and_, case, exists, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from typing import Literal
+from uuid import uuid4
 
 
 class UserRepository:
@@ -615,19 +617,39 @@ class CoachingRepository:
         query = (
             self.session.query(ActivityCoachingNote)
             .join(Activity, Activity.id == ActivityCoachingNote.activity_id)
-            .filter(self._claimable(ActivityCoachingNote), ~sync_in_progress)
+            .join(User, User.id == ActivityCoachingNote.user_id)
+            .filter(self._claimable(ActivityCoachingNote), ~sync_in_progress, User.is_active.is_(True))
         )
         if user_id is not None:
             query = query.filter(ActivityCoachingNote.user_id == user_id)
-        # Oldest activity first, so each note can build on the summaries of the activities before it.
+        newer_plan = aliased(TrainingPlanRequest)
+        needed_by_plan = (
+            exists()
+            .where(
+                TrainingPlanRequest.user_id == ActivityCoachingNote.user_id,
+                TrainingPlanRequest.status.in_(["pending", "generating"]),
+                ~exists().where(
+                    newer_plan.user_id == TrainingPlanRequest.user_id,
+                    newer_plan.id > TrainingPlanRequest.id,
+                ),
+                recent_planning_activity(TrainingPlanRequest.timezone),
+            )
+            .correlate(ActivityCoachingNote, Activity)
+        )
+        # Evaluate the recent forecast inputs before historical backlogs, chronologically within each group.
         return self._claim(
-            query.order_by(Activity.start_date_utc.asc(), ActivityCoachingNote.id.asc()),
+            query.order_by(
+                case((needed_by_plan, 0), else_=1),
+                Activity.start_date_utc.asc(),
+                ActivityCoachingNote.id.asc(),
+            ),
             ActivityCoachingNote,
         )
 
     def claim_next_period(self, *, user_id: int | None = None) -> PeriodCoachingSummary | None:
-        query = self.session.query(PeriodCoachingSummary).filter(
-            self._claimable(PeriodCoachingSummary)
+        query = self.session.query(PeriodCoachingSummary).join(User, User.id == PeriodCoachingSummary.user_id).filter(
+            self._claimable(PeriodCoachingSummary), User.is_active.is_(True),
+            ~exists().where(SyncJob.user_id == PeriodCoachingSummary.user_id, SyncJob.status.in_(("queued", "running")))
         )
         if user_id is not None:
             query = query.filter(PeriodCoachingSummary.user_id == user_id)
@@ -706,7 +728,8 @@ class CoachingRepository:
         query = (
             self.session.query(ActivityCoachingNote.user_id)
             .join(Activity, Activity.id == ActivityCoachingNote.activity_id)
-            .filter(ActivityCoachingNote.status == "ready", Activity.start_date_local >= since)
+            .join(User, User.id == ActivityCoachingNote.user_id)
+            .filter(ActivityCoachingNote.status == "ready", Activity.start_date_local >= since, User.is_active.is_(True))
             .distinct()
         )
         if user_id is not None:
@@ -784,7 +807,12 @@ class CoachingRepository:
 
     def activity_evidence_batch(self, *, user_id: int, activities: list) -> dict:
         """Batch-read local sources and reuse persisted calculations when their fingerprint matches."""
-        from app.services.coaching.evidence import VERSION, build_evidence, fingerprint, threshold_values
+        from app.services.coaching.evidence import (
+            VERSION,
+            build_evidence,
+            fingerprint,
+            threshold_values,
+        )
 
         if not activities:
             return {}
@@ -981,12 +1009,14 @@ class CoachingRepository:
             self.session.commit()
             return None
         row.status = "generating"
+        row.lease_token = str(uuid4())
         row.lease_expires_at = datetime.now(UTC) + self._LEASE_DURATION
         self.session.commit()
         return row
 
     def _mark_ready(self, row: CoachingRow, *, model: str, prompt_version: str) -> None:
         row.status = "ready"
+        row.lease_token = None
         row.model = model
         row.prompt_version = prompt_version
         row.generated_at = datetime.now(UTC)

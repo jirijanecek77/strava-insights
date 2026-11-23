@@ -1,9 +1,7 @@
+import pytest
+from app.services.planning.policy import training_bounds, validate_plan
 from copy import deepcopy
 from datetime import date, timedelta
-
-import pytest
-
-from app.services.planning.policy import training_bounds, validate_plan
 
 TODAY = date(2026, 11, 10)
 THRESHOLDS = {
@@ -82,24 +80,22 @@ def test_cycling_load_counts_toward_recovery_objective():
     assert "all-sport" in objective["reason"]
 
 
-def test_established_block_does_not_restart_after_an_ordinary_activity():
+def test_new_activity_recalculates_objective_and_dates_from_completed_training():
     training = established_training()
     previous = training_bounds(training, THRESHOLDS, TODAY)["weekly_objective"]
     tomorrow = TODAY + timedelta(days=1)
     training.append(
         dict(training[-1], date=tomorrow.isoformat(), distance_km=8, moving_minutes=44)
     )
-    next_objective = training_bounds(
-        training, THRESHOLDS, tomorrow, previous_objective=previous
-    )["weekly_objective"]
-    assert next_objective["mode"] == previous["mode"]
-    assert next_objective["block_start"] == previous["block_start"]
-    assert next_objective["review_date"] == previous["review_date"]
-    assert next_objective["distance_min_km"] == previous["distance_min_km"]
-    assert next_objective["continued"]
+    next_objective = training_bounds(training, THRESHOLDS, tomorrow)["weekly_objective"]
+    assert previous["mode"] == "build"
+    assert next_objective["mode"] == "maintain"
+    assert next_objective["block_start"] == "2026-11-12"
+    assert next_objective["review_date"] == "2026-11-19"
+    assert not next_objective["continued"]
 
 
-def test_new_recovery_evidence_can_lower_a_block_without_resetting_its_review_date():
+def test_new_recovery_evidence_reduces_a_fresh_forecast():
     training = established_training()
     previous = training_bounds(training, THRESHOLDS, TODAY)["weekly_objective"]
     tomorrow = TODAY + timedelta(days=1)
@@ -113,26 +109,23 @@ def test_new_recovery_evidence_can_lower_a_block_without_resetting_its_review_da
             "moving_minutes": 300,
         }
     )
-    objective = training_bounds(
-        training, THRESHOLDS, tomorrow, previous_objective=previous
-    )["weekly_objective"]
+    objective = training_bounds(training, THRESHOLDS, tomorrow)["weekly_objective"]
     assert objective["mode"] == "recover"
-    assert objective["review_date"] == previous["review_date"]
-    following = training_bounds(
-        training, THRESHOLDS, tomorrow + timedelta(days=1), previous_objective=objective
-    )["weekly_objective"]
-    assert following["review_date"] == previous["review_date"]
-    assert following["continued"]
+    assert objective["distance_max_km"] < previous["distance_max_km"]
+    following = training_bounds(training, THRESHOLDS, tomorrow + timedelta(days=1))[
+        "weekly_objective"
+    ]
+    assert following["review_date"] == "2026-11-20"
+    assert not following["continued"]
 
 
 def test_objective_is_reassessed_after_its_review_date():
     previous = training_bounds(established_training(), THRESHOLDS, TODAY)[
         "weekly_objective"
     ]
-    old = dict(previous, review_date=TODAY.isoformat(), mode="recover")
-    updated = training_bounds(
-        established_training(), THRESHOLDS, TODAY, previous_objective=old
-    )["weekly_objective"]
+    updated = training_bounds(established_training(), THRESHOLDS, TODAY)[
+        "weekly_objective"
+    ]
     assert updated["mode"] == "build"
     assert not updated["continued"]
     assert date.fromisoformat(updated["review_date"]) > TODAY

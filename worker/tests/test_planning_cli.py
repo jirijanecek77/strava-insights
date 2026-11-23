@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 from app import coaching_cli
-from app.services.planning.generator import PlanningRunStats
+from app.services.planning.stats import PlanningRunStats
 
 
 def test_manual_cli_requests_a_fresh_plan_without_new_activity(monkeypatch, capsys):

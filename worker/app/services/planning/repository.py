@@ -2,14 +2,6 @@
 
 import hashlib
 import json
-from datetime import UTC, date, datetime, timedelta
-from uuid import uuid4
-from zoneinfo import ZoneInfo
-
-from sqlalchemy import and_, exists, or_, select, text
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import aliased
-
 from app.models import (
     Activity,
     ActivityCoachingNote,
@@ -20,6 +12,13 @@ from app.models import (
     UserThresholdProfile,
 )
 from app.services.planning.policy import PROMPT_VERSION, training_bounds
+from app.services.planning.queries import recent_planning_activity
+from datetime import UTC, date, datetime, timedelta
+from sqlalchemy import and_, exists, or_, select, text
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import aliased
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 
 class PlanningRepository:
@@ -72,12 +71,19 @@ class PlanningRepository:
                 SyncJob.finished_at >= TrainingPlanRequest.created_at,
             ),
         )
+        pending_notes = exists().where(
+            ActivityCoachingNote.user_id == TrainingPlanRequest.user_id,
+            ActivityCoachingNote.activity_id == Activity.id,
+            ActivityCoachingNote.status.in_(["pending", "generating"]),
+            recent_planning_activity(TrainingPlanRequest.timezone),
+        )
         query = (
             self.session.query(TrainingPlanRequest)
             .join(User, User.id == TrainingPlanRequest.user_id)
             .filter(
                 User.is_active.is_(True),
                 ~active_sync,
+                ~pending_notes,
                 or_(TrainingPlanRequest.sync_job_id.is_(None), successful_sync),
                 ~exists().where(
                     newer.user_id == TrainingPlanRequest.user_id,
@@ -124,12 +130,12 @@ class PlanningRepository:
         }
 
     def build_context(self, request: dict, today: date) -> dict:
-        if request["context"]:
-            if request["context"].get("policy_version") == PROMPT_VERSION:
-                return request["context"]
-            # Upgrade a queued legacy context without moving its requested dates or creating new work.
-            context = dict(request["context"])
-            return self._apply_objective(request, context)
+        current_date = today
+        saved = request["context"]
+        if saved:
+            # Retain the requested window, but refresh facts and coaching status on every retry.
+            # Saved prose can belong to an evaluation whose replacement subsequently failed.
+            today = date.fromisoformat(saved["today"])
         user_id = request["user_id"]
         since = datetime.combine(
             today - timedelta(days=41),
@@ -142,7 +148,7 @@ class PlanningRepository:
             tzinfo=ZoneInfo(request["timezone"]),
         )
         rows = (
-            self.session.query(Activity, ActivityCoachingNote.summary)
+            self.session.query(Activity, ActivityCoachingNote)
             .outerjoin(
                 ActivityCoachingNote, ActivityCoachingNote.activity_id == Activity.id
             )
@@ -156,7 +162,7 @@ class PlanningRepository:
             .all()
         )
         activities = []
-        for a, summary in rows:
+        for a, note in rows:
             local_date = (
                 a.start_date_local
                 or a.start_date_utc.astimezone(ZoneInfo(request["timezone"]))
@@ -186,14 +192,17 @@ class PlanningRepository:
                         if a.average_heartrate_bpm
                         else None
                     ),
-                    "coaching_summary": summary,
+                    "coaching_summary": (
+                        note.summary if note and note.status == "ready" else None
+                    ),
+                    "coaching_status": note.status if note else "unavailable",
                 }
             )
         profiles = (
             self.session.query(UserThresholdProfile)
             .filter(
                 UserThresholdProfile.user_id == user_id,
-                UserThresholdProfile.effective_from <= today,
+                UserThresholdProfile.effective_from <= current_date,
             )
             .order_by(UserThresholdProfile.effective_from.desc())
             .all()
@@ -213,63 +222,26 @@ class PlanningRepository:
             )
             for field in fields
         }
-        dates = [(today + timedelta(days=i)).isoformat() for i in range(1, 8)]
-        prior = (
-            self.session.query(TrainingPlanDay)
-            .filter(
-                TrainingPlanDay.user_id == user_id,
-                TrainingPlanDay.planned_date >= today - timedelta(days=14),
-            )
-            .order_by(TrainingPlanDay.planned_date)
-            .all()
+        dates = (
+            saved["dates"]
+            if saved
+            else [(today + timedelta(days=i)).isoformat() for i in range(1, 8)]
         )
         return self._apply_objective(
-            request,
             {
                 "today": today.isoformat(),
                 "dates": dates,
                 "timezone": request["timezone"],
                 "thresholds": thresholds,
                 "activities": activities,
-                "previous_plans": [
-                    {
-                        "date": d.planned_date.isoformat(),
-                        "kind": d.kind,
-                        "focus": d.focus,
-                        "distance_km": (
-                            float(d.distance_meters) / 1000
-                            if d.distance_meters
-                            else None
-                        ),
-                        "pace_seconds_per_km": d.pace_seconds_per_km,
-                        "heart_rate_bpm": d.heart_rate_bpm,
-                        "rationale": d.rationale,
-                    }
-                    for d in prior
-                ],
             },
         )
 
-    def _apply_objective(self, request, context):
-        previous = (
-            self.session.query(TrainingPlanRequest)
-            .filter(
-                TrainingPlanRequest.user_id == request["user_id"],
-                TrainingPlanRequest.id < request["id"],
-                TrainingPlanRequest.status == "ready",
-                TrainingPlanRequest.prompt_version == PROMPT_VERSION,
-            )
-            .order_by(TrainingPlanRequest.id.desc())
-            .first()
-        )
-        previous_objective = (
-            (previous.context_json or {}).get("weekly_objective") if previous else None
-        )
+    def _apply_objective(self, context):
         bounds = training_bounds(
             context["activities"],
             context["thresholds"],
             date.fromisoformat(context["today"]),
-            previous_objective=previous_objective,
         )
         objective = bounds.pop("weekly_objective")
         return {
@@ -286,8 +258,11 @@ class PlanningRepository:
             .filter(TrainingPlanRequest.id == request["id"])
             .populate_existing()
             .with_for_update()
-            .one()
+            .one_or_none()
         )
+        if row is None:
+            self.session.rollback()
+            return None
         if (
             row.status != "generating"
             or row.lease_token != request["lease_token"]

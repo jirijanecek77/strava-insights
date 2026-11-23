@@ -3,13 +3,14 @@
 import argparse
 import math
 import sys
-
 from app.garmin_client import GarminAuthenticationError
 from app.services.split_backfill import (
     SplitBackfillError,
     SplitBackfillProgress,
     SplitBackfillValidationError,
 )
+
+import logging
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +28,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _print_progress(progress: SplitBackfillProgress) -> None:
+    logging.getLogger(__name__).info(
+        "Split backfill progress.",
+        extra={
+            "progress.completed": progress.processed,
+            "updated_count": progress.updated,
+            "checkpoint": progress.after_id,
+        },
+    )
     print(
         f"Processed {progress.processed}; updated {progress.updated}. Resume with --after-id {progress.after_id}.",
         flush=True,
@@ -36,6 +45,10 @@ def _print_progress(progress: SplitBackfillProgress) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    from app.config import settings
+    from app.logging import configure_logging
+
+    configure_logging(log_level=settings.log_level, service_name="splits-cli")
     if args.user_id < 1 or args.after_id < 0 or not 1 <= args.batch_size <= 1000:
         parser.error(
             "Use a positive user ID, nonnegative cursor, and --batch-size between 1 and 1000."

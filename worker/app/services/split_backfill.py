@@ -1,20 +1,22 @@
 """Explicit historical Garmin lap enrichment; no activity import or AI generation."""
 
+import logging
+import requests
+from app.garmin_client import GarminAuthenticationError, GarminSession
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from math import isfinite
-from time import sleep as time_sleep
-from typing import Protocol
-
-import requests
 from garminconnect import (
     GarminConnectConnectionError,
     GarminConnectTooManyRequestsError,
 )
+from math import isfinite
+from time import perf_counter
+from time import sleep as time_sleep
+from typing import Protocol
 
-from app.garmin_client import GarminAuthenticationError, GarminSession
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +116,15 @@ class SplitBackfillService:
         if not isfinite(delay_seconds) or delay_seconds < 0:
             raise ValueError("The request delay must be finite and nonnegative.")
         progress = SplitBackfillProgress(after_id=after_id)
+        started = perf_counter()
+        logger.info(
+            "Starting split backfill.",
+            extra={
+                "user.id": user_id,
+                "checkpoint": after_id,
+                "stage": "split_backfill",
+            },
+        )
         target = None
         try:
             token = self.cipher.decrypt(self.repository.get_token(user_id))
@@ -143,10 +154,39 @@ class SplitBackfillService:
                         progress.processed + 1,
                         progress.updated + int(changed),
                     )
+                    logger.info(
+                        "Stored split backfill activity.",
+                        extra={
+                            "user.id": user_id,
+                            "activity.id": target.activity_id,
+                            "progress.completed": progress.processed,
+                            "updated_count": progress.updated,
+                            "checkpoint": progress.after_id,
+                        },
+                    )
                     if self.on_progress:
                         self.on_progress(progress)
+            logger.info(
+                "Finished split backfill.",
+                extra={
+                    "user.id": user_id,
+                    "processed_count": progress.processed,
+                    "updated_count": progress.updated,
+                    "duration_ms": round((perf_counter() - started) * 1000, 2),
+                },
+            )
             return progress
         except Exception as exc:
+            logger.warning(
+                "Split backfill stopped.",
+                extra={
+                    "user.id": user_id,
+                    "activity.id": target.activity_id if target else None,
+                    "checkpoint": progress.after_id,
+                    "error.class": type(exc).__name__,
+                    "duration_ms": round((perf_counter() - started) * 1000, 2),
+                },
+            )
             self.repository.rollback()
             if isinstance(exc, GarminAuthenticationError):
                 self.repository.require_reauthentication(user_id)
@@ -196,5 +236,16 @@ class SplitBackfillService:
                 if not isfinite(delay) or delay > 60:
                     # Leave the cursor unchanged for a later operator retry, honoring a long provider cooldown.
                     raise
-                self.sleep(max(2 ** (attempt + 1), delay))
+                retry_delay = max(2 ** (attempt + 1), delay)
+                logger.warning(
+                    "Retrying Garmin split request.",
+                    extra={
+                        "user.id": user_id,
+                        "activity.source_id": source_id,
+                        "retry_count": attempt + 1,
+                        "retry_after_seconds": retry_delay,
+                        "error.class": type(exc).__name__,
+                    },
+                )
+                self.sleep(retry_delay)
         raise AssertionError("Unreachable retry state")

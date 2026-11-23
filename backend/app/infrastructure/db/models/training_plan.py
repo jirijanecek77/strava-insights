@@ -37,6 +37,7 @@ class TrainingPlanRequest(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     target_start: Mapped[date | None]
     context_json: Mapped[dict | None] = mapped_column(JSON)
+    input_revision: Mapped[str | None] = mapped_column(String(64))
     source_hash: Mapped[str | None] = mapped_column(String(64))
     model: Mapped[str | None] = mapped_column(String(100))
     prompt_version: Mapped[str | None] = mapped_column(String(20))

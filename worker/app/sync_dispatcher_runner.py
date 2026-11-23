@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    configure_logging(log_level=settings.log_level)
+    configure_logging(log_level=settings.log_level, service_name=settings.service_name)
     logger.info("Starting durable sync-dispatch outbox runner.")
     while True:
         try:

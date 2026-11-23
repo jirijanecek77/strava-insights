@@ -1,15 +1,13 @@
 import json
-from copy import deepcopy
-from datetime import date, timedelta
-
 import pytest
-
 from app.services.planning.policy import (
     InsufficientTrainingData,
     build_prompt,
     training_bounds,
     validate_plan,
 )
+from copy import deepcopy
+from datetime import date, timedelta
 
 TODAY = date(2026, 11, 10)
 
@@ -59,6 +57,34 @@ def test_balanced_plan_allows_recovery_and_does_not_require_increasing_volume():
     plan = payload()
     assert validate_plan(plan, context()) == plan["days"]
     assert sum(d["distance_km"] or 0 for d in plan["days"]) == 30
+
+
+@pytest.mark.parametrize("scenario", ["weekday", "after_hard_ride", "consecutive_long"])
+def test_long_runs_require_weekends_and_recovery_spacing(scenario):
+    ctx, plan = context(), payload()
+    if scenario == "weekday":
+        plan["days"][0]["focus"] = "long"
+    elif scenario == "after_hard_ride":
+        # Friday's completed hard ride must protect the following Saturday.
+        ctx["dates"] = [
+            (date(2026, 11, 13) + timedelta(days=i)).isoformat() for i in range(1, 8)
+        ]
+        for day, planned_date in zip(plan["days"], ctx["dates"]):
+            day["date"] = planned_date
+        plan["days"][0]["focus"] = "long"
+        ctx["bounds"]["recent_hard_dates"] = ["2026-11-13"]
+    else:
+        plan["days"][0].update(
+            kind="rest",
+            focus="rest",
+            distance_km=None,
+            pace_seconds_per_km=None,
+            heart_rate_bpm=None,
+        )
+        plan["days"][3]["focus"] = "long"
+        plan["days"][4] = dict(plan["days"][3], date=ctx["dates"][4])
+    with pytest.raises(ValueError, match="weekend|recovery spacing"):
+        validate_plan(plan, ctx)
 
 
 @pytest.mark.parametrize(
@@ -213,10 +239,27 @@ def test_prompt_trims_saved_context_without_changing_validation_or_stored_data()
     assert sent["bounds"] == source["bounds"]
     assert sent["weekly_objective"] == source["weekly_objective"]
     assert sent["previous_attempt_error"] == source["previous_attempt_error"]
-    assert sent["previous_plans"] == [{k: v for k, v in source["previous_plans"][0].items() if k != "rationale"}]
+    assert "previous_plans" not in sent
     assert sent["activities"][0] == dict(
         source["activities"][0], distance_km=10.12, moving_minutes=55.1,
         pace_seconds_per_km=327, hr_bpm=140, elevation_gain_meters=123,
     )
     assert prompt == json.dumps(sent, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     assert len(prompt) < len(json.dumps(source))
+
+
+def test_prompt_keeps_only_thirty_days_and_supplies_weekdays_without_mutating_context():
+    source = context()
+    source.update(
+        today="2026-11-10",
+        activities=[
+            dict(activities()[0], date=d)
+            for d in ["2026-10-11", "2026-10-12", "2026-11-10"]
+        ],
+    )
+    original = deepcopy(source)
+    _, prompt = build_prompt(source)
+    sent = json.loads(prompt)
+    assert [a["date"] for a in sent["activities"]] == ["2026-10-12", "2026-11-10"]
+    assert sent["weekdays"] == ["Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"]
+    assert source == original

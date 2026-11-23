@@ -2,21 +2,18 @@
 
 import json
 import math
+from app.services.planning.objective import choose_weekly_objective
 from datetime import date, timedelta
 from statistics import median
 
-from app.services.planning.objective import choose_weekly_objective
-
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 
 
 class InsufficientTrainingData(ValueError):
     pass
 
 
-def training_bounds(
-    activities: list[dict], thresholds: dict, today: date, *, previous_objective=None
-) -> dict:
+def training_bounds(activities: list[dict], thresholds: dict, today: date) -> dict:
     runs = [
         a
         for a in activities
@@ -122,7 +119,7 @@ def training_bounds(
             if a["distance_km"] >= max(x["distance_km"] for x in recent_runs) * 0.9
         ],
     }
-    objective = choose_weekly_objective(activities, bounds, today, previous_objective)
+    objective = choose_weekly_objective(activities, bounds, today)
     bounds.update(
         weekly_objective=objective,
         min_weekly_distance_km=objective["distance_min_km"],
@@ -148,41 +145,15 @@ def training_bounds(
     return bounds
 
 
-SYSTEM_PROMPT = """You are an endurance running coach planning a rolling 7-day training forecast through review_date to improve aerobic threshold (AeT), anaerobic threshold (AnT), endurance, and speed (faster sustainable pace at comparable intensity and lower HR).
+SYSTEM_PROMPT = """You are an endurance running coach. Plan the seven requested dates from completed training and current AeT/AnT thresholds to improve endurance and sustainable speed. Cycling/e-bike load contributes to recovery. Never invent fitness gains or change measured thresholds.
+Follow every supplied bound and the freshly computed weekly_objective (build/maintain/recover). Do not carry over earlier AI targets. Historical aggregates may cover 42 days; individual activities cover 30. Missing coaching_summary means no saved interpretation: use numerical evidence and acknowledge uncertainty.
+Use weekdays in the same order as dates. Long runs are allowed only on Sat/Sun. Separate every threshold, speed or long run from other such sessions and recent hard/long activities by at least one easy/recovery/rest day, including the completed-history boundary.
+Keep at least min_easy_distance_share of distance easy. Without both HR thresholds use easy/recovery only. Easy/long/recovery pace >= min_easy_pace_seconds_per_km and HR <= easy_hr_ceiling_bpm. Threshold/speed HR must exceed that ceiling. Use one steady distance, average pace and HR per run, no interval splits.
+Return ONLY valid JSON, no markdown or commentary. Root has exactly one key "days": an array of exactly seven objects in requested date order. Each object has exactly the seven keys shown below. Replace example values with supported targets and requested dates. No extra keys, NaN, trailing commas, ranges or units inside numbers.
+Run example: {"date":"2026-11-14","kind":"run","focus":"long","distance_km":12.5,"pace_seconds_per_km":345,"heart_rate_bpm":140,"rationale":"Easy endurance volume supports the current objective."}
+Rest example: {"date":"2026-11-15","kind":"rest","focus":"rest","distance_km":null,"pace_seconds_per_km":null,"heart_rate_bpm":null,"rationale":"Recover from the preceding long run."}
+Allowed run focus: easy,long,threshold,speed,recovery. Distance is a positive number; pace and HR are integers. A rest day has focus rest and all three targets null. Rationale is a concise English string of 1-240 characters explaining purpose from supplied evidence."""
 
-### 1. State & Continuity Rules
-- Baseline: Anchor all workout prescriptions in the athlete's completed training history and measured physiological thresholds—never in uncompleted prior AI targets.
-- Rolling Continuity: Treat this as a continuous block, not a fresh Monday–Sunday reset. Never restart a training week or recovery block after a new activity is logged.
-- External Fatigue: Factor recent cycling and e-bike load into daily readiness, recovery spacing, and intensity selection.
-- Data Integrity: Never invent observed fitness gains or modify measured thresholds. If AeT or AnT thresholds are missing, prescribe easy or recovery runs only.
-
-### 2. Pre-Calculated App Constraints (Strictly Enforced)
-The application has already determined the week's parameters. You must obey every bound exactly:
-- weekly_objective (build, maintain, or recover): Align workout distribution and daily rationales directly with this objective and its provided evidence.
-- Volume & Frequency: Stay strictly within the supplied target volume range, usual running frequency, and long-run range. Treat maintaining volume or executing a recovery week as valid progression.
-
-### 3. Workout Design & Hard/Easy Spacing Rules
-- Hard/Easy Separation (Strict): Treat threshold, speed, and long runs (as well as any recent hard run or high-load cycling/e-bike session at the end of the completed history) as high-stress days. Never schedule two high-stress days back-to-back. Always separate any threshold, speed, or long run from another threshold, speed, or long run with at least one easy, recovery, or rest day—including across the boundary between completed history and Day 1 of the forecast.
-- Intensity Distribution: ~80% of weekly running volume must be aerobic (below AeT) and ~20% quality work (threshold/speed).
-- Weekend Long Run: Check in calendar weekend days and schedule long runs exclusively on weekends (Saturday or Sunday), ensuring the preceding day (Friday or Saturday) is an easy, recovery, or rest day, and the following day is also an easy, recovery, or rest day.
-- Steady-State Targets: Express every run as a single steady-state session with one average pace and one average HR (do not output interval splits).
-- Pace & HR Coupling:
-  - easy, long, recovery: Pace must be equal to or slower than min_easy_pace_seconds_per_km (>= min_easy_pace_seconds_per_km), and HR must be at or below the easy HR ceiling.
-  - threshold, speed: HR must be above the easy HR ceiling. Never pair a fast/hard pace with an implausibly low HR.
-
-### 4. Output Format
-Return only valid raw JSON with no markdown fences, commentary, or extra text.
-- Root object must contain exactly one key: "days".
-- "days" must be an array of exactly 7 objects matching the requested date order.
-- Each object must contain only these exact keys:
-  - "date": string (YYYY-MM-DD)
-  - "kind": "run" or "rest"
-  - "focus": "easy", "long", "threshold", "speed", "recovery", or "rest"
-  - "distance_km": number (or null if rest)
-  - "pace_seconds_per_km": integer (or null if rest)
-  - "heart_rate_bpm": integer (or null if rest)
-  - "rationale": string, 1-240 characters in concise English linking the physiological purpose (adaptation or recovery) to the weekly_objective and evidence.
-- When "kind" is "rest", "focus" must be "rest" and "distance_km", "pace_seconds_per_km", and "heart_rate_bpm" must all be null."""
 
 def build_prompt(context: dict) -> tuple[str, str]:
     # Project only the provider payload: persisted context and validation retain full precision.
@@ -194,25 +165,33 @@ def build_prompt(context: dict) -> tuple[str, str]:
         "pace_seconds_per_km": 0,
         "hr_bpm": 0,
     }
+    today = date.fromisoformat(context.get("today", context["dates"][0]))
+    since = (today - timedelta(days=29)).isoformat()
     prompt_context = {
-        **context,
+        **{key: value for key, value in context.items() if key != "previous_plans"},
+        "weekdays": [
+            ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[
+                date.fromisoformat(d).weekday()
+            ]
+            for d in context["dates"]
+        ],
         "activities": [
             {
-                key: round(value, precision[key])
-                if key in precision and isinstance(value, (int, float))
-                else value
+                key: (
+                    round(value, precision[key])
+                    if key in precision and isinstance(value, (int, float))
+                    else value
+                )
                 for key, value in activity.items()
             }
             for activity in context.get("activities", [])
-        ],
-        "previous_plans": [
-            {key: value for key, value in day.items() if key != "rationale"}
-            for day in context.get("previous_plans", [])
+            if since <= activity["date"] <= today.isoformat()
         ],
     }
-    return SYSTEM_PROMPT, json.dumps(
+    user_prompt = json.dumps(
         prompt_context, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
+    return SYSTEM_PROMPT, user_prompt
 
 
 def validate_plan(payload: dict, context: dict) -> list[dict]:
@@ -300,7 +279,10 @@ def validate_plan(payload: dict, context: dict) -> list[dict]:
                     )
                 easy += distance
             if day["focus"] == "long":
-                long_dates.append(date.fromisoformat(day["date"]))
+                long_date = date.fromisoformat(day["date"])
+                if long_date.weekday() < 5:
+                    raise ValueError("Long runs must be scheduled on a weekend.")
+                long_dates.append(long_date)
             running_days += 1
             total += distance
             longest = max(longest, distance)
@@ -331,12 +313,13 @@ def validate_plan(payload: dict, context: dict) -> list[dict]:
         raise ValueError("Plan contains too much quality work.")
     recent_hard = [date.fromisoformat(d) for d in bounds["recent_hard_dates"]]
     recent_long = [date.fromisoformat(d) for d in bounds["recent_long_dates"]]
-    for i, current in enumerate(quality_dates):
+    demanding_dates = sorted(quality_dates + long_dates)
+    for i, current in enumerate(demanding_dates):
         if any(
             abs((current - other).days) < 2
-            for other in quality_dates[:i] + recent_hard + long_dates + recent_long
+            for other in demanding_dates[:i] + recent_hard + recent_long
         ):
             raise ValueError(
-                "Quality work needs an intervening day of recovery spacing."
+                "Quality work and long runs need an intervening day of recovery spacing."
             )
     return results

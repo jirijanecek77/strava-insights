@@ -87,8 +87,10 @@ services:
       SERVICE_NAME: worker
     restart: unless-stopped
     depends_on:
-      - postgres
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   beat:
     build:
@@ -100,8 +102,10 @@ services:
       SERVICE_NAME: beat
     restart: unless-stopped
     depends_on:
-      - postgres
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   sync-dispatcher:
     build:

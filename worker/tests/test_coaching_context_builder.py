@@ -11,13 +11,10 @@ from app.services.coaching.context_builder import (
     period_start_for,
     previous_period_start,
 )
-from app.services.coaching.llm_client import LlmResponseFormatError
 from app.services.coaching.prompts import (
     build_activity_prompt,
     build_period_prompt,
     compact_context,
-    parse_activity_narrative,
-    parse_period_review,
 )
 
 
@@ -117,10 +114,10 @@ class RepositoryStub:
         self.periods = []
         builder = CoachingContextBuilder(self)
         for start in sorted(
-                {
-                    period_start_for("week", row.start_date_local.date())
-                    for row in (self.old, self.earlier, self.current)
-                }
+            {
+                period_start_for("week", row.start_date_local.date())
+                for row in (self.old, self.earlier, self.current)
+            }
         ):
             context = builder.build_period_context(
                 user_id=1,
@@ -371,30 +368,6 @@ def test_period_helpers() -> None:
     assert previous_period_start("week", date(2026, 10, 5)) == date(
         2026, 10, 5
     ) - timedelta(days=7)
-
-
-def test_parsers_require_every_text_field() -> None:
-    narrative = parse_activity_narrative(
-        {
-            "description": [" First. ", "Second."],
-            "summary": " Short. ",
-            "recommendation": "Rest.",
-        }
-    )
-    assert narrative.description == "First.\n\nSecond."
-    assert narrative.summary == "Short."
-    assert (
-        parse_period_review(
-            {"summary": "Week.", "recommendation": "More."}
-        ).recommendation
-        == "More."
-    )
-    with pytest.raises(LlmResponseFormatError):
-        parse_activity_narrative(
-            {"description": "x", "summary": "", "recommendation": "y"}
-        )
-    with pytest.raises(LlmResponseFormatError):
-        parse_period_review({"summary": "Week."})
 
 
 def test_equal_elapsed_and_moving_time_is_omitted_but_athlete_notes_remain():

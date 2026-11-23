@@ -27,6 +27,8 @@ from app.services.planning.repository import PlanningRepository
 from app.tasks.coaching import run_coaching_generation, run_planning_generation
 from datetime import date
 
+import logging
+
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.coaching_cli")
@@ -105,9 +107,28 @@ def main(argv: list[str] | None = None) -> None:
     inspect.add_argument("--period-type", choices=("week", "month"), required=True)
     inspect.add_argument("--period-start", type=date.fromisoformat, required=True)
 
+    attempts = commands.add_parser("attempts", help="Show local sanitized provider-attempt diagnostics.")
+    attempts.add_argument("--user-id", type=int, required=True)
+    attempts.add_argument("--limit", type=int, default=20)
+
     args = parser.parse_args(argv)
-    configure_logging(log_level=settings.log_level)
-    if args.command == "regenerate-latest":
+    configure_logging(log_level=settings.log_level, service_name="coaching-cli")
+    logging.getLogger(__name__).info(
+        "Running coaching CLI command.",
+        extra={"user.id": args.user_id, "stage": args.command},
+    )
+    if args.command == "attempts":
+        if not 1 <= args.limit <= 1000:
+            parser.error("--limit must be between 1 and 1000")
+        from app.services.ai.attempts import ProviderAttempt
+        with SessionLocal() as session:
+            rows = session.query(ProviderAttempt).filter(ProviderAttempt.user_id == args.user_id).order_by(ProviderAttempt.started_at.desc()).limit(args.limit).all()
+            print(json.dumps([{"id":row.id,"operation":row.operation,"work_id":row.work_id,
+                               "input_revision":row.input_revision,"prompt_version":row.prompt_version,
+                               "model":row.model,"outcome":row.outcome,"usage":row.usage,
+                               "started_at":row.started_at.isoformat(),
+                               "finished_at":row.finished_at.isoformat() if row.finished_at else None} for row in rows],indent=2))
+    elif args.command == "regenerate-latest":
         counts = (args.activity_count, args.week_count, args.month_count)
         if not all(0 <= count <= 100 for count in counts) or not any(counts):
             parser.error("Counts must be between 0 and 100, with at least one above zero")

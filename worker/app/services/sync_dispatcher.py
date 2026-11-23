@@ -21,11 +21,16 @@ class SyncDispatchDispatcher:
 
     def dispatch_pending(self, *, limit: int = 50) -> int:
         dispatched_count = 0
+        failed_count = 0
+        logger.debug(
+            "Checking durable sync dispatch queue.", extra={"stage": "sync_dispatch"}
+        )
         for dispatch in self.repository.claim_pending(limit=limit):
             try:
                 task_name = _TASK_BY_SYNC_TYPE[dispatch.sync_type]
                 self.queue_client.send_task(task_name, kwargs=dispatch.payload_json)
             except Exception as exc:
+                failed_count += 1
                 self.repository.reschedule_after_publish_failure(
                     dispatch, error_message=str(exc)
                 )
@@ -35,6 +40,7 @@ class SyncDispatchDispatcher:
                         "sync_dispatch.id": dispatch.id,
                         "sync_job.id": dispatch.sync_job_id,
                         "user.id": dispatch.user_id,
+                        "error.class": type(exc).__name__,
                     },
                 )
                 continue
@@ -46,6 +52,14 @@ class SyncDispatchDispatcher:
                     "sync_dispatch.id": dispatch.id,
                     "sync_job.id": dispatch.sync_job_id,
                     "user.id": dispatch.user_id,
+                },
+            )
+        if dispatched_count or failed_count:
+            logger.info(
+                "Finished durable sync dispatch batch.",
+                extra={
+                    "dispatched_count": dispatched_count,
+                    "failed_count": failed_count,
                 },
             )
         return dispatched_count

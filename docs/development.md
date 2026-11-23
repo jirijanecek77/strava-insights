@@ -19,7 +19,26 @@ This document describes how to run and validate the local stack. Product behavio
 - Create the root `.env.secrets` from `.env.secrets.template` before starting the stack.
 - Use uv for Python dependency management in `backend` and `worker`. Images install with `uv sync --locked`, so run
   `uv lock` from the affected service directory after editing its `pyproject.toml` and commit the updated `uv.lock`.
+- Python image contexts exclude host `.venv` directories. Standard images use their normal system trust store.
+  This test workstation needs an additional corporate CA for its proxy: certificate bundles under `backend/certs/`
+  and `worker/certs/`, and Dockerfile trust-store overrides, stay local and are excluded from publication. Production
+  does not require these machine-specific files or Dockerfile edits. TLS verification remains enabled locally.
 - Use Docker Compose as the default local runtime and validation environment.
+- Workers, beat and the sync dispatcher wait for the backend's healthy state, after database migrations complete.
+  Verify both Compose configurations without starting services using `python scripts/check_compose_startup.py` from
+  the root (or `.\backend\.venv\Scripts\python.exe scripts/check_compose_startup.py` on Windows).
+
+Docker operation scope:
+
+- The user authorizes Docker for this project only. Before container/resource mutations, verify the intended Compose
+  project and checkout using Compose configuration and container labels. Use this repository's Compose files and the
+  already established project identity; do not guess a different project name or operate on unrelated containers.
+- Start, stop, rebuild or recreate only the affected `strava-insights` services. Leave other projects' containers,
+  networks, volumes and shared resources untouched. Do not use global prune, stop-all or host-wide cleanup commands.
+- Normal automated Python suites mock persistence and remain database-free. Any separate manual verification must
+  preserve existing imported activities, coaching results and numerical evidence.
+- Preserve any AI coaching notes/reviews and evidence that exist when running a migration, including test-generated
+  results. The legacy-planning deletion allowance remains limited to the explicitly documented planning boundary.
 
 Environment configuration:
 
@@ -95,20 +114,40 @@ The worker's `conftest.py` only establishes the import path; it does not hide or
 Use `--cache-dir .venv/uv-cache` for uv when the default user cache is not writable. If validation is restricted to
 only tests, run these test commands and the frontend tests without a build or service restart.
 
-AI coaching:
+## AI coaching
 
-- Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses the official `groq` Python SDK with
+- The worker uses LangChain/Groq native structured output and LangGraph control flow. Numerical analytics,
+  training bounds and publication checks stay in application code; the database owns durable progress.
+- Production migration `20261123_0026` provides lease/revision fences, source serialization and provider-attempt
+  accounting. Backend startup applies migrations before worker/scheduler readiness.
+- Synthetic context inputs for schema, grounding, planning and provider regressions live under
+  `worker/tests/fixtures/ai_contexts.json`; `worker/tests/ai_fixtures.py` builds current prompts and typed snapshots.
+  Tests use mocked persistence and simulated HTTP. They need neither a model key nor recorded provider responses.
+- The one-off migration comparison, seed commands, old SDK adapter and private reports have been removed after
+  acceptance. Normal diagnostic records in `ai_provider_attempts` remain part of the running application.
+- Python 3.13 worker dependencies are pinned in `pyproject.toml`/`uv.lock`: `langchain-groq==1.2.1`,
+  `langchain-core==1.8.4`, `langgraph==1.2.24`, `langsmith==0.16.0`. Graph checkpoints are not configured.
+
+For restricted Windows execution policy, use
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\make.ps1 <target>`.
+
+- Set `LLM_API_KEY` in `.env.secrets` to a Groq API key. The worker uses LangChain/Groq native strict output with
   `openai/gpt-oss-120b` by default; override it with `LLM_MODEL` in `.env.secrets` or the shell.
   Timeout and coaching batch/poll settings live in `docker-compose.yml`. Without a key, generation is skipped.
 - SDK retries are disabled; the durable queue handles failures and rate limits. Notes/reviews are capped at 2,048
   completion tokens and seven-day running plans at 4,096. Existing ready notes/plans remain stored when changing provider.
+- LangGraph selects work through the same automatic/manual entry points. `ai_provider_attempts` records every HTTP
+  attempt, including failures/rate limits and unknown outcomes after crashes. Inspect sanitized local records with
+  `docker compose --env-file .env.secrets exec worker python -m app.coaching_cli attempts --user-id <id> --limit 20`.
+  External LangSmith tracing is suppressed; enabling tracing environment variables does not export athlete payloads.
 - After dependency changes, run `make build`. After changing the image, key, or model, recreate the worker services:
   `docker compose --env-file .env.secrets up -d worker beat sync-dispatcher`.
 - Production uses `.env.production` separately; configure its `LLM_API_KEY` with a Groq key as well.
 - To pause generation, clear the key and recreate those services; queued items and existing text remain stored.
 - `make ai-notes-enqueue`: queue a note for user `1`'s latest activity (`--count 1`); existing notes are kept.
 - `make ai-notes-run`: process at most one pending AI call for user `1` (`--batch-size 1`). Pending running plans get
-  the first call; activity notes and period reviews use the remaining budget in larger runs.
+  the first call once their recent activity evaluations finish. While they wait, activity notes use that call;
+  larger runs can evaluate activities and then generate a plan within the same shared budget.
 - `make ai-plan-replan`: explicitly request and attempt a fresh seven-day running plan for user `1`, even without a
   newly imported activity. Use `make ai-plan-replan AI_USER_ID=2` for another user, or
   `.\make.ps1 ai-plan-replan -AiUserId 2` on Windows. The athlete must exist and be active.
@@ -137,15 +176,22 @@ AI coaching:
   activities, including the initial import. Durable intent is recorded alongside the first newly inserted activity;
   a successful retry/later sync releases pending work after partial import failure. No-change syncs, backfills,
   threshold changes, calendar visits, and date rollover do not request plans. Future coverage shrinks during inactivity.
-- Planning uses recent local training, thresholds, and prior plans to develop endurance, AeT/AnT, and speed with
+- Planning uses recent completed local training and current thresholds to develop endurance, AeT/AnT, and speed with
   bounded load and recovery. Insufficient running/HR evidence yields `insufficient_data`, not invented targets.
   The application chooses a build/maintain/recover objective before the model assigns workouts. CLI `replan` and
   `show` explain its weekly volume range, running frequency, reason, and review date; the read API includes the
-  same objective metadata. Replanning continues the current training block, while new substantial recovery
-  evidence can lower its load. Prompt version 2 replaces the earlier broad cutback allowance with objective-specific
-  volume/long-run bounds. Existing ready plans remain stored until a new activity or explicit manual replan.
+  same objective metadata. Each forecast recalculates this objective; previous plans and their targets are not inputs.
+  Prompt version 3 sends 30 days of individual activities, compact locally calculated 42-day capacity/trend aggregates,
+  current thresholds, new objective/bounds and the seven requested weekdays. Long runs must be on weekends and
+  spaced from other demanding sessions. The previous plan remains visible until a valid replacement publishes
+  atomically, including while generation waits or fails. There is no runtime input-token cap or manual size workflow.
+  Development token-regression tests use `tiktoken`/`o200k_harmony`; the first run downloads and caches its public
+  encoding asset, with no athlete data sent. Production has no tokenizer dependency. If corporate TLS requires a
+  custom trust bundle, set `REQUESTS_CA_BUNDLE` to the appropriate combined CA bundle for this initial download.
   Each automatic/manual request is durable. Active syncs, missing API configuration, and retry delays may postpone
-  the CLI's immediate attempt; its printed status distinguishes queued work from a ready plan. Invalid responses
+  the CLI's immediate attempt. Plans also wait for pending/generating activity evaluations in their last 30 dates;
+  these notes take priority over historical backlogs. Failed/missing evaluations allow numerical-data fallback.
+  The CLI's printed status distinguishes queued work from a ready plan. Invalid responses
   retry with validation feedback and stop after five attempts. A manual replan supersedes older pending requests.
 - `PLANNING_TIMEZONE` defaults to `Europe/Prague` in both Compose stacks and can be overridden in their environment
   file. The timezone is captured on each request; changing it applies to the next activity-triggered/manual request.
@@ -156,6 +202,12 @@ Useful log inspection commands:
 - `docker compose --env-file .env.secrets logs backend --tail 200`
 - `docker compose --env-file .env.secrets logs worker --tail 200`
 - `docker compose --env-file .env.secrets logs beat --tail 200`
+
+Logs retain the readable service/user prefix and append JSON operational metadata. Task IDs, activity/plan IDs,
+phase, elapsed time, counts, retry delays, model and provider token usage are visible. A provider rejection records
+HTTP status, an allowlisted code/type and a safe request ID; it never includes its body or echoed generation.
+Use those identifiers to distinguish provider rejection, incomplete output, JSON/field validation and training-policy
+validation. Coaching/planning summaries report domain failures even if the Celery task itself completed successfully.
 
 ## Recorded Activity Splits
 
@@ -224,9 +276,9 @@ docker compose --env-file .env.secrets run --rm --no-deps worker python -m app.s
   rows are skipped, old text is preserved, and this command queues work without calling the provider. Run the existing
   coaching `run` command to consume it; the background queue may also process it. That step sends context to the
   configured model. Deployment alone does not queue a mass replacement of legacy ready reviews.
-- Activity prompt version 6 describes endurance/tempo stimulus, Garmin lap elevation totals, local terrain coverage,
+- Activity prompt version 7 describes endurance/tempo stimulus, Garmin lap elevation totals, local terrain coverage,
   and qualified fatigue evidence. Period prompt
-  version 4 uses the activity-to-week-to-month hierarchy, with at most seven preceding activity summaries and three
+  version 5 uses the activity-to-week-to-month hierarchy, with at most seven preceding activity summaries and three
   preceding same-type period reviews. Week metrics store date-grouped numeric handoffs outside the provider payload.
 - The hierarchy reuses existing JSON storage (`activity_coaching_evidence.facts.evaluation` and period
   `metrics.hierarchy`),

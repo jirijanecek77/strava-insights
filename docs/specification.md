@@ -85,7 +85,9 @@ storage, computes derived metrics, and serves dashboards and activity detail vie
   contracts through mocks or offline SQL compilation; running all tests must not require exclusion filters.
 - Every meaningful code change must include a successful build validation.
 - Do not rely on deleting or recreating the database as a normal development step.
-- When schema changes are required, add explicit backward-safe migrations.
+- When schema changes are required, add explicit backward-safe migrations, except for the user-authorized legacy
+  planning reset described in [LangChain Migration Target](#langchain-migration-target). That exception protects all
+  coaching and imported activity data and permits deleting/replacing legacy planning state only.
 
 ## Administration
 
@@ -595,8 +597,9 @@ The calendar should feel closer to a training overview than to a traditional ent
 - The planning objective is sustained improvement in running performance: aerobic threshold (AeT), anaerobic
   threshold (AnT), endurance, and speed. Threshold improvement means being able to sustain a faster pace at the
   relevant physiological intensity; raising the target heart rate is not itself evidence of improvement.
-- Each seven-day plan is the next part of an ongoing progression informed by multiple weeks of completed training
-  and previous plans. Balance easy aerobic running, longer endurance runs, appropriately dosed threshold/speed
+- Each seven-day plan is a fresh forecast informed by multiple weeks of completed training and current thresholds.
+  Do not send previous plans to the model or carry over their objectives, target volume, or daily assignments.
+  Balance easy aerobic running, longer endurance runs, appropriately dosed threshold/speed
   work, and recovery according to the athlete's current capacity and response.
 - Increase training load or intensity only when recent training and recovery evidence supports it. Holding or
   reducing load, including recovery weeks, is part of progression; do not make every successive plan harder.
@@ -616,9 +619,10 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Recovery normally targets 60–80% of the latest/typical volume mean with easy running and rest. A return after a
   week without running allows a smaller easy plan. All target ranges must fit the athlete's volume, run-distance,
   and frequency ceilings, including feasibility when a recovery objective reduces the number of running days.
-- Activity-triggered rolling forecasts retain the current block's objective and review date until review is due;
-  new recovery evidence may lower the objective mid-block without restarting its review clock. Preserve the
-  normal running frequency and long-run stimulus instead of spreading reduced mileage over more short runs.
+- Recalculate the objective and its volume/frequency/long-run limits for every new forecast using completed training.
+  The forecast starts tomorrow and is next due for review after its seven dates; earlier AI decisions do not constrain
+  it.
+  Preserve the athlete's established running frequency and long-run capacity from completed work.
 - Give each planned run a short purpose explaining its contribution to endurance, AeT, AnT, speed, or recovery.
   Account for cycling fatigue when choosing running intensity and recovery spacing, and preserve continuity of
   the training progression when regenerating future workouts after an activity.
@@ -635,6 +639,16 @@ The calendar should feel closer to a training overview than to a traditional ent
   totals, best efforts, or other historical analytics.
 - Generate plans in background jobs using local training history and configured thresholds. Calendar reads must
   use stored plans without calling Garmin or the model.
+- Local capacity and comparison calculations may use 42 days. Send individual activities only from the latest
+  30 local calendar dates, including today: date, sport, distance, moving time, elevation, average pace/HR and saved
+  short coaching interpretation. Include current thresholds, locally calculated aggregates, a freshly selected
+  objective and validation bounds. Explicitly supply the weekday for each requested date.
+- Wait for pending/generating activity evaluations in that 30-day window before claiming a plan, including a manual
+  request. Prioritize those activity evaluations over historical coaching backlogs, retaining chronological order
+  within each group. A failed or missing evaluation does not block planning: send its numerical activity data and
+  explicit coaching status, without presenting old saved prose as a successful current evaluation.
+- Keep planning payloads compact and verify token counts against the previous prompt. Do not introduce a runtime
+  input-token cap, rejection state or manual prompt-size workflow. Keep the existing completion-token limits.
 - Generate the first plan after the initial historical import, provided recent training supports usable targets.
   Subsequently, request one recalculation after a successful sync imports new supported activities, regardless of
   how many activities were imported. Running, cycling, and e-bike activities all trigger recalculation because they
@@ -656,8 +670,9 @@ The calendar should feel closer to a training overview than to a traditional ent
 - Bound planned volume to 110% of the largest completed seven-day running volume in the latest four seven-day
   blocks, and any run to 110% of the longest run in the last 28 days. Allow at most six running days, at most one more
   running day than the athlete's highest recent weekly frequency, and at most two quality days. At least 70% of
-  planned distance must be easy. Leave an intervening recovery day between quality sessions and between planned
-  quality work and recent/planned long runs; include hard cycling/e-bike activities in recovery checks. These are
+  planned distance must be easy. Long runs are allowed only on Saturday or Sunday. Enforce an intervening recovery
+  day between any threshold, speed or long sessions and recent hard/long activity, including cycling/e-bike load.
+  Apply the same rules in the prompt and local response validation. These are
   ceilings, not progression targets. The selected objective supplies narrower volume and long-run ranges and the
   usual running-day count; reject responses outside them and require quality work in a build block when thresholds
   and established frequency support it. All-sport time rising more than 30% above the median prior active-week load,
@@ -676,7 +691,8 @@ The calendar should feel closer to a training overview than to a traditional ent
   A ready plan shows no informational text bar above the calendar.
 - Include the objective and explanation in plan API metadata and CLI `replan`/`show` output. This does not add a
   ready-state information bar to the calendar. Store objective metadata in the existing request JSON so older
-  requests remain readable without a schema migration; upgrade pending legacy contexts within their requested dates.
+  requests remain readable without a schema migration. Refresh activity facts/evaluation status and currently
+  effective thresholds on retries, including legacy contexts, while preserving the originally requested dates.
 
 ## AI Coaching
 
@@ -710,8 +726,8 @@ The calendar should feel closer to a training overview than to a traditional ent
   be used to calculate existing aggregate metrics without including their samples in the model request.
 - Provider payloads use compact JSON. Activity contexts omit weekday, local start time, maximum speed, and
   elapsed time when it equals moving time. Distances, lap durations/speeds, and cadence use bounded precision.
-  Planning sends rounded historical activity metrics and omits prior plan rationales while retaining session
-  dates, types, and targets. Stored planning context and validation bounds retain their original precision.
+  Planning sends rounded activity metrics from the latest 30 days and omits previous plans entirely, including
+  saved legacy retry contexts. Stored 42-day planning context and validation bounds retain their original precision.
   These reductions apply to subsequent calls, including queued planning retries, without regenerating ready text.
 - Garmin's own activity description is never overwritten; coaching text is stored separately.
 
@@ -770,24 +786,51 @@ The following rules define the implemented coaching hierarchy and period compari
 
 ### Generation Model
 
-- The model is reached through Groq's official synchronous Python SDK using JSON-object chat completions. The default
+- The worker uses LangChain/Groq with native strict JSON Schema and Pydantic results for activity, week, month and
+  running-plan generation. LangGraph controls eligible work through the application services described below in
+  [LangChain Migration Target](#langchain-migration-target). The default
   model is `openai/gpt-oss-120b`; model, API key (`LLM_API_KEY`), and timeout are worker configuration. Without an
   API key, generation is skipped and queued work waits. SDK retries are disabled so durable work items own retries,
-  and notes/reviews are capped at 2,048 completion tokens; seven-day plans use 4,096. Provider error bodies are not
-  stored or logged.
+  and notes/reviews are capped at 2,048 completion tokens; seven-day plans use 4,096. Output contracts reject extra
+  fields and invalid types; activity summaries are limited to 40 words. Native schema descriptions reinforce existing
+  evidence, terrain, recovery and uncertainty rules. Temperature is explicitly 1, matching Groq's default rather than
+  LangChain's different default. Existing saved coaching readers remain compatible. There is one native structured
+  provider path, with no legacy SDK adapter or fallback. Provider error bodies, messages and failed
+  generations are not stored or logged in operational diagnostics. Preserve
+  HTTP status, allowlisted error code/type and a bounded request identifier for diagnosis; a 400 alone does not
+  establish a JSON failure. Record finish reason and provider-reported token usage even for truncated completions.
+- Versioned local interpretation limits accompany activity and period instructions. They distinguish eligible
+  steady-block drift from interval/recovery averages, measured facts from unknown fatigue/readiness, exact percentage
+  changes from absolute distance changes, classified HR time from missing HR and combined running/cycling duration.
+  Advice remains conditional on recovery; rest days and low HR cannot establish that added intensity is safe.
+  Period limits reuse saved numerical evidence without new activity/stream reads or altered training-policy bounds.
+  With uncovered calendar dates, do not infer normal weekly capacity, prescribe progression from missing history or
+  invent maximum-HR percentages. Keep the recommendation conservative and conditional on recovery and better evidence.
 - Coaching rows are durable work items: notes are queued in the same transaction that persists the new activity, and
   period reviews are queued by a planner that compares a hash of the period inputs with the inputs of the last
   review.
 - Generation runs in the worker right after a sync that imported activities and periodically from `beat`. Workers claim
-  rows with leases so concurrent runs never generate the same item twice.
+  rows with detached UUID lease tokens to coordinate concurrent runs. All four output types check ownership and
+  operation-scoped input revisions atomically at publication. Source mutations and publication use the same athlete
+  transaction lock. Leases and fencing do not establish exactly-once provider execution.
 - Notes for a user are generated only after that user's sync job finishes, so best efforts and route groups already
   include the new activity. A week waits for pending activity notes; a month waits for pending weekly evaluations.
 - A period review is regenerated when its own saved child results change and once after the period ends.
   Changes confined to surrounding context or an outside-month part of a boundary week preserve a closed review.
-- Rate-limit responses defer the item until the provider's retry delay without counting an attempt and stop the
+- Rate-limit responses defer the item until the provider's retry delay without incrementing its failure count and stop the
   current run. Other failures retry with exponential backoff and become `failed` after five attempts; a failed
   review is retried only when its inputs change.
-- Each run is capped by a configurable call budget to stay within provider request and token quotas.
+- Each run is capped by actual HTTP attempts, including failures and rate limits. An independent work-item budget
+  (50 by default) bounds graph transitions and no-call/deferred work. Every HTTP request is durably recorded before
+  sending; a crash can leave an `unknown` remote outcome that still counts as an attempt.
+- Reserve at most one model call per run for an eligible running plan. Recheck planning eligibility after activity
+  evaluations finish, using the same shared budget; period reviews use what remains.
+- Worker, beat, dispatcher and operator CLI logs identify the service and show safe structured operational fields.
+  Celery jobs include task/user/sync identifiers, start/end/failure, elapsed time and safe result counts; nested
+  coaching/model calls inherit the current work-item identifiers. Planning logs distinguish context, provider,
+  validation and publication stages. Imports, derived-model updates, cache invalidation, scheduler, outbox batches
+  and split backfills expose their existing counts/progress plus retries and terminal outcomes. Task arguments,
+  credentials and full model inputs/outputs are excluded from structured metadata.
 - Operators can explicitly queue replacements for bounded independent counts of the latest activities, stored
   weekly reviews and stored monthly reviews. The default is five activities, one week and one month; each count
   accepts 0 to 100, with at least one positive count. Queue all requested levels in one transaction, reset failed
@@ -796,6 +839,96 @@ The following rules define the implemented coaching hierarchy and period compari
   with its usual child-first ordering, leases, retries and shared call budget.
 - UI read paths only read stored coaching rows and never call the model. Existing text stays visible while a
   regeneration is pending.
+
+### AI workflow architecture
+
+- LangChain/Groq owns native model integration; LangGraph selects and sequences eligible operations. Framework code
+  stays at the infrastructure edge. Garmin imports, numerical analytics, training objectives and policy validation
+  remain ordinary application code.
+- PostgreSQL application work items are the only durable progress authority. Reconstruct eligibility after a crash;
+  graph state has no separate checkpoint store. Check current ownership and relevant source revisions atomically
+  before publication, preserving the last valid result when replacement work becomes obsolete.
+- Each normal attempt uses one provider request. The application owns retries, rate-limit delays, call budgets and a
+  separate bound on database-only graph work. No autonomous agent, critic or inner repair loop is part of generation.
+- Preserve complete activity notes, weekly/monthly summaries, their metadata, relationships and numerical evidence,
+  together with imported activities, streams, laps, users and thresholds. Persistence changes use explicit migrations;
+  feature work must not reset the database or delete application data.
+- Tests validate production behavior with mocked persistence and simulated provider HTTP. Reusable synthetic inputs
+  live under tests. One-off migration comparison/seed tools and their private records are no longer retained.
+- The replacement was accepted on 2026-11-24 after automated checks, scoped stack verification and a twelve-case
+  qualitative provider comparison. Ongoing model behavior is constrained by the same factual, uncertainty and
+  training-policy rules above; that small comparison is not statistical proof of general model reliability.
+
+The following diagram simplifies the [production workflow](../worker/app/infrastructure/ai/langgraph_workflow.py).
+It omits the `after_generation` bookkeeping node. Only the generation step calls the model; input preparation,
+training-policy validation and publication checks run in application code.
+
+```mermaid
+flowchart TD
+  A["Start through CLI or Celery"] --> B["Select pending work"]
+  B --> C{"Eligible work available<br/>and budget remaining?"}
+  C -->|No| Z["End"]
+  C -->|Yes| D["Prepare facts and prompt"]
+  D --> E["LangChain: call the model through Groq"]
+  E --> F["Validate the result"]
+  F --> G["Check ownership and input revisions, then publish"]
+  G --> B
+  D -->|Error or missing inputs| H["Defer work or record failure"]
+  E -->|Error| H
+  F -->|Invalid result| H
+  G -->|Error| H
+  H --> B
+```
+
+Selection stops when no eligible work remains, either budget is exhausted, or a provider rate limit is reached.
+Obsolete results return to selection without replacing the last valid result. Retries use the durable application
+queue and its delays; returning to selection does not immediately retry the same failed item.
+
+### AI contracts, source precision and publication
+
+Application contracts live in `worker/app/services/ai/contracts.py`; existing saved coaching handoffs remain in
+`services/coaching/contracts.py`. Pydantic validates parsing/output boundaries, while detached dataclasses carry
+claims, snapshots and results across graph nodes. No ORM row or framework message is stored in graph state.
+
+| Input fields | Authoritative source and precision | Classification |
+| --- | --- | --- |
+| `ActivityContext.activity` | Stored activity metrics and dated athlete notes; existing display rounding/formatting only at the prompt projection | Measured/imported values and local presentation |
+| `splits`, `terrain_context` | Recorded Garmin laps, their measured ascent/descent and locally prepared terrain aggregates; missing values stay unknown; no raw samples/GPS in provider input | Imported/local evidence |
+| `activity_evidence.candidates` | Existing evidence calculations over qualified sustained blocks, retaining unrounded numerical handoffs | Local numerical evidence |
+| `athlete_thresholds`, `heart_rate_zones` | Threshold profile effective on the activity date and classified stream durations; exact AeT/AnT band membership retained | Configured/local evidence |
+| `recent_training`, `best_efforts`, `route_comparison` | At most seven preceding ready interpretations, seven-day local totals and stored rankings/route results | Saved interpretations plus local facts |
+| `PeriodContextData.activities` | Saved coherent activity facts and short interpretations for the exact week dates; no new stream/lap analysis | Saved child results |
+| `PeriodContextData.weeks`, `metrics.hierarchy.days` | Saved weekly interpretations and full-precision daily numerical handoffs clipped to exact month dates | Contextual prose versus authoritative clipped facts |
+| Period totals, bands, comparisons, coverage | Existing local hierarchy aggregation; time-weighted durations/percentages and exact elapsed-calendar comparison dates | Local numerical evidence and explicit unknowns |
+| `previous_reviews` | Up to three preceding reviews at the same level; they do not establish current volume | Contextual generated prose |
+| `PlanningContext.activities` | Completed local training covering 42 dates for capacity; provider projection retains 30 dates, explicit coaching status and only ready current summaries | Imported/local facts plus optional interpretation |
+| `thresholds`, `bounds`, `weekly_objective` | Current applicable thresholds and existing Python policy/objective calculations; full precision retained for validation | Configured/local authoritative policy |
+| `today`, `dates`, `timezone` | Frozen business forecast window of seven dates beginning tomorrow; retries refresh facts/thresholds while retaining requested dates | Application-owned identity/window |
+| `ActivityResult`, `PeriodResult`, `PlanResult` | One native-schema model response; Python validates every plan target and training constraint before publication | Generated output, never a replacement for measured evidence |
+
+| Operation | Durable identity / eligibility | Publication contract |
+| --- | --- | --- |
+| Activity | `activity_coaching_notes.id`, active athlete, eligible pending/expired claim, no active sync | Current token/lease, current activity/history projection, coherent note/evidence publication |
+| Week / month | `period_coaching_summaries.id`, active athlete, eligible claim, child readiness checked before inference | Current token/lease, current relevant clipped child revision, coherent prose/metrics publication |
+| Plan | Latest `training_plan_requests.id`, active athlete, successful-import readiness or explicit manual request, recent note dependencies resolved | Current token/lease/business request, no active sync, unchanged training/threshold projection, validated future targets published together |
+
+`input_revision` is separate from prompt/debug fingerprints. An activity revision covers its consumed context and
+numerical handoff. Period revisions retain clipped daily facts/revisions and relevant interpretations; broad week
+hashes and boundary-week prose do not invalidate an unchanged clipped month. Planning revisions cover current
+completed training, interpretations, thresholds, objective and bounds for the fixed window. Obsolete results preserve
+published text/targets, release eligible replacement work and discard obsolete retry feedback/failure counts.
+
+Migration `20261123_0026` installs the common transaction-lock protocol for source writes to users, activities,
+threshold profiles, activity notes, period reviews, sync jobs, best efforts and planning requests, plus streams, laps,
+evidence and route memberships through their activity owner. Reparenting locks both old/new athletes in a stable order.
+Publication acquires that same lock before refreshing source state and checking/writing the result in one transaction.
+The normal owner cannot overwrite another owner's ready, failure or retry state.
+
+`ai_provider_attempts` stores operation/work/user/claim identifiers, input and prompt fingerprints, prompt/model versions,
+outcome, latency and provider token counts; integration/schema fingerprints are retained in usage metadata. A unique
+claim constraint prevents a second provider request under the same lease. It stores no prompts, coaching text or keys.
+External tracing is suppressed even when inherited environment variables would enable it. The graph has no checkpointer,
+store, node retry, critic or automatic repair loop. Local reads and import/numerical calculations stay outside the frameworks.
 
 ### Presentation
 

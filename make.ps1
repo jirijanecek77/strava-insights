@@ -6,7 +6,7 @@ param(
 )
 
 if (-not $Target) {
-    Write-Error "Usage: ./make.ps1 <build|up|down|test|logs|build-prod|up-prod|down-prod|logs-prod|ai-plan-replan> [-AiUserId 1]"
+    Write-Error "Usage: ./make.ps1 <target> [-AiUserId 1]. See docs/development.md for available targets."
     exit 1
 }
 

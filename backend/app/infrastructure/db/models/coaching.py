@@ -28,7 +28,12 @@ class ActivityCoachingEvidence(Base):
     facts: Mapped[dict] = mapped_column(JSON, nullable=False)
 
 
-class ActivityCoachingNote(TimestampMixin, Base):
+class CoachingOwnership:
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    input_revision: Mapped[str | None] = mapped_column(String(64))
+
+
+class ActivityCoachingNote(CoachingOwnership, TimestampMixin, Base):
     """AI coaching description, summary, and next-session advice for one activity."""
 
     __tablename__ = "activity_coaching_notes"
@@ -60,7 +65,7 @@ class ActivityCoachingNote(TimestampMixin, Base):
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class PeriodCoachingSummary(TimestampMixin, Base):
+class PeriodCoachingSummary(CoachingOwnership, TimestampMixin, Base):
     """AI coaching summary for one week or month, built from activity coaching summaries."""
 
     __tablename__ = "period_coaching_summaries"

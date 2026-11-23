@@ -209,35 +209,8 @@ production database adapters were unchanged; no database, migration, service, or
 
 - [x] Compact coaching/planning JSON, omit redundant activity fields and equal elapsed/moving time, and round
   activity metrics to useful precision while retaining lap evidence, thresholds, athlete notes, and training history.
-- [x] Omit prior plan rationales only from provider payloads, including saved contexts on retry; preserve prior
-  session targets, stored planning context, exact validation bounds, and existing ready notes/plans.
-
-### Groq Python SDK Migration
-
-Completed and validated locally on 2026-11-10. Existing Gemini-generated notes remain stored.
-
-- [x] Selected `openai/gpt-oss-120b` after the originally proposed Llama model returned HTTP 404 from the live API.
-  Verified model availability and JSON output with the configured Groq credential; pinned the official Python SDK
-  (`groq==1.7.0`) in the worker project and lockfile.
-- [x] Replaced the raw HTTP adapter with synchronous `GroqLlmClient`, preserving the application protocol, JSON parser,
-  prompt validation, and completion metadata. Responses use JSON-object mode with a 2,048-token output cap.
-- [x] Disabled SDK retries so durable coaching retries and the per-run call budget remain authoritative. Preserved
-  429 deferral without counting attempts or continuing the run, including fractional and HTTP-date `Retry-After`.
-- [x] Added lazy SDK creation for missing-key startup, explicit cleanup on successful/failed runs, sanitized errors,
-  and tests using the real SDK with a mocked HTTP transport.
-- [x] Retained the existing `LLM_API_KEY` name, made it optional in worker settings, removed Gemini endpoint/reasoning
-  settings, and made `LLM_MODEL` overridable in both Compose files. Production still loads `.env.production` separately.
-- [x] Updated the specification, development/deployment workflow, and secret templates. No schema changes or data reset
-  are required; existing ready notes are not regenerated merely because the provider changed.
-- [x] Passed targeted coaching tests, `make build`, and `make test` (32 backend, 101 worker, 55 frontend tests).
-  Reran all 101 worker tests and rebuilt after correcting the default model. Local Compose configuration and production
-  template configuration pass validation; production was not deployed.
-- [x] Recreated worker, beat, and sync-dispatcher. Generated the existing pending note for activity `1457` after bringing
-  its retry time forward without resetting attempts, plus the week of `2026-11-09` and November 2026 reviews.
-  All three succeeded without failures or rate limiting and were verified through authenticated local read APIs.
-
-Recovery: clear the configured key and recreate the worker services to pause generation while keeping queued work
-and existing text. A code rollback also needs the matching lockfile, provider configuration, and provider credential.
+- [x] Compact planning inputs without changing saved targets or validation precision. Planning prompt version 3
+  now omits prior plans entirely and sends only 30 days of individual activities; see the refresh work below.
 
 ### AI Running Plans
 
@@ -250,7 +223,7 @@ Implemented and validated locally on 2026-11-10. Product behavior and training p
   and e-bike imports. Claims wait for successful sync completion; a later successful sync can release intent from
   a partially failed import. Existing-activity backfills, no-change syncs, threshold/configuration edits, date
   rollover, and calendar reads do not request new plans. Coverage shrinks during inactivity.
-- [x] Added compact local training context, previous-plan continuity, and a versioned prompt targeting endurance,
+- [x] Added compact local training context and a versioned prompt targeting endurance,
   AeT/AnT, and speed. Added deterministic volume/frequency/intensity, aerobic pace/HR, and recovery-spacing bounds,
   including protection against unexplained volume collapse and easy-only return after inactivity.
 - [x] Integrated generation into the existing coaching worker with one reserved planning call per run, a shared call
@@ -269,12 +242,12 @@ Implemented and validated locally on 2026-11-10. Product behavior and training p
   Windows `.\make.ps1 ai-plan-replan -AiUserId <id>`. Manual replanning explicitly permits generation without new activity.
 - [x] Added history-based `build`/`maintain`/`recover` objectives before daily workout generation, with explicit
   volume, usual frequency, and long-run ranges. Comparable aerobic pace/HR evidence distinguishes isolated
-  fatigue from repeated strain; cycling load contributes to recovery decisions. Activity-triggered forecasts
-  retain the block objective and review date, with new recovery evidence allowed to lower load mid-block.
+  fatigue from repeated strain; cycling load contributes to recovery decisions. Each new forecast now recalculates
+  the objective and dates from completed work, replacing the original block-objective carryover.
   Versioned request context preserves legacy plans and exposes the objective/explanation through the API and CLI.
 - [x] Passed `make build`, `make test` (33 backend, 154 worker, 58 frontend), and frontend production compilation.
   Coverage includes import/backfill trigger behavior, manual CLI, leases/stale results, partial failure recovery,
-  volume/recovery rules, objective selection/continuity, terrain-aware comparisons, legacy context upgrades,
+  volume/recovery rules, objective selection, terrain-aware comparisons, legacy context upgrades,
   inactivity, missing HR/history, retry feedback, user isolation, and DST/month/year boundaries.
 - [x] Applied the migration to the existing local database and verified live Groq generation through
   `make ai-plan-replan`. Authenticated local API reads returned seven stored days for 2026-11-11 through 2026-11-17;
@@ -283,6 +256,39 @@ Implemented and validated locally on 2026-11-10. Product behavior and training p
   `maintain` objective consolidates a recent volume increase within its 54.27–59.99 km range. Authenticated API
   checks confirmed objective metadata and volume/frequency/long-run bounds. Existing activity count, distance,
   and moving-time totals remained unchanged (1,065 activities).
+
+#### Planning refresh and worker diagnostics — 2026-11-23
+
+- [x] Recompute each seven-day forecast objective from completed training and current thresholds. Remove previous
+  targets and inherited objectives from model inputs, retaining the previous displayed plan until atomic publication.
+- [x] Send only the last 30 local dates of individual activities; retain 42-day local capacity/trend calculations.
+  Include explicit weekdays, current thresholds, short activity interpretations and fresh objective/validation bounds.
+- [x] Wait for pending/generating recent activity evaluations and prioritize them over historical note backlogs.
+  Recheck plan eligibility after evaluation within the shared call budget. Terminal failures/missing notes permit
+  numerical fallback with explicit status. Refresh saved retry contexts so obsolete failed-note prose cannot leak in.
+- [x] Enforce weekend-only long runs and recovery spacing between every planned demanding session and recent
+  hard/long work. Reproduced all three previously accepted invalid schedules with failing regressions before fixing.
+- [x] Replace verbose prompt instructions with compact valid JSON examples and exact output contracts. Reject
+  unexpected narrative fields; preserve legacy paragraph-array normalization. Activity/period/planning prompt versions
+  are now 7/5/3. Existing ready results remain stored; completion-token limits remain 2,048/4,096.
+- [x] Add tokenizer-based golden checks proving the new prompts fit previous token counts across representative
+  training histories, including new coaching-status fields. The tokenizer is development-only. No runtime input cap,
+  artificial rejection state, automatic data-removal workflow or user prompt-size action was introduced.
+- [x] Preserve safe provider status, allowlisted error code/type and request identifier; expose completion finish
+  reason and provider token usage. HTTP 400 is diagnosed rather than assumed to be malformed JSON. Error bodies,
+  messages, echoed generations and credentials stay out of persisted diagnostics and structured logs.
+- [x] Render existing operational metadata and add work-item context, job outcomes, phase/count/retry details across
+  Celery jobs, coaching/planning, scheduler, dispatcher and split-backfill/CLI entry points. Logging tests run in an
+  isolated process and verify that context resets and private payloads are excluded.
+
+Validation: all 260 worker, 44 backend and 79 frontend tests passed, as did frontend production compilation,
+Python compilation and whitespace validation. Planning token checks changed 2,803 to 2,225, 4,261 to 3,313 and
+10,118 to 7,970 tokens in the three recorded scenarios (including the same message-envelope allowance). Activity
+instructions changed 524 to 443 tokens and weekly review instructions 486 to 380. Both review axes were checked;
+the saved-context/current-threshold and logging-test isolation findings were fixed with regressions.
+Docker commands, image builds/restarts, physical database tests and live provider calls
+are excluded from this delivery. The user explicitly requested no Docker or database tests; no application data was
+changed. Runtime rollout and live-provider verification remain unperformed.
 
 Operational workflow and configuration are documented in [development.md](development.md). Continue reviewing
 training-plan quality during real use alongside the existing coaching-quality review; generated targets are training
@@ -379,6 +385,32 @@ Behavior is defined in [specification.md](specification.md#recorded-splits-chart
 
 ### Architecture and Codebase Cleanup
 
+- [x] Replaced activity coaching, weekly/monthly reviews and running planning with LangChain/Groq native strict
+  output and LangGraph orchestration. Automatic/manual entry points share one production path; Python retains
+  deterministic numerical evidence, objectives, training validation and completion limits.
+- [x] Added typed contexts/results and detached claims, durable per-request accounting, lease ownership and relevant
+  input-revision fences. Production migration `20261123_0026` serializes source writes with publication. Imported
+  activities and complete existing coaching text/evidence remain preserved; no database reset was needed.
+- [x] Verified concurrency, lease takeover, obsolete publication rejection, shared call/no-call budgets, child ordering,
+  planning fallback, safe diagnostics, suppressed external tracing and local-only API reads.
+- [x] Completed the twelve-case real-provider comparison within 44 explicitly approved requests. The user accepted
+  factual support, uncertainty and usefulness on 2026-11-24. The comparison was a qualitative check rather than a
+  statistical reliability claim; it introduced no automatic judge or repair loop.
+- [x] Removed temporary migration comparison/seed/acceptance tools, the original SDK adapter and test-only copies of
+  old generators after acceptance. Deleted private comparison records at the user's request. Reusable synthetic
+  input contexts live only under `worker/tests/fixtures`; production contracts, provider/graph behavior, recovery
+  limits, publication fences, retry policy and period invalidation retain direct regression coverage.
+- [x] Removed obsolete Make/PowerShell targets and the comparison-artifact Compose mount. Kept the general Compose
+  startup check and production provider-attempt diagnostics. Application data and migration `0026` remain intact.
+- [x] Excluded host virtual environments from Python build contexts. Workstation-specific certificates and Dockerfile
+  trust overrides remain local. The temporary synthetic lap-repair migration was removed before publication; only
+  its local version marker was rolled back, with identical fingerprints for all 21 application tables.
+- [x] Before this tooling cleanup, documented suites passed (47 backend, 359 worker, 79 frontend), both Python image
+  builds and local API checks passed, and the user completed the production-quality review.
+- [x] After removing migration-only tools/tests, the documented suites pass (47 backend, 286 worker, 79 frontend).
+  Type checks pass for eleven production/support files, the worker image builds, the production CLI imports normally
+  and both Compose startup checks pass. Activity/period prompt output is byte-identical across all ten retained
+  activity/period inputs; no provider request or application-data deletion was needed for this cleanup.
 - [ ] Review the current code structure against the clean-architecture target in the specification and close remaining boundary leaks.
 - [x] Refactor the frontend out of the current single-file `App.jsx` composition into screens, reusable hooks, API utilities, and focused components.
 

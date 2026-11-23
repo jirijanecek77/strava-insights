@@ -1,4 +1,5 @@
 from app.infrastructure.db.models.activity import Activity
+from app.infrastructure.db.models.ai_attempt import ProviderAttempt
 from app.infrastructure.db.models.activity_splits import ActivitySplits
 from app.infrastructure.db.models.activity_stream import ActivityStream
 from app.infrastructure.db.models.best_effort import BestEffort
@@ -22,6 +23,7 @@ from app.infrastructure.db.models.user import User
 from app.infrastructure.db.models.user_threshold_profile import UserThresholdProfile
 
 __all__ = [
+    "ProviderAttempt",
     "Activity",
     "ActivitySplits",
     "ActivityCoachingEvidence",

@@ -79,8 +79,10 @@ services:
     volumes:
       - ./worker:/app
     depends_on:
-      - postgres
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   beat:
     build:
@@ -92,8 +94,10 @@ services:
     volumes:
       - ./worker:/app
     depends_on:
-      - postgres
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   sync-dispatcher:
     build:

@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.services.coaching.generator import CoachingRunStats
+from app.infrastructure.ai.langgraph_workflow import RunStats as CoachingRunStats
 from app.tasks import coaching
 
 
@@ -13,9 +13,9 @@ def test_generation_closes_client_and_session_even_on_failure(monkeypatch, fails
     if fails:
         generator.run.side_effect = RuntimeError("generation failed")
     monkeypatch.setattr(coaching, "SessionLocal", lambda: session)
-    monkeypatch.setattr(coaching, "GroqLlmClient", lambda: client)
-    monkeypatch.setattr(coaching, "CoachingRepository", Mock())
-    monkeypatch.setattr(coaching, "CoachingGenerator", Mock(return_value=generator))
+    monkeypatch.setattr(coaching, "LangChainGroqProvider", lambda recorder: client)
+    monkeypatch.setattr(coaching, "AiWorkRepository", Mock())
+    monkeypatch.setattr(coaching, "AiWorkflow", Mock(return_value=generator))
 
     if fails:
         with pytest.raises(RuntimeError, match="generation failed"):

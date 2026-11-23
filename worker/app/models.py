@@ -253,7 +253,12 @@ class UserThresholdProfile(Base):
     ant_pace_min_per_km: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
 
 
-class ActivityCoachingNote(Base):
+class CoachingOwnership:
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    input_revision: Mapped[str | None] = mapped_column(String(64))
+
+
+class ActivityCoachingNote(CoachingOwnership, Base):
     __tablename__ = "activity_coaching_notes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -281,7 +286,7 @@ class ActivityCoachingNote(Base):
     )
 
 
-class PeriodCoachingSummary(Base):
+class PeriodCoachingSummary(CoachingOwnership, Base):
     __tablename__ = "period_coaching_summaries"
     __table_args__ = (UniqueConstraint("user_id", "period_type", "period_start", name="uq_period_coaching_summaries_user_period"),)
 
@@ -331,6 +336,7 @@ class TrainingPlanRequest(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     target_start: Mapped[date | None]
     context_json: Mapped[dict | None] = mapped_column(JSON)
+    input_revision: Mapped[str | None] = mapped_column(String(64))
     source_hash: Mapped[str | None] = mapped_column(String(64))
     model: Mapped[str | None] = mapped_column(String(100))
     prompt_version: Mapped[str | None] = mapped_column(String(20))

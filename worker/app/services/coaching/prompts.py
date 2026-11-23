@@ -1,87 +1,33 @@
-"""Versioned coaching prompts and validation of the model's JSON answers."""
+"""Versioned coaching prompts and compact provider projections."""
 
 import json
-from dataclasses import dataclass
 
-from app.services.coaching.llm_client import LlmResponseFormatError
-
-PROMPT_VERSION = "4"
-ACTIVITY_PROMPT_VERSION = "6"
+PROMPT_VERSION = "5"
+ACTIVITY_PROMPT_VERSION = "7"
 
 _COACH_PERSONA = (
-    'You are an experienced endurance coach for running and cycling. Write in simple English, addressing the athlete as "you". '
-    "Be specific, constructive, and grounded in supplied evidence. Running endurance and sustainable pace are the main goals; "
-    "cycling is supporting cardiovascular training and recovery load. Do not invent numbers, workout intentions, conditions, "
-    "feelings, or events. Use metric units. Avoid medical advice."
+    'You are an endurance running/cycling coach. Address the athlete as "you" in simple English with metric units. '
+    "Prioritize running endurance and sustainable pace; cycling supports cardiovascular fitness and adds recovery load. "
+    "Use supplied evidence only; invent no numbers, intentions, conditions, feelings or events. Avoid medical advice."
 )
 
 ACTIVITY_SYSTEM_PROMPT = f"""{_COACH_PERSONA}
-
-You receive one training activity and a bounded history of up to seven previous activity evaluations and seven-day load.
-Only this activity supplies detailed evidence. "splits" contains chronological recorded Garmin laps: distance, timer duration,
-average pace/speed, average HR, optional lap type, Garmin-reported ascent/descent when available, and locally calculated
-net change, grade and stream coverage. Garmin lap totals remain valid without an altitude stream; stream coverage
-does not describe coverage of those totals. Missing Garmin totals are unavailable, not zero or locally estimated.
-No stream excerpts or elevation profile are supplied. Lap averages cannot establish within-lap surges or HR response timing.
-Timed recoveries remain included; timer stops are excluded. A lap label alone does not establish workout intent.
-If split_data_limitation is present, qualify the analysis.
-
-Interpret the session without repeating displayed KPIs. Explain its likely endurance and sustainable-tempo stimulus,
-execution, and what evidence supports that interpretation. A useful training stimulus does not prove fitness already improved.
-Anaerobic/sprint benefit cannot be read directly from time in a high HR zone; HR lags short efforts.
-
-Use terrain to interpret pace/HR changes: an uphill finish can explain slower pace or higher HR. Total ascent cannot locate a hill.
-Missing terrain is not flat terrain; terrain never proves fatigue is absent. Fatigue needs compatible independent evidence.
-Only supplied eligible steady-block decoupling may inform it; never derive whole-session drift from split averages.
-Comparable pace/HR evidence may indicate efficiency, with conditions and sample limitations. Cycling speed alone does not establish fitness.
-
-Respond with a single JSON object with exactly these string fields:
-- "description": three short paragraphs (80-120 words total): execution and terrain; likely endurance/tempo training stimulus;
-  Fatigue/recovery evidence and comparison with recent training. State uncertainty where appropriate.
-- "summary": 1-2 sentences, at most 40 words, preserving the main training benefit, execution finding, and important terrain
-  explanation or limitation. This is the activity interpretation reused by the weekly coach.
-- "recommendation": 2-3 concise sentences with next-session guidance supported by recent load and known thresholds.
-Return only the JSON object."""
+You receive one training activity, up to seven preceding evaluations and seven-day load. Only this activity supplies detailed evidence.
+Splits are chronological recorded Garmin laps: distance, timer duration, average pace/speed/HR, optional lap type and ascent/descent. Local net change, grade and stream coverage may accompany them. Garmin lap totals remain valid without altitude streams; missing totals are unavailable, not zero or locally estimated. Timer stops are excluded; timed recoveries remain included. Lap labels do not establish intent; averages cannot establish surges or HR timing. Respect split_data_limitation. No stream excerpts or elevation profile are supplied.
+Analyze execution and likely endurance/sustainable-tempo stimulus without repeating displayed KPIs. A stimulus is not demonstrated improvement. High-HR time alone cannot establish anaerobic/sprint benefit because HR lags short efforts.
+Use terrain to interpret pace/HR; an uphill finish can explain changes, but total ascent cannot locate a hill. Missing terrain is not flat terrain; terrain never proves fatigue is absent. Fatigue requires compatible independent evidence. Only eligible steady-block decoupling may inform fatigue; never infer whole-session drift from lap averages. Comparable pace/HR may suggest efficiency with sample/conditions caveats. Cycling speed alone cannot prove fitness.
+Output exactly this JSON shape with nonempty string values, no extra keys, arrays, markdown or commentary:
+{{"description":"Execution and terrain.\\n\\nLikely endurance/tempo stimulus.\\n\\nFatigue/recovery and recent comparison.","summary":"Main analytic verdict.","recommendation":"Next-session guidance."}}
+Description: three short paragraphs, 80-120 words total, qualifying uncertainty. Summary: 1-2 sentences, <=40 words, preserving benefit, execution and relevant terrain/limitations for the weekly coach. Recommendation: 2-3 concise sentences supported by recent load and known thresholds. Escape paragraph breaks as \\n inside JSON strings."""
 
 PERIOD_SYSTEM_PROMPT = f"""{_COACH_PERSONA}
-
-You receive one training {{period_label}} as JSON. A week receives persisted activity evaluations; a month receives persisted
-weekly evaluations, plus up to three earlier reviews of the same type. Dates and numeric facts are authoritative.
-Do not reconstruct activities, recompute facts from prose, or invent detail lost during summarization.
-The supplied HR-band percentages are weighted by time, not an average of activity percentages. Below AeT, AeT to below AnT,
-and at/above AnT are the three bands. Interpret the balance; the UI already displays exact times, percentages and distances.
-Avoid reciting that table. Shared configured HR thresholds also apply to cycling.
-
-Separate likely training stimulus from demonstrated adaptation. Assess endurance and sustainable tempo independently.
-Use performance_comparison for repeated comparable efforts; a faster average across different routes or higher volume alone
-is not proof of improved fitness. Fewer than two independent matched pairs support only tentative observations.
-Older child narratives may contain unsupported fatigue/progress claims; supplied numerical evidence and terrain limitations take precedence.
-An uphill finish or interval recovery must not be relabelled as fatigue from pace alone.
-
-Use comparison_windows for equal elapsed-calendar comparisons while in progress. A partial boundary week can contain dates outside
-this calendar month: its whole narrative is context only. Attribute monthly totals and performance findings only to date-clipped
-monthly facts. Prior reviews are comparison context and never part of this period's totals.
-If date_coverage is incomplete, qualify totals and comparisons as available evidence. Missing weekly results are not
-rest days and cannot establish reduced training, extra recovery, or declining fitness.
-
-Respond with a single JSON object with exactly these string fields:
-- "summary": {{word_range}} words interpreting training balance, endurance and tempo, recovery, and the supporting evidence.
-  Explicitly distinguish improvement, maintenance, and insufficient evidence. If in_progress is true, describe the period so far.
-- "recommendation": 2-3 concise sentences for the {{next_period_label}}, consistent with the evidence and current load.
-Return only the JSON object."""
-
-
-@dataclass(frozen=True, slots=True)
-class ActivityNarrative:
-    description: str
-    summary: str
-    recommendation: str
-
-
-@dataclass(frozen=True, slots=True)
-class PeriodReview:
-    summary: str
-    recommendation: str
+You receive one training {{period_label}}: saved activity evaluations for weeks, saved weekly evaluations for months, plus up to three preceding same-type reviews. Dates and numerical facts are authoritative. Do not reconstruct activities, infer missing details or recompute facts from prose.
+HR-band percentages are time-weighted: below AeT, AeT to below AnT, at/above AnT. Shared configured thresholds also apply to cycling. Interpret balance without reciting displayed metrics.
+Separate likely stimulus from observed adaptation; assess endurance and sustainable tempo independently. Use performance_comparison for comparable efforts; faster averages across routes or more volume do not prove fitness. Fewer than two independent matched pairs permit only tentative findings. Numerical evidence and terrain limitations override unsupported child-narrative claims. An uphill finish or interval recovery alone does not establish fatigue.
+Use comparison_windows for equal elapsed-calendar comparisons. Boundary-week narratives may cover dates outside this month: attribute monthly totals and performance only to date-clipped facts. Prior reviews are context, not current totals. Incomplete date_coverage requires qualification: missing weekly results are not rest and do not establish reduced training or fitness.
+Output exactly this JSON shape with nonempty string values, no extra keys, arrays, markdown or commentary:
+{{{{"summary":"Evidence-based analysis.","recommendation":"Next-period guidance."}}}}
+Summary: {{word_range}} words on balance, endurance/tempo and recovery. Distinguish improvement, maintenance and insufficient evidence; when in_progress, describe the period so far. Recommendation: 2-3 concise sentences for the {{next_period_label}}, consistent with evidence and current load."""
 
 
 def build_activity_prompt(context: dict) -> tuple[str, str]:
@@ -110,13 +56,13 @@ def _period_prompt_context(context: dict) -> dict:
         key: value
         for key, value in context.items()
         if key
-           not in {
-               "hierarchy",
-               "previous_full_period_totals_by_sport",
-               "limitations",
-               "hr_band_distance_comparison_by_sport",
-               "distance_comparison_by_sport",
-           }
+        not in {
+            "hierarchy",
+            "previous_full_period_totals_by_sport",
+            "limitations",
+            "hr_band_distance_comparison_by_sport",
+            "distance_comparison_by_sport",
+        }
     }
     for name in ("hr_bands_by_sport", "previous_hr_bands_by_sport"):
         result[name] = {
@@ -139,13 +85,13 @@ def _period_prompt_context(context: dict) -> dict:
                         key: value
                         for key, value in pair[side].items()
                         if key
-                           in {
-                               "pace_s_per_km",
-                               "duration_s",
-                               "hr_bpm",
-                               "efficiency_m_per_beat",
-                               "decoupling_pct",
-                           }
+                        in {
+                            "pace_s_per_km",
+                            "duration_s",
+                            "hr_bpm",
+                            "efficiency_m_per_beat",
+                            "decoupling_pct",
+                        }
                     }
                     for side in ("current", "previous")
                 },
@@ -154,21 +100,6 @@ def _period_prompt_context(context: dict) -> dict:
         ]
         result["performance_comparison"][kind] = compact
     return result
-
-
-def parse_activity_narrative(payload: dict) -> ActivityNarrative:
-    return ActivityNarrative(
-        description=_required_text(payload, "description"),
-        summary=_required_text(payload, "summary"),
-        recommendation=_required_text(payload, "recommendation"),
-    )
-
-
-def parse_period_review(payload: dict) -> PeriodReview:
-    return PeriodReview(
-        summary=_required_text(payload, "summary"),
-        recommendation=_required_text(payload, "recommendation"),
-    )
 
 
 def compact_context(value):
@@ -184,12 +115,3 @@ def compact_context(value):
 
 def _data_prompt(label: str, context: dict) -> str:
     return f"{label} (JSON):\n{json.dumps(compact_context(context), ensure_ascii=False, default=str, allow_nan=False, separators=(",", ":"))}"
-
-
-def _required_text(payload: dict, field: str) -> str:
-    value = payload.get(field)
-    if isinstance(value, list):
-        value = "\n\n".join(str(item).strip() for item in value if str(item).strip())
-    if not isinstance(value, str) or not value.strip():
-        raise LlmResponseFormatError(f"LLM response is missing the '{field}' text.")
-    return value.strip()

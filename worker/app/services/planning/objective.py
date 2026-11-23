@@ -1,4 +1,4 @@
-"""Choose a training-block objective from completed work before assigning daily workouts."""
+"""Choose a fresh forecast objective from completed work before assigning daily workouts."""
 
 import math
 from datetime import date, timedelta
@@ -75,9 +75,7 @@ def assess_aerobic_response(
     }
 
 
-def choose_weekly_objective(activities, bounds, today, previous=None):
-    if not previous or previous.get("mode") not in {"build", "maintain", "recover"}:
-        previous = None
+def choose_weekly_objective(activities, bounds, today):
     weekly = bounds["weekly_distances_km"]
     typical = bounds["typical_weekly_distance_km"]
     latest = weekly[0]
@@ -125,25 +123,8 @@ def choose_weekly_objective(activities, bounds, today, previous=None):
         reason = "Maintain completed training volume while collecting stronger evidence for progression."
     mode = "recover" if recovery_required else ("build" if can_build else "maintain")
 
-    # Carry the block's intent and review date across activity-triggered rolling forecasts.
-    # New meaningful fatigue can lower the objective mid-block; one ordinary run cannot restart a week.
-    if previous and previous.get("mode") in {"build", "maintain", "recover"}:
-        review_date = date.fromisoformat(previous["review_date"])
-        if today < review_date and (
-            not recovery_required or previous["mode"] == "recover"
-        ):
-            objective = dict(previous, continued=True)
-            objective["current_response"] = response
-            return _within_capacity(objective, bounds)
-    else:
-        review_date = today + timedelta(days=8)
-    block_start = (
-        previous["block_start"]
-        if previous and today < review_date
-        else (today + timedelta(days=1)).isoformat()
-    )
-    if not previous or today >= review_date:
-        review_date = today + timedelta(days=8)
+    review_date = today + timedelta(days=8)
+    block_start = (today + timedelta(days=1)).isoformat()
 
     # Completed training establishes the volume anchor. Earlier AI plans never lower it.
     anchor = (latest + typical) / 2 if latest else typical

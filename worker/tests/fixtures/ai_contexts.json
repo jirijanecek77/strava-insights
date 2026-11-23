@@ -1,0 +1,3500 @@
+[
+  {
+    "id": "activity-controlled",
+    "kind": "activity",
+    "today": "2026-11-03",
+    "context": {
+      "activity": {
+        "athlete_notes": "Synthetic fixture, not a real athlete.",
+        "avg_hr_bpm": 140,
+        "avg_pace": "5:30 /km",
+        "date": "2026-11-03",
+        "distance_km": 8.0,
+        "elevation_gain_m": 0,
+        "moving_time": "44:00",
+        "name": "[langchain-baseline-v1] controlled-aerobic",
+        "sport": "Run"
+      },
+      "activity_evidence": {
+        "candidates": {
+          "endurance": [
+            {
+              "ascent_m_per_km": 0.0,
+              "decoupling_pct": 0.0,
+              "distance_m": 8000.0,
+              "duration_s": 2640.0,
+              "efficiency_m_per_beat": 1.2987012987012987,
+              "end_distance_m": 8000.0,
+              "hr_bpm": 140.0,
+              "lap_range": [
+                1,
+                4
+              ],
+              "limitations": [
+                "Lap averages cannot establish within-lap effort or workout intent."
+              ],
+              "net_grade_pct": 0.0,
+              "pace_s_per_km": 330.0,
+              "start_distance_m": 0.0
+            }
+          ],
+          "tempo": []
+        }
+      },
+      "athlete_thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace": "5:30 /km",
+        "ant_heart_rate_bpm": 170,
+        "ant_pace": "4:30 /km"
+      },
+      "heart_rate_zones": {
+        "above_ant_percent": 0.0,
+        "below_aet_percent": 100.0,
+        "between_aet_ant_percent": 0.0
+      },
+      "recent_training": {
+        "days_since_previous_activity": 1,
+        "previous_activities": [
+          {
+            "date": "2026-10-21",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-24",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-26",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-28",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Outside November: contextual only."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-02",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          }
+        ],
+        "totals_last_7_days_by_sport": {
+          "Run": {
+            "activities": 4,
+            "distance_km": 25.0,
+            "moving_seconds": 8250
+          }
+        }
+      },
+      "splits": [
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 1,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 2,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 3,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 4,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        }
+      ],
+      "terrain_context": {
+        "finish": {
+          "ascent_m": 0.0,
+          "coverage_fraction": 0.966,
+          "descent_m": 0.0,
+          "end_distance_m": 8000.0,
+          "net_change_m": 0.0,
+          "net_grade_pct": 0.0,
+          "start_distance_m": 6400.0
+        },
+        "limitation": "Terrain aggregates are approximate; missing coverage is not flat terrain."
+      }
+    }
+  },
+  {
+    "id": "activity-uphill",
+    "kind": "activity",
+    "today": "2026-11-05",
+    "context": {
+      "activity": {
+        "athlete_notes": "Synthetic fixture, not a real athlete.",
+        "avg_hr_bpm": 143,
+        "avg_pace": "5:45 /km",
+        "date": "2026-11-05",
+        "distance_km": 8.0,
+        "elevation_gain_m": 100,
+        "moving_time": "46:00",
+        "name": "[langchain-baseline-v1] uphill-finish",
+        "sport": "Run"
+      },
+      "activity_evidence": {
+        "candidates": {
+          "endurance": [
+            {
+              "ascent_m_per_km": 0.0,
+              "decoupling_pct": 0.0,
+              "distance_m": 6000.0,
+              "duration_s": 1980.0,
+              "efficiency_m_per_beat": 1.2987012987012987,
+              "end_distance_m": 6000.0,
+              "hr_bpm": 140.0,
+              "lap_range": [
+                1,
+                3
+              ],
+              "limitations": [
+                "Lap averages cannot establish within-lap effort or workout intent."
+              ],
+              "net_grade_pct": 0.0,
+              "pace_s_per_km": 330.0,
+              "start_distance_m": 0.0
+            }
+          ],
+          "tempo": [
+            {
+              "ascent_m_per_km": 50.0,
+              "decoupling_pct": null,
+              "distance_m": 2000.0,
+              "duration_s": 780.0,
+              "efficiency_m_per_beat": 1.0256410256410255,
+              "end_distance_m": 8000.0,
+              "hr_bpm": 150.0,
+              "lap_range": [
+                4,
+                4
+              ],
+              "limitations": [
+                "Lap averages cannot establish within-lap effort or workout intent."
+              ],
+              "net_grade_pct": 5.0,
+              "pace_s_per_km": 390.0,
+              "start_distance_m": 6000.0
+            }
+          ]
+        }
+      },
+      "athlete_thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace": "5:30 /km",
+        "ant_heart_rate_bpm": 170,
+        "ant_pace": "4:30 /km"
+      },
+      "heart_rate_zones": {
+        "above_ant_percent": 0.0,
+        "below_aet_percent": 71.7,
+        "between_aet_ant_percent": 28.3
+      },
+      "recent_training": {
+        "days_since_previous_activity": 1,
+        "previous_activities": [
+          {
+            "date": "2026-10-26",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-28",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Outside November: contextual only."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-02",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-03",
+            "sport": "Run",
+            "summary": "Controlled aerobic running on supplied flat terrain; expected endurance stimulus, without demonstrated improvement."
+          },
+          {
+            "date": "2026-11-04",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          }
+        ],
+        "totals_last_7_days_by_sport": {
+          "Run": {
+            "activities": 5,
+            "distance_km": 33.0,
+            "moving_seconds": 10890
+          }
+        }
+      },
+      "splits": [
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 1,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 2,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 140,
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 3,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 150,
+          "distance_km": 2.0,
+          "duration_seconds": 780.0,
+          "pace": "6:30 /km",
+          "split": 4,
+          "terrain": {
+            "ascent_m": 100.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 100.0,
+            "net_grade_pct": 5.0
+          },
+          "type": "ACTIVE"
+        }
+      ],
+      "terrain_context": {
+        "finish": {
+          "ascent_m": 76.9,
+          "coverage_fraction": 0.962,
+          "descent_m": 0.0,
+          "end_distance_m": 8000.0,
+          "net_change_m": 76.9,
+          "net_grade_pct": 5.0,
+          "start_distance_m": 6400.0
+        },
+        "limitation": "Terrain aggregates are approximate; missing coverage is not flat terrain."
+      }
+    }
+  },
+  {
+    "id": "activity-intervals",
+    "kind": "activity",
+    "today": "2026-11-06",
+    "context": {
+      "activity": {
+        "athlete_notes": "Synthetic fixture, not a real athlete.",
+        "avg_hr_bpm": 149,
+        "avg_pace": "5:40 /km",
+        "date": "2026-11-06",
+        "distance_km": 3.0,
+        "elevation_gain_m": 0,
+        "moving_time": "17:00",
+        "name": "[langchain-baseline-v1] interval-recovery",
+        "sport": "Run"
+      },
+      "activity_evidence": {
+        "candidates": {
+          "endurance": [],
+          "tempo": []
+        }
+      },
+      "athlete_thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace": "5:30 /km",
+        "ant_heart_rate_bpm": 170,
+        "ant_pace": "4:30 /km"
+      },
+      "heart_rate_zones": {
+        "above_ant_percent": 0.0,
+        "below_aet_percent": 47.1,
+        "between_aet_ant_percent": 52.9
+      },
+      "recent_training": {
+        "days_since_previous_activity": 1,
+        "previous_activities": [
+          {
+            "date": "2026-10-28",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Outside November: contextual only."
+          },
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-02",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-03",
+            "sport": "Run",
+            "summary": "Controlled aerobic running on supplied flat terrain; expected endurance stimulus, without demonstrated improvement."
+          },
+          {
+            "date": "2026-11-04",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-05",
+            "sport": "Run",
+            "summary": "The uphill finish can explain slower pace and higher HR; fatigue remains uncertain."
+          }
+        ],
+        "totals_last_7_days_by_sport": {
+          "Run": {
+            "activities": 6,
+            "distance_km": 41.0,
+            "moving_seconds": 13650
+          }
+        }
+      },
+      "splits": [
+        {
+          "avg_hr_bpm": 165,
+          "distance_km": 1.0,
+          "duration_seconds": 270.0,
+          "pace": "4:30 /km",
+          "split": 1,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 130,
+          "distance_km": 0.5,
+          "duration_seconds": 240.0,
+          "pace": "8:00 /km",
+          "split": 2,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "RECOVERY"
+        },
+        {
+          "avg_hr_bpm": 165,
+          "distance_km": 1.0,
+          "duration_seconds": 270.0,
+          "pace": "4:30 /km",
+          "split": 3,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "ACTIVE"
+        },
+        {
+          "avg_hr_bpm": 130,
+          "distance_km": 0.5,
+          "duration_seconds": 240.0,
+          "pace": "8:00 /km",
+          "split": 4,
+          "terrain": {
+            "ascent_m": 0.0,
+            "coverage_fraction": 1,
+            "descent_m": 0.0,
+            "elevation_totals_source": "garmin",
+            "net_change_m": 0.0,
+            "net_grade_pct": 0.0
+          },
+          "type": "RECOVERY"
+        }
+      ],
+      "terrain_context": {
+        "finish": {
+          "ascent_m": 0.0,
+          "coverage_fraction": 0.833,
+          "descent_m": 0.0,
+          "end_distance_m": 3000.0,
+          "net_change_m": 0.0,
+          "net_grade_pct": 0.0,
+          "start_distance_m": 2400.0
+        },
+        "limitation": "Terrain aggregates are approximate; missing coverage is not flat terrain."
+      }
+    }
+  },
+  {
+    "id": "activity-missing",
+    "kind": "activity",
+    "today": "2026-11-08",
+    "context": {
+      "activity": {
+        "athlete_notes": "Synthetic fixture, not a real athlete.",
+        "avg_pace": "5:30 /km",
+        "date": "2026-11-08",
+        "distance_km": 6.0,
+        "moving_time": "33:00",
+        "name": "[langchain-baseline-v1] missing-hr-terrain",
+        "sport": "Run"
+      },
+      "activity_evidence": {
+        "candidates": {
+          "endurance": [],
+          "tempo": []
+        }
+      },
+      "athlete_thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace": "5:30 /km",
+        "ant_heart_rate_bpm": 170,
+        "ant_pace": "4:30 /km"
+      },
+      "recent_training": {
+        "days_since_previous_activity": 1,
+        "previous_activities": [
+          {
+            "date": "2026-10-31",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-02",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-03",
+            "sport": "Run",
+            "summary": "Controlled aerobic running on supplied flat terrain; expected endurance stimulus, without demonstrated improvement."
+          },
+          {
+            "date": "2026-11-04",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          },
+          {
+            "date": "2026-11-05",
+            "sport": "Run",
+            "summary": "The uphill finish can explain slower pace and higher HR; fatigue remains uncertain."
+          },
+          {
+            "date": "2026-11-06",
+            "sport": "Run",
+            "summary": "Work and timed recovery laps support a variable stimulus; averages do not establish sprint benefit or fatigue."
+          },
+          {
+            "date": "2026-11-07",
+            "sport": "Run",
+            "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+          }
+        ],
+        "totals_last_7_days_by_sport": {
+          "Run": {
+            "activities": 6,
+            "distance_km": 43.0,
+            "moving_seconds": 14340
+          }
+        }
+      },
+      "splits": [
+        {
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 1,
+          "type": "ACTIVE"
+        },
+        {
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 2,
+          "type": "ACTIVE"
+        },
+        {
+          "distance_km": 2.0,
+          "duration_seconds": 660.0,
+          "pace": "5:30 /km",
+          "split": 3,
+          "type": "ACTIVE"
+        }
+      ],
+      "terrain_context": {
+        "finish": {
+          "ascent_m": null,
+          "coverage_fraction": 0.0,
+          "descent_m": null,
+          "end_distance_m": 6000.0,
+          "net_change_m": null,
+          "net_grade_pct": null,
+          "start_distance_m": 4800.0
+        },
+        "limitation": "Terrain aggregates are approximate; missing coverage is not flat terrain."
+      }
+    }
+  },
+  {
+    "id": "week-balanced",
+    "kind": "week",
+    "today": "2026-11-09",
+    "context": {
+      "activities": [
+        {
+          "activity_id": -920001027,
+          "date": "2026-11-02",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        },
+        {
+          "activity_id": -920001040,
+          "date": "2026-11-03",
+          "sport": "Run",
+          "summary": "Controlled aerobic running on supplied flat terrain; expected endurance stimulus, without demonstrated improvement."
+        },
+        {
+          "activity_id": -920001028,
+          "date": "2026-11-04",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        },
+        {
+          "activity_id": -920001041,
+          "date": "2026-11-05",
+          "sport": "Run",
+          "summary": "The uphill finish can explain slower pace and higher HR; fatigue remains uncertain."
+        },
+        {
+          "activity_id": -920001042,
+          "date": "2026-11-06",
+          "sport": "Run",
+          "summary": "Work and timed recovery laps support a variable stimulus; averages do not establish sprint benefit or fatigue."
+        },
+        {
+          "activity_id": -920001029,
+          "date": "2026-11-07",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        },
+        {
+          "activity_id": -920001043,
+          "date": "2026-11-08",
+          "sport": "Run",
+          "summary": "Aerobic load cannot be classified without HR; missing terrain cannot establish flatness."
+        }
+      ],
+      "comparison_windows": {
+        "current_days": 7,
+        "current_end": "2026-11-08",
+        "current_start": "2026-11-02",
+        "previous_days": 7,
+        "previous_end": "2026-11-01",
+        "previous_start": "2026-10-26"
+      },
+      "date_coverage": {
+        "covered_days": 7,
+        "period_days": 7,
+        "previous_covered_days": 7,
+        "previous_period_days": 7
+      },
+      "distance_comparison_by_sport": {
+        "Run": {
+          "change_m": 24000.0,
+          "change_pct": 96.0,
+          "current_distance_m": 49000.0,
+          "previous_distance_m": 25000.0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Run": {
+          "above_ant": {
+            "change_m": 0.0,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": 0.0
+          },
+          "below_aet": {
+            "change_m": 14000.0,
+            "change_pct": 56.00000000000001,
+            "current_distance_m": 39000.0,
+            "previous_distance_m": 25000.0
+          },
+          "between_aet_ant": {
+            "change_m": 4000.0,
+            "change_pct": null,
+            "current_distance_m": 4000.0,
+            "previous_distance_m": 0.0
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Run": {
+          "activities": 7,
+          "activities_missing_hr": 1,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 39000.0,
+              "time_percent": 90.7949790794979,
+              "time_s": 13020.0
+            },
+            "between_aet_ant": {
+              "distance_m": 4000.0,
+              "time_percent": 9.205020920502092,
+              "time_s": 1320.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 43000.0,
+            "classified_time_s": 14340.0,
+            "unknown_distance_m": 6000.0,
+            "unknown_time_s": 1980.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": false,
+      "interpretation_coverage": {
+        "activities": 7,
+        "prepared_facts": 7,
+        "ready_notes": 7
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001027,
+              "current_date": "2026-11-02",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001024,
+              "previous_date": "2026-10-26"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001040,
+              "current_date": "2026-11-03",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001025,
+              "previous_date": "2026-10-28"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001028,
+              "current_date": "2026-11-04",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001026,
+              "previous_date": "2026-10-31"
+            }
+          ],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 3,
+          "median_decoupling_change_pp": 0.0,
+          "median_duration_change_pct": 0.0,
+          "median_pace_change_pct": 0.0,
+          "status": "stable"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-08",
+      "period_start": "2026-11-02",
+      "period_type": "week",
+      "previous_full_period_totals_by_sport": {
+        "Run": {
+          "activities": 4,
+          "distance_km": 25.0,
+          "moving_seconds": 8250.0
+        }
+      },
+      "previous_hr_bands_by_sport": {
+        "Run": {
+          "activities": 4,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 25000.0,
+              "time_percent": 100.0,
+              "time_s": 8250.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 25000.0,
+            "classified_time_s": 8250.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "previous_period_totals_by_sport": {
+        "Run": {
+          "activities": 4,
+          "distance_km": 25.0,
+          "moving_seconds": 8250.0
+        }
+      },
+      "previous_reviews": [
+        {
+          "is_final": true,
+          "period_start": "2026-10-12",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "is_final": true,
+          "period_start": "2026-10-19",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "is_final": true,
+          "period_start": "2026-10-26",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 4,
+              "distance_km": 25.0,
+              "moving_seconds": 8250.0
+            }
+          }
+        }
+      ],
+      "rest_days": 0,
+      "running_days": 7,
+      "totals_by_sport": {
+        "Run": {
+          "activities": 7,
+          "distance_km": 49.0,
+          "moving_seconds": 16320.0
+        }
+      },
+      "training_days": 7
+    }
+  },
+  {
+    "id": "week-recovery",
+    "kind": "week",
+    "today": "2026-11-16",
+    "context": {
+      "activities": [
+        {
+          "activity_id": -920002040,
+          "date": "2026-11-09",
+          "sport": "Ride",
+          "summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness."
+        },
+        {
+          "activity_id": -920002030,
+          "date": "2026-11-09",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        },
+        {
+          "activity_id": -920002041,
+          "date": "2026-11-11",
+          "sport": "Ride",
+          "summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness."
+        },
+        {
+          "activity_id": -920002031,
+          "date": "2026-11-11",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        },
+        {
+          "activity_id": -920002042,
+          "date": "2026-11-13",
+          "sport": "Ride",
+          "summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness."
+        },
+        {
+          "activity_id": -920002032,
+          "date": "2026-11-14",
+          "sport": "Run",
+          "summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement."
+        }
+      ],
+      "comparison_windows": {
+        "current_days": 7,
+        "current_end": "2026-11-15",
+        "current_start": "2026-11-09",
+        "previous_days": 7,
+        "previous_end": "2026-11-08",
+        "previous_start": "2026-11-02"
+      },
+      "date_coverage": {
+        "covered_days": 7,
+        "period_days": 7,
+        "previous_covered_days": 7,
+        "previous_period_days": 7
+      },
+      "distance_comparison_by_sport": {
+        "Ride": {
+          "change_m": 180000.0,
+          "change_pct": null,
+          "current_distance_m": 180000.0,
+          "previous_distance_m": 0
+        },
+        "Run": {
+          "change_m": 0.0,
+          "change_pct": 0.0,
+          "current_distance_m": 24000.0,
+          "previous_distance_m": 24000.0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Ride": {
+          "above_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          },
+          "below_aet": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          },
+          "between_aet_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 180000.0,
+            "previous_distance_m": null
+          }
+        },
+        "Run": {
+          "above_ant": {
+            "change_m": 0.0,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": 0.0
+          },
+          "below_aet": {
+            "change_m": 0.0,
+            "change_pct": 0.0,
+            "current_distance_m": 24000.0,
+            "previous_distance_m": 24000.0
+          },
+          "between_aet_ant": {
+            "change_m": 0.0,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": 0.0
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Ride": {
+          "activities": 3,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "between_aet_ant": {
+              "distance_m": 180000.0,
+              "time_percent": 100.0,
+              "time_s": 32400.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 180000.0,
+            "classified_time_s": 32400.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        },
+        "Run": {
+          "activities": 3,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 24000.0,
+              "time_percent": 100.0,
+              "time_s": 7920.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 24000.0,
+            "classified_time_s": 7920.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": false,
+      "interpretation_coverage": {
+        "activities": 6,
+        "prepared_facts": 6,
+        "ready_notes": 6
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920002030,
+              "current_date": "2026-11-09",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920002027,
+              "previous_date": "2026-11-02"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920002031,
+              "current_date": "2026-11-11",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920002028,
+              "previous_date": "2026-11-04"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920002032,
+              "current_date": "2026-11-14",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920002029,
+              "previous_date": "2026-11-07"
+            }
+          ],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 3,
+          "median_decoupling_change_pp": 0.0,
+          "median_duration_change_pct": 0.0,
+          "median_pace_change_pct": 0.0,
+          "status": "stable"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-15",
+      "period_start": "2026-11-09",
+      "period_type": "week",
+      "previous_full_period_totals_by_sport": {
+        "Run": {
+          "activities": 3,
+          "distance_km": 24.0,
+          "moving_seconds": 7920.0
+        }
+      },
+      "previous_hr_bands_by_sport": {
+        "Run": {
+          "activities": 3,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 24000.0,
+              "time_percent": 100.0,
+              "time_s": 7920.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 24000.0,
+            "classified_time_s": 7920.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "previous_period_totals_by_sport": {
+        "Run": {
+          "activities": 3,
+          "distance_km": 24.0,
+          "moving_seconds": 7920.0
+        }
+      },
+      "previous_reviews": [
+        {
+          "is_final": true,
+          "period_start": "2026-10-19",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "is_final": true,
+          "period_start": "2026-10-26",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "is_final": true,
+          "period_start": "2026-11-02",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        }
+      ],
+      "rest_days": 3,
+      "running_days": 3,
+      "totals_by_sport": {
+        "Ride": {
+          "activities": 3,
+          "distance_km": 180.0,
+          "moving_seconds": 32400.0
+        },
+        "Run": {
+          "activities": 3,
+          "distance_km": 24.0,
+          "moving_seconds": 7920.0
+        }
+      },
+      "training_days": 4
+    }
+  },
+  {
+    "id": "week-incomplete",
+    "kind": "week",
+    "today": "2026-11-23",
+    "context": {
+      "activities": [
+        {
+          "activity_id": -920003002,
+          "date": "2026-11-16",
+          "sport": "Run",
+          "summary": "Known aerobic stimulus with limited history."
+        },
+        {
+          "activity_id": -920003004,
+          "date": "2026-11-18",
+          "sport": "Run",
+          "summary": null
+        },
+        {
+          "activity_id": -920003005,
+          "date": "2026-11-19",
+          "sport": "Run",
+          "summary": null
+        }
+      ],
+      "comparison_windows": {
+        "current_days": 7,
+        "current_end": "2026-11-22",
+        "current_start": "2026-11-16",
+        "previous_days": 7,
+        "previous_end": "2026-11-15",
+        "previous_start": "2026-11-09"
+      },
+      "date_coverage": {
+        "covered_days": 7,
+        "period_days": 7,
+        "previous_covered_days": 0,
+        "previous_period_days": 7
+      },
+      "distance_comparison_by_sport": {
+        "Run": {
+          "change_m": 16000.0,
+          "change_pct": null,
+          "current_distance_m": 16000.0,
+          "previous_distance_m": 0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Run": {
+          "above_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          },
+          "below_aet": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 12000.0,
+            "previous_distance_m": null
+          },
+          "between_aet_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Run": {
+          "activities": 3,
+          "activities_missing_hr": 1,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 12000.0,
+              "time_percent": 100.0,
+              "time_s": 3960.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 12000.0,
+            "classified_time_s": 3960.0,
+            "unknown_distance_m": 4000.0,
+            "unknown_time_s": 1320.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": false,
+      "interpretation_coverage": {
+        "activities": 3,
+        "prepared_facts": 3,
+        "ready_notes": 1
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-22",
+      "period_start": "2026-11-16",
+      "period_type": "week",
+      "previous_full_period_totals_by_sport": {},
+      "previous_hr_bands_by_sport": {},
+      "previous_period_totals_by_sport": {},
+      "previous_reviews": [
+        {
+          "is_final": true,
+          "period_start": "2026-11-02",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 1,
+              "distance_km": 6.0,
+              "moving_seconds": 1980.0
+            }
+          }
+        }
+      ],
+      "rest_days": 4,
+      "running_days": 3,
+      "totals_by_sport": {
+        "Run": {
+          "activities": 3,
+          "distance_km": 16.0,
+          "moving_seconds": 5280.0
+        }
+      },
+      "training_days": 3
+    }
+  },
+  {
+    "id": "month-boundary",
+    "kind": "month",
+    "today": "2026-12-02",
+    "context": {
+      "comparison_windows": {
+        "current_days": 30,
+        "current_end": "2026-11-30",
+        "current_start": "2026-11-01",
+        "previous_days": 31,
+        "previous_end": "2026-10-31",
+        "previous_start": "2026-10-01"
+      },
+      "date_coverage": {
+        "covered_days": 30,
+        "period_days": 30,
+        "previous_covered_days": 31,
+        "previous_period_days": 31
+      },
+      "distance_comparison_by_sport": {
+        "Run": {
+          "change_m": 27000.0,
+          "change_pct": 25.71428571428571,
+          "current_distance_m": 132000.0,
+          "previous_distance_m": 105000.0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Run": {
+          "above_ant": {
+            "change_m": 0.0,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": 0.0
+          },
+          "below_aet": {
+            "change_m": 17000.0,
+            "change_pct": 16.1904761904762,
+            "current_distance_m": 122000.0,
+            "previous_distance_m": 105000.0
+          },
+          "between_aet_ant": {
+            "change_m": 4000.0,
+            "change_pct": null,
+            "current_distance_m": 4000.0,
+            "previous_distance_m": 0.0
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Run": {
+          "activities": 18,
+          "activities_missing_hr": 1,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 122000.0,
+              "time_percent": 96.83680805176132,
+              "time_s": 40410.0
+            },
+            "between_aet_ant": {
+              "distance_m": 4000.0,
+              "time_percent": 3.163191948238677,
+              "time_s": 1320.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 126000.0,
+            "classified_time_s": 41730.0,
+            "unknown_distance_m": 6000.0,
+            "unknown_time_s": 1980.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": false,
+      "interpretation_coverage": {
+        "ready_weeks": 6,
+        "weeks": 6
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001027,
+              "current_date": "2026-11-02",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001014,
+              "previous_date": "2026-10-03"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001032,
+              "current_date": "2026-11-14",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001020,
+              "previous_date": "2026-10-17"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001038,
+              "current_date": "2026-11-28",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001026,
+              "previous_date": "2026-10-31"
+            }
+          ],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 13,
+          "median_decoupling_change_pp": 0.0,
+          "median_duration_change_pct": 0.0,
+          "median_pace_change_pct": 0.0,
+          "status": "stable"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-30",
+      "period_start": "2026-11-01",
+      "period_type": "month",
+      "previous_full_period_totals_by_sport": {
+        "Run": {
+          "activities": 14,
+          "distance_km": 105.0,
+          "moving_seconds": 34650.0
+        }
+      },
+      "previous_hr_bands_by_sport": {
+        "Run": {
+          "activities": 14,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 105000.0,
+              "time_percent": 100.0,
+              "time_s": 34650.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 105000.0,
+            "classified_time_s": 34650.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "previous_period_totals_by_sport": {
+        "Run": {
+          "activities": 14,
+          "distance_km": 105.0,
+          "moving_seconds": 34650.0
+        }
+      },
+      "previous_reviews": [],
+      "rest_days": 13,
+      "running_days": 17,
+      "totals_by_sport": {
+        "Run": {
+          "activities": 18,
+          "distance_km": 132.0,
+          "moving_seconds": 43710.0
+        }
+      },
+      "training_days": 17,
+      "weeks": [
+        {
+          "as_of": "2026-11-01",
+          "included_end": "2026-11-01",
+          "included_start": "2026-11-01",
+          "is_final": true,
+          "partial_week": true,
+          "period_end": "2026-11-01",
+          "period_start": "2026-10-26",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 4,
+              "distance_km": 25.0,
+              "moving_seconds": 8250.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-08",
+          "included_end": "2026-11-08",
+          "included_start": "2026-11-02",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-08",
+          "period_start": "2026-11-02",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 7,
+              "distance_km": 49.0,
+              "moving_seconds": 16320.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-15",
+          "included_end": "2026-11-15",
+          "included_start": "2026-11-09",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-15",
+          "period_start": "2026-11-09",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-22",
+          "included_end": "2026-11-22",
+          "included_start": "2026-11-16",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-22",
+          "period_start": "2026-11-16",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-29",
+          "included_end": "2026-11-29",
+          "included_start": "2026-11-23",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-29",
+          "period_start": "2026-11-23",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-12-06",
+          "included_end": "2026-11-30",
+          "included_start": "2026-11-30",
+          "is_final": true,
+          "partial_week": true,
+          "period_end": "2026-12-06",
+          "period_start": "2026-11-30",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 15.0,
+              "moving_seconds": 4950.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "month-unfinished",
+    "kind": "month",
+    "today": "2026-11-15",
+    "context": {
+      "comparison_windows": {
+        "current_days": 15,
+        "current_end": "2026-11-15",
+        "current_start": "2026-11-01",
+        "previous_days": 15,
+        "previous_end": "2026-10-15",
+        "previous_start": "2026-10-01"
+      },
+      "date_coverage": {
+        "covered_days": 15,
+        "period_days": 15,
+        "previous_covered_days": 15,
+        "previous_period_days": 15
+      },
+      "distance_comparison_by_sport": {
+        "Run": {
+          "change_m": 25000.0,
+          "change_pct": 52.08333333333333,
+          "current_distance_m": 73000.0,
+          "previous_distance_m": 48000.0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Run": {
+          "above_ant": {
+            "change_m": 0.0,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": 0.0
+          },
+          "below_aet": {
+            "change_m": 15000.0,
+            "change_pct": 31.25,
+            "current_distance_m": 63000.0,
+            "previous_distance_m": 48000.0
+          },
+          "between_aet_ant": {
+            "change_m": 4000.0,
+            "change_pct": null,
+            "current_distance_m": 4000.0,
+            "previous_distance_m": 0.0
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Run": {
+          "activities": 10,
+          "activities_missing_hr": 1,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 63000.0,
+              "time_percent": 94.07008086253369,
+              "time_s": 20940.0
+            },
+            "between_aet_ant": {
+              "distance_m": 4000.0,
+              "time_percent": 5.929919137466308,
+              "time_s": 1320.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 67000.0,
+            "classified_time_s": 22260.0,
+            "unknown_distance_m": 6000.0,
+            "unknown_time_s": 1980.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": true,
+      "interpretation_coverage": {
+        "ready_weeks": 3,
+        "weeks": 3
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001027,
+              "current_date": "2026-11-02",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001014,
+              "previous_date": "2026-10-03"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001029,
+              "current_date": "2026-11-07",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001017,
+              "previous_date": "2026-10-10"
+            },
+            {
+              "current": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "current_activity_id": -920001031,
+              "current_date": "2026-11-11",
+              "decoupling_change_pp": 0.0,
+              "duration_change_pct": 0.0,
+              "pace_change_pct": 0.0,
+              "previous": {
+                "ascent_m_per_km": 0.0,
+                "decoupling_pct": 0.0,
+                "distance_m": 8000.0,
+                "duration_s": 2640.0,
+                "efficiency_m_per_beat": 1.2987012987012987,
+                "end_distance_m": 8000.0,
+                "hr_bpm": 140.0,
+                "lap_range": [
+                  1,
+                  4
+                ],
+                "limitations": [
+                  "Lap averages cannot establish within-lap effort or workout intent."
+                ],
+                "net_grade_pct": 0.0,
+                "pace_s_per_km": 330.0,
+                "start_distance_m": 0.0
+              },
+              "previous_activity_id": -920001019,
+              "previous_date": "2026-10-14"
+            }
+          ],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 6,
+          "median_decoupling_change_pp": 0.0,
+          "median_duration_change_pct": 0.0,
+          "median_pace_change_pct": 0.0,
+          "status": "stable"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-30",
+      "period_start": "2026-11-01",
+      "period_type": "month",
+      "previous_full_period_totals_by_sport": {
+        "Run": {
+          "activities": 14,
+          "distance_km": 105.0,
+          "moving_seconds": 34650.0
+        }
+      },
+      "previous_hr_bands_by_sport": {
+        "Run": {
+          "activities": 6,
+          "activities_missing_hr": 0,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 48000.0,
+              "time_percent": 100.0,
+              "time_s": 15840.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 48000.0,
+            "classified_time_s": 15840.0,
+            "unknown_distance_m": 0.0,
+            "unknown_time_s": 0.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "previous_period_totals_by_sport": {
+        "Run": {
+          "activities": 6,
+          "distance_km": 48.0,
+          "moving_seconds": 15840.0
+        }
+      },
+      "previous_reviews": [],
+      "rest_days": 5,
+      "running_days": 10,
+      "totals_by_sport": {
+        "Run": {
+          "activities": 10,
+          "distance_km": 73.0,
+          "moving_seconds": 24240.0
+        }
+      },
+      "training_days": 10,
+      "weeks": [
+        {
+          "as_of": "2026-11-01",
+          "included_end": "2026-11-01",
+          "included_start": "2026-11-01",
+          "is_final": true,
+          "partial_week": true,
+          "period_end": "2026-11-01",
+          "period_start": "2026-10-26",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 4,
+              "distance_km": 25.0,
+              "moving_seconds": 8250.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-08",
+          "included_end": "2026-11-08",
+          "included_start": "2026-11-02",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-08",
+          "period_start": "2026-11-02",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 7,
+              "distance_km": 49.0,
+              "moving_seconds": 16320.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-15",
+          "included_end": "2026-11-15",
+          "included_start": "2026-11-09",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-15",
+          "period_start": "2026-11-09",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 24.0,
+              "moving_seconds": 7920.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "month-incomplete",
+    "kind": "month",
+    "today": "2026-12-02",
+    "context": {
+      "comparison_windows": {
+        "current_days": 30,
+        "current_end": "2026-11-30",
+        "current_start": "2026-11-01",
+        "previous_days": 31,
+        "previous_end": "2026-10-31",
+        "previous_start": "2026-10-01"
+      },
+      "date_coverage": {
+        "covered_days": 15,
+        "period_days": 30,
+        "previous_covered_days": 0,
+        "previous_period_days": 31
+      },
+      "distance_comparison_by_sport": {
+        "Run": {
+          "change_m": 28000.0,
+          "change_pct": null,
+          "current_distance_m": 28000.0,
+          "previous_distance_m": 0
+        }
+      },
+      "hr_band_distance_comparison_by_sport": {
+        "Run": {
+          "above_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          },
+          "below_aet": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 24000.0,
+            "previous_distance_m": null
+          },
+          "between_aet_ant": {
+            "change_m": null,
+            "change_pct": null,
+            "current_distance_m": 0.0,
+            "previous_distance_m": null
+          }
+        }
+      },
+      "hr_bands_by_sport": {
+        "Run": {
+          "activities": 5,
+          "activities_missing_hr": 1,
+          "bands": {
+            "above_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            },
+            "below_aet": {
+              "distance_m": 24000.0,
+              "time_percent": 100.0,
+              "time_s": 7920.0
+            },
+            "between_aet_ant": {
+              "distance_m": 0.0,
+              "time_percent": 0.0,
+              "time_s": 0.0
+            }
+          },
+          "coverage": {
+            "classified_distance_m": 24000.0,
+            "classified_time_s": 7920.0,
+            "unknown_distance_m": 4000.0,
+            "unknown_time_s": 1320.0
+          },
+          "limitations": [
+            "Moving status unavailable; zero-distance intervals and gaps over 60s are excluded."
+          ],
+          "threshold_definitions": [
+            {
+              "aet_hr_bpm": 145.0,
+              "ant_hr_bpm": 170.0,
+              "effective_from": "2026-01-01"
+            }
+          ]
+        }
+      },
+      "in_progress": false,
+      "interpretation_coverage": {
+        "ready_weeks": 3,
+        "weeks": 3
+      },
+      "limitations": [
+        "Expected workout stimulus is distinct from demonstrated fitness improvement.",
+        "Whole-week narratives can include days outside this calendar month; only date-clipped numeric evidence belongs to this month.",
+        "Higher training volume alone does not establish improved endurance or pace."
+      ],
+      "performance_comparison": {
+        "endurance": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        },
+        "tempo": {
+          "evidence": [],
+          "limitations": [
+            "At least two independent matched session pairs required for a trend.",
+            "Lap averages do not establish workout intent; weather and fatigue can confound comparisons."
+          ],
+          "matched_pairs": 0,
+          "median_decoupling_change_pp": null,
+          "median_duration_change_pct": null,
+          "median_pace_change_pct": null,
+          "status": "insufficient_data"
+        }
+      },
+      "period_end": "2026-11-30",
+      "period_start": "2026-11-01",
+      "period_type": "month",
+      "previous_full_period_totals_by_sport": {},
+      "previous_hr_bands_by_sport": {},
+      "previous_period_totals_by_sport": {},
+      "previous_reviews": [],
+      "rest_days": null,
+      "running_days": 5,
+      "totals_by_sport": {
+        "Run": {
+          "activities": 5,
+          "distance_km": 28.0,
+          "moving_seconds": 9240.0
+        }
+      },
+      "training_days": 5,
+      "weeks": [
+        {
+          "as_of": "2026-11-08",
+          "included_end": "2026-11-08",
+          "included_start": "2026-11-02",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-08",
+          "period_start": "2026-11-02",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 1,
+              "distance_km": 6.0,
+              "moving_seconds": 1980.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-11-22",
+          "included_end": "2026-11-22",
+          "included_start": "2026-11-16",
+          "is_final": true,
+          "partial_week": false,
+          "period_end": "2026-11-22",
+          "period_start": "2026-11-16",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 3,
+              "distance_km": 16.0,
+              "moving_seconds": 5280.0
+            }
+          }
+        },
+        {
+          "as_of": "2026-12-06",
+          "included_end": "2026-11-30",
+          "included_start": "2026-11-30",
+          "is_final": true,
+          "partial_week": true,
+          "period_end": "2026-12-06",
+          "period_start": "2026-11-30",
+          "summary": "Synthetic authored input: interpret numerical evidence; no fitness gain is established.",
+          "totals_by_sport": {
+            "Run": {
+              "activities": 1,
+              "distance_km": 6.0,
+              "moving_seconds": 1980.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "plan-supported",
+    "kind": "plan",
+    "today": "2026-11-23",
+    "context": {
+      "activities": [
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-14",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-17",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-19",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-21",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-24",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-26",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-28",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-31",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Outside November: contextual only.",
+          "date": "2026-10-31",
+          "distance_km": 1.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 5.5,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-02",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic running on supplied flat terrain; expected endurance stimulus, without demonstrated improvement.",
+          "date": "2026-11-03",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-04",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "The uphill finish can explain slower pace and higher HR; fatigue remains uncertain.",
+          "date": "2026-11-05",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 100.0,
+          "hr_bpm": 142.83,
+          "moving_minutes": 46.0,
+          "pace_seconds_per_km": 345.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Work and timed recovery laps support a variable stimulus; averages do not establish sprint benefit or fatigue.",
+          "date": "2026-11-06",
+          "distance_km": 3.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 148.53,
+          "moving_minutes": 17.0,
+          "pace_seconds_per_km": 340.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-07",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Aerobic load cannot be classified without HR; missing terrain cannot establish flatness.",
+          "date": "2026-11-08",
+          "distance_km": 6.0,
+          "elevation_gain_meters": null,
+          "hr_bpm": null,
+          "moving_minutes": 33.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-09",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-11",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-14",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-16",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-18",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-21",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-23",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        }
+      ],
+      "bounds": {
+        "easy_hr_ceiling_bpm": 145,
+        "max_hr_bpm": 175,
+        "max_pace_seconds_per_km": 518,
+        "max_quality_days": 2,
+        "max_run_distance_km": 8.8,
+        "max_running_days": 3,
+        "max_weekly_distance_km": 25.71,
+        "min_easy_distance_share": 0.7,
+        "min_easy_pace_seconds_per_km": 330,
+        "min_long_run_distance_km": 7.6,
+        "min_pace_seconds_per_km": 297,
+        "min_quality_days": 0,
+        "min_running_days": 2,
+        "min_weekly_distance_km": 24.73,
+        "recent_all_sport_minutes": [
+          132.0,
+          132.0,
+          272.0,
+          137.5,
+          132.0
+        ],
+        "recent_hard_dates": [
+          "2026-11-06"
+        ],
+        "recent_long_dates": [
+          "2026-10-28",
+          "2026-10-31",
+          "2026-11-02",
+          "2026-11-03",
+          "2026-11-04",
+          "2026-11-05",
+          "2026-11-07",
+          "2026-11-09",
+          "2026-11-11",
+          "2026-11-14",
+          "2026-11-16",
+          "2026-11-18",
+          "2026-11-21",
+          "2026-11-23"
+        ],
+        "recovery_load_spike": false,
+        "typical_weekly_distance_km": 24.5,
+        "weekly_distances_km": [
+          24.0,
+          24.0,
+          49.0,
+          25.0,
+          24.0,
+          24.0
+        ],
+        "weekly_long_distances_km": [
+          8.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0
+        ],
+        "weekly_running_days": [
+          3,
+          3,
+          7,
+          3,
+          3,
+          3
+        ]
+      },
+      "dates": [
+        "2026-11-24",
+        "2026-11-25",
+        "2026-11-26",
+        "2026-11-27",
+        "2026-11-28",
+        "2026-11-29",
+        "2026-11-30"
+      ],
+      "policy_version": "3",
+      "thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace_min_per_km": 5.5,
+        "ant_heart_rate_bpm": 170,
+        "ant_pace_min_per_km": 4.5
+      },
+      "timezone": "Europe/Prague",
+      "today": "2026-11-23",
+      "weekly_objective": {
+        "block_start": "2026-11-24",
+        "continued": false,
+        "current_response": {
+          "adverse_dates": [],
+          "compared_days": 3,
+          "evidence": []
+        },
+        "decision_date": "2026-11-23",
+        "distance_max_km": 25.71,
+        "distance_min_km": 24.73,
+        "evidence": [],
+        "long_run_max_km": 8.8,
+        "long_run_min_km": 7.6,
+        "mode": "build",
+        "reason": "Stable comparable aerobic sessions and established volume support modest progression.",
+        "review_date": "2026-12-01",
+        "target_distance_km": 25.22,
+        "target_running_days": 3
+      }
+    }
+  },
+  {
+    "id": "plan-recovery",
+    "kind": "plan",
+    "today": "2026-11-23",
+    "context": {
+      "activities": [
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-14",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-17",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-19",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-21",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-24",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-26",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-28",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-10-31",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-02",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-04",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-07",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-09",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-09",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-11",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-11",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-13",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-14",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-16",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-18",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-20",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-21",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-21",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Controlled aerobic stimulus; stable synthetic pace and HR do not establish fitness improvement.",
+          "date": "2026-11-23",
+          "distance_km": 8.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 140.0,
+          "moving_minutes": 44.0,
+          "pace_seconds_per_km": 330.0,
+          "sport": "Run"
+        },
+        {
+          "coaching_status": "ready",
+          "coaching_summary": "Hard cycling adds cardiovascular and recovery load; speed alone cannot prove fitness.",
+          "date": "2026-11-23",
+          "distance_km": 60.0,
+          "elevation_gain_meters": 0.0,
+          "hr_bpm": 155.0,
+          "moving_minutes": 180.0,
+          "pace_seconds_per_km": 180.0,
+          "sport": "Ride"
+        }
+      ],
+      "bounds": {
+        "easy_hr_ceiling_bpm": 145,
+        "max_hr_bpm": 175,
+        "max_pace_seconds_per_km": 495,
+        "max_quality_days": 0,
+        "max_run_distance_km": 6.0,
+        "max_running_days": 2,
+        "max_weekly_distance_km": 12.0,
+        "min_easy_distance_share": 0.7,
+        "min_easy_pace_seconds_per_km": 330,
+        "min_long_run_distance_km": 0,
+        "min_pace_seconds_per_km": 297,
+        "min_quality_days": 0,
+        "min_running_days": 0,
+        "min_weekly_distance_km": 12.0,
+        "recent_all_sport_minutes": [
+          672.0,
+          492.0,
+          312.0,
+          132.0,
+          132.0
+        ],
+        "recent_hard_dates": [
+          "2026-11-09",
+          "2026-11-11",
+          "2026-11-13",
+          "2026-11-20",
+          "2026-11-21",
+          "2026-11-23"
+        ],
+        "recent_long_dates": [
+          "2026-10-28",
+          "2026-10-31",
+          "2026-11-02",
+          "2026-11-04",
+          "2026-11-07",
+          "2026-11-09",
+          "2026-11-11",
+          "2026-11-14",
+          "2026-11-16",
+          "2026-11-18",
+          "2026-11-21",
+          "2026-11-23"
+        ],
+        "recovery_load_spike": true,
+        "typical_weekly_distance_km": 24.0,
+        "weekly_distances_km": [
+          24.0,
+          24.0,
+          24.0,
+          24.0,
+          24.0,
+          24.0
+        ],
+        "weekly_long_distances_km": [
+          8.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0
+        ],
+        "weekly_running_days": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ]
+      },
+      "dates": [
+        "2026-11-24",
+        "2026-11-25",
+        "2026-11-26",
+        "2026-11-27",
+        "2026-11-28",
+        "2026-11-29",
+        "2026-11-30"
+      ],
+      "policy_version": "3",
+      "thresholds": {
+        "aet_heart_rate_bpm": 145,
+        "aet_pace_min_per_km": 5.5,
+        "ant_heart_rate_bpm": 170,
+        "ant_pace_min_per_km": 4.5
+      },
+      "timezone": "Europe/Prague",
+      "today": "2026-11-23",
+      "weekly_objective": {
+        "block_start": "2026-11-24",
+        "continued": false,
+        "current_response": {
+          "adverse_dates": [],
+          "compared_days": 3,
+          "evidence": []
+        },
+        "decision_date": "2026-11-23",
+        "distance_max_km": 12.0,
+        "distance_min_km": 12.0,
+        "evidence": [
+          "All-sport weekly minutes: [672.0, 492.0, 312.0, 132.0, 132.0]."
+        ],
+        "long_run_max_km": 6.0,
+        "long_run_min_km": 0,
+        "mode": "recover",
+        "reason": "Recent all-sport load or hard-session density supports a recovery block.",
+        "review_date": "2026-12-01",
+        "target_distance_km": 12.0,
+        "target_running_days": 2
+      }
+    }
+  }
+]
