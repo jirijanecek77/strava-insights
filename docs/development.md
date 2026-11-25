@@ -25,8 +25,6 @@ This document describes how to run and validate the local stack. Product behavio
   does not require these machine-specific files or Dockerfile edits. TLS verification remains enabled locally.
 - Use Docker Compose as the default local runtime and validation environment.
 - Workers, beat and the sync dispatcher wait for the backend's healthy state, after database migrations complete.
-  Verify both Compose configurations without starting services using `python scripts/check_compose_startup.py` from
-  the root (or `.\backend\.venv\Scripts\python.exe scripts/check_compose_startup.py` on Windows).
 
 Docker operation scope:
 

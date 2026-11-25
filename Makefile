@@ -46,3 +46,7 @@ ai-notes-run:
 
 ai-plan-replan:
 	$(COMPOSE) exec worker python -m app.coaching_cli replan --user-id $(AI_USER_ID)
+
+ai-regenerate:
+	$(COMPOSE) exec worker python -m app.coaching_cli regenerate-latest --user-id $(AI_USER_ID) --activity-count 2
+	$(COMPOSE) exec worker python -m app.coaching_cli run --user-id $(AI_USER_ID) --batch-size 2
